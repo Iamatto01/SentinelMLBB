@@ -147,7 +147,7 @@ function doPost(e) {
       usersTab.appendRow([payload.email, newSheetId, "Active", new Date().toISOString()]);
       output = { status: "success", message: "Client registered! Sheet auto-created.", sheetId: newSheetId };
     } else {
-      output = { status: "error", message: "Unknown action" };
+      output = { status: "error", message: "Unknown action: " + action + " (Payload: " + JSON.stringify(payload) + ")" };
     }
   } catch (err) {
     output = { status: "error", message: err.message };

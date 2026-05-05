@@ -131,15 +131,28 @@ const GameLogPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    if (editingGame) {
-      await updateGame(editingGame.num, newGame);
-    } else {
-      await addGame(newGame);
+    
+    // Simple validation: at least 1 player must be filled
+    const hasPlayer = newGame.pairs.some(p => p.player && p.hero);
+    if (!hasPlayer) {
+      alert("Sila pilih sekurang-kurangnya 1 Player dan Hero.");
+      return;
     }
-    setIsSubmitting(false);
-    setIsModalOpen(false);
-    setEditingGame(null);
+
+    setIsSubmitting(true);
+    try {
+      if (editingGame) {
+        await updateGame(editingGame.num, newGame);
+      } else {
+        await addGame(newGame);
+      }
+      setIsModalOpen(false);
+      setEditingGame(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -346,7 +359,7 @@ const GameLogPage = () => {
 
               <div className="flex gap-3 pt-4 border-t border-gray-800">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary flex-1">Cancel</button>
-                <button type="submit" disabled={isSubmitting} className="btn-primary flex-1">
+                <button type="submit" disabled={isSubmitting} className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed">
                   {isSubmitting ? 'Saving...' : editingGame ? 'Update Game' : 'Save Game'}
                 </button>
               </div>

@@ -117,8 +117,8 @@ export const DataProvider = ({ children }) => {
 
   const deleteGame = async (num) => {
     if (!user?.sheetId) return;
-    if (!confirm(`Are you sure you want to delete Game #${num}?`)) return;
     try {
+      console.log("Deleting game #", num);
       const GAS_URL = import.meta.env.VITE_GAS_WEB_APP_URL;
       const res = await fetch(GAS_URL, {
         method: "POST",
@@ -134,13 +134,13 @@ export const DataProvider = ({ children }) => {
       });
       const result = await res.json();
       if (result.status === "success") {
-        fetchData(); // Refresh
+        await fetchData(); // Wait for fresh data
       } else {
         alert("Gagal delete game: " + result.message);
       }
     } catch (err) {
-      console.error(err);
-      alert("Error: " + err.message);
+      console.error("Delete error:", err);
+      alert("Error deleting game: " + err.message);
     }
   };
 
