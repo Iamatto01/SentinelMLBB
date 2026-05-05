@@ -1,10 +1,12 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { computeAnalytics } from '../utils/statsEngine';
 import { StatCard } from '../components/shared/UIComponents';
 
 const DashboardPage = () => {
   const { games, loading } = useData();
+  const navigate = useNavigate();
 
   const analytics = useMemo(() => {
     return computeAnalytics(games);
@@ -21,8 +23,8 @@ const DashboardPage = () => {
         <h2 className="text-2xl font-bold mb-2">No Games Yet!</h2>
         <p className="text-gray-400 mb-6">Start tracking your MLBB journey by adding your first game or uploading a post-match screenshot.</p>
         <div className="flex justify-center gap-4">
-          <button className="btn-primary">Add Game Log</button>
-          <button className="btn-secondary">Upload Screenshot</button>
+          <button className="btn-primary" onClick={() => navigate('/log')}>Add Game Log</button>
+          <button className="btn-secondary" onClick={() => navigate('/ocr')}>Upload Screenshot</button>
         </div>
       </div>
     );
@@ -36,8 +38,8 @@ const DashboardPage = () => {
           <p className="text-gray-400">Welcome back. Here is your latest performance overview.</p>
         </div>
         <div className="flex gap-3">
-          <button className="btn-secondary">Add Game Log</button>
-          <button className="btn-primary">Upload Screenshot</button>
+          <button className="btn-secondary" onClick={() => navigate('/log')}>Add Game Log</button>
+          <button className="btn-primary" onClick={() => navigate('/ocr')}>Upload Screenshot</button>
         </div>
       </div>
 
