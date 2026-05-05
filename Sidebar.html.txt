@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    :root {
+      --bg: #0d0d1a;
+      --bg2: #151528;
+      --bg3: #1e1e3a;
+      --accent: #e94560;
+      --accent-hover: #ff5c77;
+      --accent-glow: rgba(233,69,96,0.3);
+      --text: #ecf0f1;
+      --dim: #7f8c8d;
+      --win: #2ecc71;
+      --win-bg: rgba(46,204,113,0.15);
+      --lose: #e74c3c;
+      --lose-bg: rgba(231,76,60,0.15);
+      --blue: #3498db;
+      --gold: #f1c40f;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      padding: 0;
+      font-size: 13px;
+      overflow-x: hidden;
+    }
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, var(--accent) 0%, #8e2341 100%);
+      padding: 16px;
+      text-align: center;
+    }
+    .header h2 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .header p {
+      font-size: 10px;
+      opacity: 0.7;
+      margin-top: 4px;
+    }
+    /* Tabs */
+    .tabs {
+      display: flex;
+      background: var(--bg2);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--dim);
+      padding: 10px 4px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 11px;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s;
+      border-bottom: 2px solid transparent;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    /* Content */
+    .content { padding: 14px; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    
+    /* Form elements */
+    label {
+      display: block;
+      margin-top: 10px;
+      margin-bottom: 4px;
+      font-size: 11px;
+      color: var(--dim);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 9px 10px;
+      background: var(--bg3);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--text);
+      border-radius: 6px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      transition: border 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    input[type="file"] {
+      padding: 8px;
+      font-size: 12px;
+    }
+    /* Buttons */
+    .btn {
+      width: 100%;
+      border: none;
+      padding: 11px;
+      margin-top: 12px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 13px;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #c23152);
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px var(--accent-glow);
+    }
+    .btn-blue {
+      background: linear-gradient(135deg, var(--blue), #2574a9);
+      color: #fff;
+    }
+    .btn-blue:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(52,152,219,0.3);
+    }
+    .btn-secondary {
+      background: var(--bg3);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.08); }
+    .btn-danger {
+      background: transparent;
+      color: var(--lose);
+      border: 1px solid rgba(231,76,60,0.3);
+    }
+    .btn-danger:hover { background: var(--lose-bg); }
+    
+    /* Player rows */
+    .player-row {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 5px;
+      align-items: center;
+    }
+    .player-row .slot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--bg3);
+      border: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: var(--dim);
+      flex-shrink: 0;
+    }
+    .player-row select, .player-row input { flex: 1; }
+
+    /* Game cards (for delete tab) */
+    .game-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      background: var(--bg2);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 8px;
+      margin-bottom: 6px;
+      transition: border 0.2s;
+    }
+    .game-card:hover { border-color: rgba(255,255,255,0.15); }
+    .game-num {
+      font-weight: 700;
+      color: var(--dim);
+      font-size: 11px;
+      min-width: 24px;
+    }
+    .game-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .game-info .top {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .game-info .lineup {
+      font-size: 10px;
+      color: var(--dim);
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .badge-win { background: var(--win-bg); color: var(--win); }
+    .badge-lose { background: var(--lose-bg); color: var(--lose); }
+    .badge-mode { background: rgba(52,152,219,0.15); color: var(--blue); }
+    .delete-btn {
+      background: transparent;
+      border: 1px solid rgba(231,76,60,0.3);
+      color: var(--lose);
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .delete-btn:hover {
+      background: var(--lose-bg);
+      border-color: var(--lose);
+    }
+
+    /* Status / Loader */
+    .status {
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      display: none;
+      animation: fadeIn 0.3s;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
+    .status.success {
+      background: var(--win-bg);
+      color: var(--win);
+      border: 1px solid rgba(46,204,113,0.3);
+      display: block;
+    }
+    .status.error {
+      background: var(--lose-bg);
+      color: var(--lose);
+      border: 1px solid rgba(231,76,60,0.3);
+      display: block;
+    }
+    .loader {
+      display: none;
+      text-align: center;
+      margin-top: 12px;
+      color: var(--dim);
+      font-style: italic;
+      font-size: 12px;
+    }
+    .loader::after {
+      content: '';
+      animation: dots 1.5s infinite;
+    }
+    @keyframes dots {
+      0%,20% { content: '.'; }
+      40% { content: '..'; }
+      60%,100% { content: '...'; }
+    }
+    .hint {
+      font-size: 11px;
+      color: var(--dim);
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+    .divider {
+      border: 0;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      margin: 16px 0;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 30px 10px;
+      color: var(--dim);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h2>⚔️ SentinelMLBB</h2>
+    <p>Control Panel</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('add', this)">📝 Add</button>
+    <button class="tab-btn" onclick="switchTab('import', this)">📂 CSV</button>
+    <button class="tab-btn" onclick="switchTab('games', this)">🎮 Games</button>
+    <button class="tab-btn" onclick="switchTab('actions', this)">⚡ More</button>
+  </div>
+
+  <div class="content">
+
+    <!-- TAB: MANUAL ADD (DEFAULT) -->
+    <div id="tab-add" class="tab-content active">
+      <form id="addGameForm">
+        <div style="display:flex; gap:8px;">
+          <div style="flex:1">
+            <label>Mode</label>
+            <select id="mode" name="mode">
+              <option value="Ranked">Ranked</option>
+              <option value="Classic">Classic</option>
+              <option value="Custom">Custom</option>
+              <option value="Tour">Tour</option>
+              <option value="MCL">MCL</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <label>Result</label>
+            <select id="result" name="result">
+              <option value="Win">Win ✅</option>
+              <option value="Lose">Lose ❌</option>
+            </select>
+          </div>
+          <div style="flex:0.7">
+            <label>Min</label>
+            <input type="number" id="duration" name="duration" value="15" min="1" max="60" />
+          </div>
+        </div>
+        
+        <label>Notes</label>
+        <input type="text" id="notes" name="notes" placeholder="e.g. Lord steal, enemy AFK..." />
+
+        <label>Lineup</label>
+        <div id="lineupContainer"></div>
+
+        <button type="button" class="btn btn-primary" id="btnAdd" onclick="addManualGame()">💾 Simpan Game</button>
+      </form>
+    </div>
+
+    <!-- TAB: IMPORT CSV -->
+    <div id="tab-import" class="tab-content">
+      <p class="hint">
+        Sila <strong>"Save As CSV"</strong> fail Excel (.xlsx) anda terlebih dahulu sebelum upload.<br>
+        Format: <code>Mode, Result, Duration, Player 1, Hero 1, ... Player 5, Hero 5, Notes</code>
+      </p>
+      <label>Pilih Fail CSV</label>
+      <input type="file" id="csvFile" accept=".csv" />
+      <button class="btn btn-primary" id="btnImport" onclick="importCSV()">📂 Upload & Proses</button>
+    </div>
+
+    <!-- TAB: GAME LIST / DELETE -->
+    <div id="tab-games" class="tab-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <span style="font-size:12px; color:var(--dim);">30 games terkini</span>
+        <button class="btn btn-secondary" style="width:auto;margin:0;padding:6px 12px;font-size:11px;" onclick="loadGames()">🔄 Refresh</button>
+      </div>
+      <div id="gamesList">
+        <div class="empty-state">Klik 🔄 Refresh untuk muat senarai game.</div>
+      </div>
+    </div>
+
+    <!-- TAB: ACTIONS -->
+    <div id="tab-actions" class="tab-content">
+      <button class="btn btn-blue" onclick="runFunction('refreshAllStats')">📊 Refresh Semua Statistik</button>
+      <button class="btn btn-secondary" onclick="runFunction('showOcrUploadDialog')">📷 OCR Screenshot Upload</button>
+      <hr class="divider" />
+      <button class="btn btn-secondary" onclick="runFunction('backupToGoogleDrive')">💾 Backup ke Google Drive</button>
+      <button class="btn btn-secondary" onclick="runFunction('restoreBackupFromFile')">📥 Restore dari Backup</button>
+      <hr class="divider" />
+      <button class="btn btn-danger" onclick="if(confirm('⚠️ SEMUA data akan dipadam! Confirm?')) runFunction('clearAllData')">🗑️ Clear All Data</button>
+    </div>
+
+    <div id="loader" class="loader">Sedang memproses</div>
+    <div id="status" class="status"></div>
+  </div>
+
+  <script>
+    // ============ TAB SWITCHING ============
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + tabId).classList.add('active');
+      btn.classList.add('active');
+      hideStatus();
+      // Auto-load games when switching to games tab
+      if (tabId === 'games') loadGames();
+    }
+
+    // ============ STATUS HELPERS ============
+    function showStatus(msg, isSuccess) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'status ' + (isSuccess ? 'success' : 'error');
+      document.getElementById('loader').style.display = 'none';
+    }
+    function hideStatus() {
+      document.getElementById('status').className = 'status';
+      document.getElementById('loader').style.display = 'none';
+    }
+    function showLoader() {
+      hideStatus();
+      document.getElementById('loader').style.display = 'block';
+    }
+
+    // ============ CSV IMPORT ============
+    function importCSV() {
+      const fileInput = document.getElementById('csvFile');
+      if (!fileInput.files.length) {
+        showStatus('Sila pilih fail CSV terlebih dahulu.', false);
+        return;
+      }
+      showLoader();
+      document.getElementById('btnImport').disabled = true;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        google.script.run
+          .withSuccessHandler(function(res) {
+            document.getElementById('btnImport').disabled = false;
+            showStatus(res.message, res.success);
+            if(res.success) fileInput.value = '';
+          })
+          .withFailureHandler(function(err) {
+            document.getElementById('btnImport').disabled = false;
+            showStatus(err.message || err, false);
+          })
+          .processCsvImport(e.target.result);
+      };
+      reader.readAsText(fileInput.files[0]);
+    }
+
+    // ============ LINEUP UI ============
+    window.onload = function() {
+      google.script.run.withSuccessHandler(function(players) {
+        google.script.run.withSuccessHandler(function(heroes) {
+          buildLineupUI(players, heroes);
+        }).getHeroesList();
+      }).getPlayersList();
+    };
+
+    function buildLineupUI(players, heroes) {
+      const container = document.getElementById('lineupContainer');
+      let html = '';
+      const pOptions = '<option value="">Player...</option>' + 
+        players.map(p => '<option value="'+p+'">'+p+'</option>').join('');
+      for(let i=1; i<=5; i++) {
+        html += '<div class="player-row">'
+          + '<span class="slot">'+i+'</span>'
+          + '<select name="player'+i+'">'+pOptions+'</select>'
+          + '<input type="text" name="hero'+i+'" placeholder="Hero..." list="heroList" />'
+          + '</div>';
+      }
+      html += '<datalist id="heroList">' + heroes.map(h => '<option value="'+h+'">').join('') + '</datalist>';
+      container.innerHTML = html;
+    }
+
+    // ============ MANUAL ADD ============
+    function addManualGame() {
+      const form = document.getElementById('addGameForm');
+      let hasPlayer = false;
+      for(let i=1; i<=5; i++) {
+        if(form['player'+i].value.trim() && form['hero'+i].value.trim()) { hasPlayer = true; break; }
+      }
+      if(!hasPlayer) { showStatus('Pilih sekurang-kurangnya 1 Player dan Hero!', false); return; }
+
+      showLoader();
+      document.getElementById('btnAdd').disabled = true;
+
+      // Collect form data manually (google.script.run can't serialize form elements directly in sidebar)
+      var formData = {
+        mode: form.mode.value,
+        result: form.result.value,
+        duration: form.duration.value,
+        notes: form.notes.value
+      };
+      for(var i=1; i<=5; i++) {
+        formData['player'+i] = form['player'+i].value;
+        formData['hero'+i] = form['hero'+i].value;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          document.getElementById('btnAdd').disabled = false;
+          showStatus(res.message, res.success);
+          if(res.success) {
+            // Reset only the lineup and notes, keep mode/result/duration
+            form.notes.value = '';
+            for(var i=1; i<=5; i++) { form['player'+i].value = ''; form['hero'+i].value = ''; }
+          }
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('btnAdd').disabled = false;
+          showStatus(err.message || err, false);
+        })
+        .processManualAddGame(formData);
+    }
+
+    // ============ GAMES LIST / DELETE ============
+    function loadGames() {
+      var container = document.getElementById('gamesList');
+      container.innerHTML = '<div class="empty-state">Loading...</div>';
+      google.script.run
+        .withSuccessHandler(function(games) {
+          if (!games || games.length === 0) {
+            container.innerHTML = '<div class="empty-state">Tiada game log dijumpai.</div>';
+            return;
+          }
+          var html = '';
+          games.forEach(function(g) {
+            var badgeClass = g.result === 'Win' ? 'badge-win' : 'badge-lose';
+            html += '<div class="game-card">'
+              + '<span class="game-num">#'+g.num+'</span>'
+              + '<div class="game-info">'
+              + '<div class="top">'
+              + '<span class="badge '+badgeClass+'">'+g.result+'</span>'
+              + '<span class="badge badge-mode">'+g.mode+'</span>'
+              + '<span style="color:var(--dim);font-size:11px;">'+g.date+'</span>'
+              + '</div>'
+              + '<div class="lineup">'+g.lineup+'</div>'
+              + '</div>'
+              + '<button class="delete-btn" onclick="deleteGame('+g.num+')" title="Delete">🗑</button>'
+              + '</div>';
+          });
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(err) {
+          container.innerHTML = '<div class="empty-state" style="color:var(--lose)">Error: '+(err.message||err)+'</div>';
+        })
+        .getGamesList();
+    }
+
+    function deleteGame(num) {
+      if (!confirm('Padam Game #'+num+'?')) return;
+      showLoader();
+      google.script.run
+        .withSuccessHandler(function(res) {
+          showStatus(res.message, res.success);
+          if(res.success) loadGames(); // Refresh list
+        })
+        .withFailureHandler(function(err) {
+          showStatus(err.message || err, false);
+        })
+        .deleteGameFromSidebar(num);
+    }
+
+    // ============ RUN FUNCTION ============
+    function runFunction(funcName) {
+      showLoader();
+      google.script.run
+        .withSuccessHandler(function() { showStatus('Berjaya!', true); })
+        .withFailureHandler(function(err) { showStatus(err.message || err, false); })
+        [funcName]();
+    }
+  </script>
+</body>
+</html>

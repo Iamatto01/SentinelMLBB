@@ -69,14 +69,16 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
 
   ui.createMenu("⚔️ MLBB System")
+    .addItem("💻 Control Panel", "showControlPanel")
+    .addSeparator()
     .addItem("🔧 Setup Full System", "setupFullSystem")
     .addItem("📷 OCR Upload", "showOcrUploadDialog")
     .addItem("🔍 Check OCR setup", "checkOcrSetup")
     .addSeparator()
     .addItem("💾 Backup Data to Drive", "backupToGoogleDrive")
-    .addItem("� Restore from Backup File", "restoreBackupFromFile")
+    .addItem("📥 Restore from Backup File", "restoreBackupFromFile")
     .addSeparator()
-    .addItem("�🗑️ Clear All Data", "clearAllData")
+    .addItem("🗑️ Clear All Data", "clearAllData")
     .addToUi();
 }
 
@@ -533,4 +535,11 @@ function setupOcrInbox(ss) {
     .requireValueInList(["Pending", "Done", "Review", "Error"], true).build();
   sh.getRange(4, 3, 200, 1).setDataValidation(statusRule);
   sh.setFrozenRows(3);
+}
+
+function showControlPanel() {
+  const html = HtmlService.createHtmlOutputFromFile('Sidebar')
+      .setTitle('SentinelMLBB Control Panel')
+      .setWidth(300);
+  SpreadsheetApp.getUi().showSidebar(html);
 }

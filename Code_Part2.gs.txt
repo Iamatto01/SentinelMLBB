@@ -357,6 +357,43 @@ function extractTextViaDriveRest_(blob) {
   return text;
 }
 
+
+// Levenshtein distance for fuzzy hero matching
+function levenshtein_(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({length: m+1}, () => Array(n+1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i-1] === b[j-1]
+        ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+
+function fuzzyMatchHero_(word) {
+  if (!word || word.length < 3) return "";
+  const w = word.toLowerCase();
+  for (let i = 0; i < HEROES.length; i++) {
+    if (w === HEROES[i].toLowerCase()) return HEROES[i];
+  }
+  let bestHero = "";
+  let bestDist = 999;
+  for (let i = 0; i < HEROES.length; i++) {
+    const h = HEROES[i].toLowerCase();
+    const maxDist = h.length >= 6 ? 2 : 1;
+    const dist = levenshtein_(w, h);
+    if (dist <= maxDist && dist < bestDist) {
+      bestDist = dist;
+      bestHero = HEROES[i];
+    }
+  }
+  return bestHero;
+}
+
 function parsePostgameText_(text) {
   const src = String(text || "");
   const lines = src.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
@@ -396,6 +433,26 @@ function parsePostgameText_(text) {
         break;
       }
     }
+    // Pass 2: Fuzzy match - split line into words and try each
+    if (!heroFound) {
+      const words = line.split(/[\s|:;\-\[\]().,]+/).filter(w => w.length >= 3);
+      for (let w = 0; w < words.length; w++) {
+        const match = fuzzyMatchHero_(words[w]);
+        if (match && !usedHeroes[match]) {
+          heroFound = match;
+          break;
+        }
+        if (w + 1 < words.length) {
+          const combo = words[w] + " " + words[w+1];
+          const match2 = fuzzyMatchHero_(combo);
+          if (match2 && !usedHeroes[match2]) {
+            heroFound = match2;
+            break;
+          }
+        }
+      }
+    }
+
     if (!heroFound || usedHeroes[heroFound]) return;
 
     usedHeroes[heroFound] = true;
@@ -1050,5 +1107,126 @@ function clearAllData() {
     // Now run setup — it will find no data to backup, so it just creates fresh headers
     setupFullSystem();
     ui.alert("✅ All data cleared and system reset!");
+  }
+}
+
+// ==========================================
+// SIDEBAR UI BACKEND FUNCTIONS
+// ==========================================
+
+function getPlayersList() {
+  return PLAYERS || [];
+}
+
+function getHeroesList() {
+  return HEROES || [];
+}
+
+function getGamesList() {
+  const ss = getSafeActiveSpreadsheet();
+  const games = readGameLog(ss);
+  return games.slice(-30).reverse().map(function(g) {
+    var lineup = g.heroes.slice(0, 3).join(", ");
+    if (g.heroes.length > 3) lineup += "...";
+    return {
+      num: g.num,
+      date: g.date ? Utilities.formatDate(new Date(g.date), Session.getScriptTimeZone(), "dd MMM") : "?",
+      mode: g.mode || "?",
+      result: g.result,
+      lineup: lineup
+    };
+  });
+}
+
+function deleteGameFromSidebar(gameNum) {
+  try {
+    deleteGameInLog_(gameNum);
+    refreshAllStats(true);
+    return { success: true, message: "Game #" + gameNum + " berjaya dipadam!" };
+  } catch (e) {
+    return { success: false, message: "Error: " + e.message };
+  }
+}
+
+function processCsvImport(csvContent) {
+  try {
+    const data = Utilities.parseCsv(csvContent);
+    if (data.length < 2) return { success: false, message: "File CSV kosong atau tiada baris data." };
+    
+    const headers = data[0].map(h => h.trim().toLowerCase());
+    let imported = 0;
+    
+    const modeIdx = headers.indexOf("mode");
+    const resultIdx = headers.indexOf("result");
+    const durationIdx = headers.indexOf("duration");
+    const notesIdx = headers.indexOf("notes");
+    
+    const pairsIdx = [];
+    for(let i=1; i<=5; i++) {
+      let p = headers.indexOf("player " + i);
+      if(p === -1) p = headers.indexOf("player" + i);
+      let h = headers.indexOf("hero " + i);
+      if(h === -1) h = headers.indexOf("hero" + i);
+      pairsIdx.push({ p: p, h: h });
+    }
+    
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      if (row.length < 2 || !row.join("").trim()) continue;
+      
+      const pairs = [];
+      for(let j=0; j<5; j++) {
+        const pIdx = pairsIdx[j].p;
+        const hIdx = pairsIdx[j].h;
+        pairs.push({
+          player: (pIdx !== -1 && row[pIdx]) ? row[pIdx].trim() : "",
+          hero: (hIdx !== -1 && row[hIdx]) ? row[hIdx].trim() : ""
+        });
+      }
+      
+      const parsed = {
+        date: new Date(),
+        mode: modeIdx !== -1 ? row[modeIdx] : "Ranked",
+        result: resultIdx !== -1 ? row[resultIdx] : "Win",
+        duration: durationIdx !== -1 ? parseInt(row[durationIdx]) || 0 : 0,
+        notes: notesIdx !== -1 ? row[notesIdx] : "",
+        pairs: pairs
+      };
+      
+      appendParsedGameToLog_(parsed);
+      imported++;
+    }
+    
+    refreshAllStats(true);
+    return { success: true, message: "Berjaya import " + imported + " games!" };
+  } catch (e) {
+    return { success: false, message: "Error: " + e.message };
+  }
+}
+
+function processManualAddGame(formData) {
+  try {
+    const pairs = [];
+    for (let i = 1; i <= 5; i++) {
+      pairs.push({
+        player: formData["player" + i] || "",
+        hero: formData["hero" + i] || ""
+      });
+    }
+    
+    const parsed = {
+      date: new Date(),
+      mode: formData.mode || "Ranked",
+      result: formData.result || "Win",
+      duration: parseInt(formData.duration) || 0,
+      notes: formData.notes || "",
+      pairs: pairs
+    };
+    
+    appendParsedGameToLog_(parsed);
+    refreshAllStats(true);
+    return { success: true, message: "Game berjaya ditambah!" };
+  } catch (e) {
+    return { success: false, message: "Error: " + e.message };
   }
 }
