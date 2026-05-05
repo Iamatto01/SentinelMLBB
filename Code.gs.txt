@@ -1,0 +1,536 @@
+// ========================================================
+// MLBB SQUAD POSTGAME ANALYSIS - PART 1 (Setup & Core)
+// ========================================================
+// HOW TO USE:
+// 1. Open Google Sheets > Extensions > Apps Script
+// 2. Paste Part1 in Code.gs, create new file for Part2
+// 3. Run setupFullSystem() from the menu or script editor
+// 4. Grant permissions when prompted
+// ========================================================
+
+var PLAYERS = [];
+
+var HEROES = [
+  "Aamon","Akai","Aldous","Alice","Alpha","Alucard","Angela","Argus","Arlott","Atlas",
+  "Aulus","Aurora","Badang","Balmond","Bane","Barats","Baxia","Beatrix","Belerick","Benedetta",
+  "Brody","Bruno","Carmilla","Cecilion","Chang'e","Chip","Chou","Cici","Claude","Clint",
+  "Cyclops","Diggie","Dyrroth","Edith","Esmeralda","Estes","Eudora","Fanny","Faramis","Floryn",
+  "Franco","Fredrinn","Freya","Gatotkaca","Gloo","Gord","Granger","Grock","Guinevere","Gusion",
+  "Hanabi","Hanzo","Harith","Harley","Hayabusa","Helcurt","Hilda","Hylos","Irithel","Ixia",
+  "Jawhead","Johnson","Joy","Julian","Kadita","Kagura","Kaja","Kalea","Karina","Karrie",
+  "Khaleed","Khufra","Kimmy","Lancelot","Lapu-Lapu","Layla","Leomord","Lesley","Ling","Lolita",
+  "Lukas","Lunox","Luo Yi","Lylia","Marcel","Martis","Masha","Mathilda","Melissa","Minotaur",
+  "Minsitthar","Miya","Moskov","Nana","Natalia","Nolan","Obsidia","Odette","Paquito","Pharsa","Phoveus",
+  "Popol and Kupa","Rafaela","Roger","Ruby","Saber","Selena","Sora","Suyou","Tamuz","Terizla",
+  "Thamuz","Tigreal","Uranus","Valentina","Valir","Vexana","Wanwan","X.Borg","Xavier",
+  "Yi Sun-shin","Yin","Yu Zhong","Yve","Zetian","Zhask","Zhuxin"
+
+];
+
+var HERO_ROLES = {
+  "Aamon":"Assassin","Akai":"Tank","Aldous":"Fighter","Alice":"Mage","Alpha":"Fighter",
+  "Alucard":"Fighter","Angela":"Support","Argus":"Fighter","Arlott":"Fighter","Atlas":"Tank",
+  "Aulus":"Fighter","Aurora":"Mage","Badang":"Fighter","Balmond":"Fighter","Bane":"Fighter",
+  "Barats":"Tank","Baxia":"Tank","Beatrix":"Marksman","Belerick":"Tank","Benedetta":"Assassin",
+  "Brody":"Marksman","Bruno":"Marksman","Carmilla":"Support","Cecilion":"Mage","Chang'e":"Mage",
+  "Chip":"Tank","Chou":"Fighter","Cici":"Fighter","Claude":"Marksman","Clint":"Marksman",
+  "Cyclops":"Mage","Diggie":"Support","Dyrroth":"Fighter","Edith":"Tank","Esmeralda":"Mage",
+  "Estes":"Support","Eudora":"Mage","Fanny":"Assassin","Faramis":"Support","Floryn":"Support",
+  "Franco":"Tank","Fredrinn":"Fighter","Freya":"Fighter","Gatotkaca":"Tank","Gloo":"Tank",
+  "Gord":"Mage","Granger":"Marksman","Grock":"Tank","Guinevere":"Fighter","Gusion":"Assassin",
+  "Hanabi":"Marksman","Hanzo":"Assassin","Harith":"Mage","Harley":"Mage","Hayabusa":"Assassin",
+  "Helcurt":"Assassin","Hilda":"Fighter","Hylos":"Tank","Irithel":"Marksman","Ixia":"Marksman",
+  "Jawhead":"Fighter","Johnson":"Tank","Joy":"Assassin","Julian":"Fighter","Kadita":"Mage",
+  "Kagura":"Mage","Kaja":"Support","Kalea":"Mage","Karina":"Assassin","Karrie":"Marksman",
+  "Khaleed":"Fighter","Khufra":"Tank","Kimmy":"Marksman","Lancelot":"Assassin","Lapu-Lapu":"Fighter",
+  "Layla":"Marksman","Leomord":"Fighter","Lesley":"Marksman","Ling":"Assassin","Lolita":"Tank",
+  "Lukas":"Fighter","Lunox":"Mage","Luo Yi":"Mage","Lylia":"Mage","Marcel":"Fighter",
+  "Martis":"Fighter","Masha":"Fighter","Mathilda":"Support","Melissa":"Marksman","Minotaur":"Tank",
+  "Minsitthar":"Fighter","Miya":"Marksman","Moskov":"Marksman","Nana":"Mage","Natalia":"Assassin",
+  "Nolan":"Assassin","Obsidia":"Mage","Odette":"Mage","Paquito":"Fighter","Pharsa":"Mage","Phoveus":"Fighter",
+  "Popol and Kupa":"Marksman","Rafaela":"Support","Roger":"Fighter","Ruby":"Fighter",
+  "Saber":"Assassin","Selena":"Assassin","Sora":"Fighter","Suyou":"Fighter","Tamuz":"Fighter",
+  "Terizla":"Fighter","Thamuz":"Fighter","Tigreal":"Tank","Uranus":"Tank","Valentina":"Mage",
+  "Valir":"Mage","Vexana":"Mage","Wanwan":"Marksman","X.Borg":"Fighter","Xavier":"Mage",
+  "Yi Sun-shin":"Assassin","Yin":"Fighter","Yu Zhong":"Fighter","Yve":"Mage","Zetian":"Mage",
+  "Zhask":"Mage","Zhuxin":"Mage"
+};
+
+// Colors
+var C = {
+  bg: "#0f0f23", bg2: "#1a1a2e", bg3: "#16213e",
+  accent: "#e94560", accent2: "#0f3460", gold: "#f1c40f",
+  win: "#2ecc71", lose: "#e74c3c", text: "#ecf0f1",
+  dim: "#7f8c8d", header: "#e94560", purple: "#9b59b6",
+  blue: "#3498db", orange: "#e67e22", cyan: "#1abc9c"
+};
+
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+
+  ui.createMenu("⚔️ MLBB System")
+    .addItem("🔧 Setup Full System", "setupFullSystem")
+    .addItem("📷 OCR Upload", "showOcrUploadDialog")
+    .addItem("🔍 Check OCR setup", "checkOcrSetup")
+    .addSeparator()
+    .addItem("💾 Backup Data to Drive", "backupToGoogleDrive")
+    .addItem("� Restore from Backup File", "restoreBackupFromFile")
+    .addSeparator()
+    .addItem("�🗑️ Clear All Data", "clearAllData")
+    .addToUi();
+}
+
+function onEdit(e) {
+  if (!e || !e.range) return;
+  const sh = e.range.getSheet();
+  if (sh.getName() !== "🎮 Game Log") return;
+  if (e.range.getRow() < 4) return;
+  if (e.range.getColumn() < 2 || e.range.getColumn() > 16) return;
+
+  // Auto refresh stats after any meaningful game-log edit.
+  refreshAllStats(true);
+}
+
+function applyHeaderFilter_(sheet, headerRow, columnCount, lastRow) {
+  const existing = sheet.getFilter();
+  if (existing) existing.remove();
+  sheet.getRange(headerRow, 1, lastRow - headerRow + 1, columnCount).createFilter();
+}
+
+function setupFullSystem() {
+  const ss = getSafeActiveSpreadsheet();
+  
+  // Create or get sheets
+  const sheets = ["🎮 Game Log", "👥 Player Stats", "🦸 Hero Pool", "🧩 Team Comps", "📊 Analytics", "📥 OCR Inbox"];
+  sheets.forEach(name => {
+    if (!ss.getSheetByName(name)) ss.insertSheet(name);
+  });
+  
+  // === BACKUP Game Log data before setup ===
+  var savedData = null;
+  var gameLogSheet = ss.getSheetByName("🎮 Game Log");
+  if (gameLogSheet.getLastRow() >= 4) {
+    var lastDataRow = gameLogSheet.getLastRow();
+    savedData = gameLogSheet.getRange(4, 1, lastDataRow - 3, 16).getValues();
+    // Filter to only rows that have actual data
+    savedData = savedData.filter(function(row) {
+      return row[1] || row[4] || row[14]; // has date, player, or result
+    });
+    if (savedData.length === 0) savedData = null;
+  }
+  
+  setupGameLog(ss);
+  setupPlayerStats(ss);
+  setupHeroPool(ss);
+  setupTeamComps(ss);
+  setupAnalytics(ss);
+  setupOcrInbox(ss);
+  
+  // === RESTORE Game Log data after setup ===
+  if (savedData && savedData.length > 0) {
+    var gl = ss.getSheetByName("🎮 Game Log");
+    gl.getRange(4, 1, savedData.length, 16).setValues(savedData);
+  }
+  
+  // Delete default Sheet1 if exists
+  var def = ss.getSheetByName("Sheet1");
+  if (def && ss.getSheets().length > 1) ss.deleteSheet(def);
+  
+  ss.getSheetByName("🎮 Game Log").activate();
+  var msg = "✅ MLBB Squad Analysis System is ready!";
+  if (savedData) msg += "\n\n📋 " + savedData.length + " game records restored!";
+  msg += "\n\nUse the 🎮 Game Log sheet to record games.\nStats will auto-update when you click 📊 Refresh Stats.";
+  SpreadsheetApp.getUi().alert(msg);
+}
+
+// Backup all Game Log data to a new spreadsheet in Google Drive
+function backupToGoogleDrive() {
+  var ss = getSafeActiveSpreadsheet();
+  var gl = ss.getSheetByName("🎮 Game Log");
+  if (!gl || gl.getLastRow() < 4) {
+    SpreadsheetApp.getUi().alert("No data to backup!");
+    return;
+  }
+  
+  var now = new Date();
+  var timestamp = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd_HHmm");
+  var backupName = "MLBB_Backup_" + timestamp;
+  
+  // Create backup spreadsheet
+  var backup = SpreadsheetApp.create(backupName);
+  var bSheet = backup.getActiveSheet();
+  bSheet.setName("Game Log Backup");
+  
+  // Copy headers
+  var headers = gl.getRange(3, 1, 1, 16).getValues();
+  bSheet.getRange(1, 1, 1, 16).setValues(headers).setFontWeight("bold");
+  
+  // Copy data
+  var lastRow = gl.getLastRow();
+  var data = gl.getRange(4, 1, lastRow - 3, 16).getValues();
+  var validData = data.filter(function(row) {
+    return row[1] || row[4] || row[14];
+  });
+  
+  if (validData.length > 0) {
+    bSheet.getRange(2, 1, validData.length, 16).setValues(validData);
+  }
+  
+  SpreadsheetApp.getUi().alert("✅ Backup saved to Google Drive!\n\n📁 File: " + backupName + "\n📋 " + validData.length + " games backed up.\n\nFind it in your Google Drive root folder.");
+}
+
+function restoreBackupFromFile() {
+  var ui = SpreadsheetApp.getUi();
+  var resp = ui.prompt("Restore Backup", "Paste the Google Drive file ID or full sharing link of the backup spreadsheet:", ui.ButtonSet.OK_CANCEL);
+  if (!resp || resp.getSelectedButton() === ui.Button.CANCEL) return;
+  
+  var input = resp.getResponseText().trim();
+  if (!input) { ui.alert("No file ID provided."); return; }
+  
+  var fileId = input;
+  if (/\/d\//.test(input)) {
+    var match = input.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
+    if (match) fileId = match[1];
+  } else if (/[?&]id=/.test(input)) {
+    var match = input.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
+    if (match) fileId = match[1];
+  }
+  
+  try {
+    var file = DriveApp.getFileById(fileId);
+    var mimeType = file.getMimeType();
+    
+    if (mimeType === MimeType.GOOGLE_SHEETS) {
+      // It's a Google Sheet - open and read
+      var backupSS = SpreadsheetApp.openById(fileId);
+      var backupSheet = backupSS.getSheets()[0];
+      var data = backupSheet.getDataRange().getValues();
+      
+      // Find headers and data rows
+      var dataStartRow = 0;
+      for (var i = 0; i < data.length; i++) {
+        if (data[i][0] && (data[i][0].toString().indexOf("#") !== -1 || data[i][0] === 1)) {
+          dataStartRow = i + 1;
+          break;
+        }
+      }
+      
+      if (dataStartRow === 0 || dataStartRow >= data.length) {
+        ui.alert("Could not find game data in backup file.");
+        return;
+      }
+      
+      var backupData = data.slice(dataStartRow);
+      insertBackupData_(backupData);
+      ui.alert("✅ Backup restored!\n\n📋 " + backupData.length + " games imported.");
+    } else {
+      ui.alert("File must be a Google Sheet.");
+    }
+  } catch (err) {
+    ui.alert("❌ Error: " + (err.message || err));
+  }
+}
+
+function insertBackupData_(backupData) {
+  var ss = getSafeActiveSpreadsheet();
+  var gl = ss.getSheetByName("🎮 Game Log");
+  
+  // Find first empty row in Game Log
+  var values = gl.getRange(4, 1, 200, 16).getValues();
+  var insertRow = 4;
+  for (var i = 0; i < values.length; i++) {
+    var hasData = values[i][1] || values[i][4] || values[i][14];
+    if (!hasData) {
+      insertRow = i + 4;
+      break;
+    }
+  }
+  
+  // Filter valid rows from backup
+  var validRows = backupData.filter(function(row) {
+    return row.length >= 14 && (row[1] || row[4] || row[14]);
+  }).slice(0, 200);
+  
+  if (validRows.length > 0) {
+    var endRow = Math.min(insertRow + validRows.length - 1, 203);
+    var numRows = endRow - insertRow + 1;
+    gl.getRange(insertRow, 1, numRows, 16).setValues(validRows.slice(0, numRows));
+  }
+  
+  // Refresh stats
+  refreshAllStats(false);
+}
+
+function setupGameLog(ss) {
+  const sh = ss.getSheetByName("🎮 Game Log");
+  sh.clear();
+  sh.setTabColor(C.accent);
+  
+  // Set column widths
+  const widths = [50, 110, 90, 70, 140, 140, 140, 140, 140, 140, 140, 140, 140, 90, 250];
+  widths.forEach((w, i) => sh.setColumnWidth(i+1, w));
+  
+  // Title row
+  sh.setRowHeight(1, 50);
+  sh.getRange("A1:O1").merge()
+    .setValue("⚔️ MLBB SQUAD POSTGAME ANALYSIS ⚔️")
+    .setBackground(C.bg).setFontColor(C.gold).setFontSize(20)
+    .setFontFamily("Arial").setFontWeight("bold").setHorizontalAlignment("center")
+    .setVerticalAlignment("middle");
+  
+  // Subtitle
+  sh.setRowHeight(2, 30);
+  sh.getRange("A2:O2").merge()
+    .setValue("Log each game below — 5 players per game, pick heroes from dropdown, mark Win/Lose")
+    .setBackground(C.bg2).setFontColor(C.dim).setFontSize(10)
+    .setFontFamily("Arial").setHorizontalAlignment("center");
+  
+  // Headers row 3
+  const headers = ["#","Date","Mode","Duration","Player 1","Hero 1","Player 2","Hero 2","Player 3","Hero 3","Player 4","Hero 4","Player 5","Hero 5","Result","Notes"];
+  // Adjust: we need 16 cols
+  sh.setColumnWidth(15, 80);
+  sh.setColumnWidth(16, 250);
+  
+  sh.setRowHeight(3, 35);
+  const hdrRange = sh.getRange(3, 1, 1, 16);
+  hdrRange.setValues([["#","Date","Mode","Duration","Player 1","Hero 1","Player 2","Hero 2","Player 3","Hero 3","Player 4","Hero 4","Player 5","Hero 5","Result","Notes"]]);
+  hdrRange.setBackground(C.accent).setFontColor("#fff").setFontWeight("bold")
+    .setFontFamily("Arial").setFontSize(10).setHorizontalAlignment("center")
+    .setVerticalAlignment("middle");
+  hdrRange.setBorder(true, true, true, true, true, true, "#fff", SpreadsheetApp.BorderStyle.SOLID);
+  
+  // Set column widths for 16 cols
+  [50,110,90,70,130,130,130,130,130,130,130,130,130,130,80,250].forEach((w,i) => sh.setColumnWidth(i+1, w));
+  
+  // Pre-fill 200 rows
+  for (let r = 4; r <= 203; r++) {
+    sh.getRange(r, 1).setValue(r - 3); // Game number
+    
+    // Date column
+    const dateRule = SpreadsheetApp.newDataValidation()
+      .requireDate().setAllowInvalid(true).build();
+    sh.getRange(r, 2).setDataValidation(dateRule).setNumberFormat("yyyy-mm-dd");
+    
+    // Mode dropdown
+    const modeRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(["Ranked","Classic","Custom","MRO","Tour","MCL"], true).build();
+    sh.getRange(r, 3).setDataValidation(modeRule);
+    
+    // Duration
+    sh.getRange(r, 4).setNumberFormat("0");
+    
+    // Player dropdowns (cols 5,7,9,11,13)
+    const playerRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(PLAYERS, true).setAllowInvalid(true).build();
+    [5,7,9,11,13].forEach(c => sh.getRange(r, c).setDataValidation(playerRule));
+    
+    // Hero dropdowns (cols 6,8,10,12,14)
+    const heroRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(HEROES, true).setAllowInvalid(true).build();
+    [6,8,10,12,14].forEach(c => sh.getRange(r, c).setDataValidation(heroRule));
+    
+    // Result dropdown
+    const resultRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(["Win","Lose"], true).build();
+    sh.getRange(r, 15).setDataValidation(resultRule);
+    
+    // Row styling
+    const rowBg = (r % 2 === 0) ? C.bg2 : C.bg;
+    sh.getRange(r, 1, 1, 16).setBackground(rowBg).setFontColor(C.text)
+      .setFontFamily("Arial").setFontSize(10).setVerticalAlignment("middle");
+  }
+  
+  // Freeze header
+  sh.setFrozenRows(3);
+  applyHeaderFilter_(sh, 3, 16, 203);
+  
+  // Conditional formatting for Win/Lose
+  const resultRange = sh.getRange("O4:O203");
+  const winRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("Win").setBackground("#1a4731").setFontColor(C.win).setBold(true)
+    .setRanges([resultRange]).build();
+  const loseRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("Lose").setBackground("#4a1a1a").setFontColor(C.lose).setBold(true)
+    .setRanges([resultRange]).build();
+  sh.setConditionalFormatRules([winRule, loseRule]);
+}
+
+function setupPlayerStats(ss) {
+  const sh = ss.getSheetByName("👥 Player Stats");
+  sh.clear();
+  sh.setTabColor(C.blue);
+  
+  // Title
+  sh.setRowHeight(1, 50);
+  sh.getRange("A1:J1").merge()
+    .setValue("👥 PLAYER STATISTICS")
+    .setBackground(C.bg).setFontColor(C.gold).setFontSize(20)
+    .setFontFamily("Arial").setFontWeight("bold").setHorizontalAlignment("center");
+  
+  sh.getRange("A2:J2").merge()
+    .setValue("Click ⚔️ MLBB System > 📊 Refresh Stats to update")
+    .setBackground(C.bg2).setFontColor(C.dim).setFontSize(10).setHorizontalAlignment("center");
+  
+  // Headers
+  const headers = ["Player","Games","Wins","Losses","Win %","Win Bar","Most Picked Hero","Most Picked Count","Best Hero (WR)","Best Hero WR%","Avg Time"];
+  sh.setRowHeight(3, 35);
+  const hdr = sh.getRange(3, 1, 1, headers.length);
+  hdr.setValues([headers]);
+  hdr.setBackground(C.blue).setFontColor("#fff").setFontWeight("bold")
+    .setFontFamily("Arial").setFontSize(10).setHorizontalAlignment("center");
+  
+  [140,70,60,60,70,200,140,100,140,100,80].forEach((w,i) => sh.setColumnWidth(i+1, w));
+  
+  sh.setFrozenRows(3);
+  applyHeaderFilter_(sh, 3, 11, 203);
+  
+  // Below players: per-player hero breakdown
+  const startRow = 210;
+  sh.getRange(startRow, 1, 1, 6).merge()
+    .setValue("📋 HERO USAGE PER PLAYER (auto-generated on refresh)")
+    .setBackground(C.accent).setFontColor("#fff").setFontWeight("bold")
+    .setFontSize(12).setHorizontalAlignment("center");
+  sh.setRowHeight(startRow, 40);
+}
+
+function setupHeroPool(ss) {
+  const sh = ss.getSheetByName("🦸 Hero Pool");
+  sh.clear();
+  sh.setTabColor(C.purple);
+  
+  sh.setRowHeight(1, 50);
+  sh.getRange("A1:G1").merge()
+    .setValue("🦸 HERO POOL - ALL HEROES PICKED")
+    .setBackground(C.bg).setFontColor(C.gold).setFontSize(20)
+    .setFontFamily("Arial").setFontWeight("bold").setHorizontalAlignment("center");
+  
+  sh.getRange("A2:G2").merge()
+    .setValue("Every hero picked across all games")
+    .setBackground(C.bg2).setFontColor(C.dim).setFontSize(10).setHorizontalAlignment("center");
+  
+  const headers = ["Hero","Role","Total Picks","Wins","Losses","Win %","Pick Bar"];
+  sh.setRowHeight(3, 35);
+  sh.getRange(3, 1, 1, 7).setValues([headers])
+    .setBackground(C.purple).setFontColor("#fff").setFontWeight("bold")
+    .setFontFamily("Arial").setFontSize(10).setHorizontalAlignment("center");
+  
+  [140,90,80,60,60,70,200].forEach((w,i) => sh.setColumnWidth(i+1, w));
+  sh.setFrozenRows(3);
+  applyHeaderFilter_(sh, 3, 7, 203);
+}
+
+function showOcrUploadDialog() {
+  const html = HtmlService.createHtmlOutput(
+    '<!doctype html><html><head><meta charset="utf-8"><style>' +
+    'body{font-family:Arial,sans-serif;padding:14px;background:#0f0f23;color:#ecf0f1}' +
+    'h3{margin:0 0 10px 0;color:#f1c40f} p{font-size:12px;color:#bdc3c7}' +
+    '.box{border:1px solid #2c3e50;background:#1a1a2e;padding:12px;border-radius:8px}' +
+    'input[type=file]{width:100%;margin:8px 0 10px 0}' +
+    'button{background:#16a085;color:#fff;border:none;padding:9px 14px;border-radius:6px;cursor:pointer}' +
+    'button:disabled{opacity:.6;cursor:not-allowed} #msg{margin-top:10px;font-size:12px;white-space:pre-wrap}' +
+    '</style></head><body>' +
+    '<h3>Upload Postgame Screenshot</h3>' +
+    '<div class="box"><p>Select an image, then click upload. System will OCR and auto-insert into Game Log when possible.</p>' +
+    '<input id="file" type="file" accept="image/*" />' +
+    '<button id="btn" onclick="startUpload()">Upload & Process</button>' +
+    '<div id="msg"></div></div>' +
+    '<script>' +
+    'function startUpload(){' +
+      'var f=document.getElementById("file").files[0];' +
+      'var msg=document.getElementById("msg");' +
+      'var btn=document.getElementById("btn");' +
+      'if(!f){msg.textContent="Please select an image first.";return;}' +
+      'btn.disabled=true;msg.textContent="Uploading and processing OCR...";' +
+      'var reader=new FileReader();' +
+      'reader.onload=function(e){' +
+        'var dataUrl=e.target.result||"";' +
+        'var base64=dataUrl.split(",")[1]||"";' +
+        'google.script.run.withSuccessHandler(function(res){msg.textContent=res;btn.disabled=false;})' +
+          '.withFailureHandler(function(err){msg.textContent="Error: "+(err&&err.message?err.message:err);btn.disabled=false;})' +
+          '.uploadOcrScreenshot({fileName:f.name,mimeType:f.type||"image/png",dataBase64:base64});' +
+      '};' +
+      'reader.onerror=function(){msg.textContent="Failed to read file.";btn.disabled=false;};' +
+      'reader.readAsDataURL(f);' +
+    '}' +
+    '</script></body></html>'
+  ).setWidth(460).setHeight(360);
+  SpreadsheetApp.getUi().showModalDialog(html, "OCR Upload");
+}
+
+function setupTeamComps(ss) {
+  const sh = ss.getSheetByName("🧩 Team Comps");
+  sh.clear();
+  sh.setTabColor(C.orange);
+  
+  sh.setRowHeight(1, 50);
+  sh.getRange("A1:H1").merge()
+    .setValue("🧩 TEAM COMPOSITIONS")
+    .setBackground(C.bg).setFontColor(C.gold).setFontSize(20)
+    .setFontFamily("Arial").setFontWeight("bold").setHorizontalAlignment("center");
+  
+  sh.getRange("A2:H2").merge()
+    .setValue("All 5-hero team compositions, separated by result")
+    .setBackground(C.bg2).setFontColor(C.dim).setFontSize(10).setHorizontalAlignment("center");
+  
+  [200,130,130,130,130,130,70,70].forEach((w,i) => sh.setColumnWidth(i+1, w));
+  sh.setFrozenRows(3);
+}
+
+function setupAnalytics(ss) {
+  const sh = ss.getSheetByName("📊 Analytics");
+  sh.clear();
+  sh.setTabColor(C.cyan);
+  
+  sh.setRowHeight(1, 50);
+  sh.getRange("A1:F1").merge()
+    .setValue("📊 ADVANCED ANALYTICS")
+    .setBackground(C.bg).setFontColor(C.gold).setFontSize(20)
+    .setFontFamily("Arial").setFontWeight("bold").setHorizontalAlignment("center");
+  
+  sh.getRange("A2:F2").merge()
+    .setValue("Streaks, synergy, trends — auto-generated on refresh")
+    .setBackground(C.bg2).setFontColor(C.dim).setFontSize(10).setHorizontalAlignment("center");
+  
+  [160,100,100,100,100,100].forEach((w,i) => sh.setColumnWidth(i+1, w));
+  sh.setFrozenRows(2);
+}
+
+var PLAYER_COLORS = ["#ff6b6b","#ffd93d","#6bcb77","#4d96ff","#ff6bff","#ff9f43","#54a0ff","#5f27cd","#01a3a4"];
+
+function setupOcrInbox(ss) {
+  const book = ss || getSafeActiveSpreadsheet();
+  const sh = book.getSheetByName("📥 OCR Inbox") || book.insertSheet("📥 OCR Inbox");
+  sh.clear();
+  sh.setTabColor("#16a085");
+
+  sh.setRowHeight(1, 46);
+  sh.getRange("A1:G1").merge()
+    .setValue("📥 OCR POSTGAME INBOX (PASTE IMAGE LINK, THEN PROCESS)")
+    .setBackground(C.bg).setFontColor(C.gold).setFontWeight("bold")
+    .setFontFamily("Arial").setFontSize(16).setHorizontalAlignment("center");
+
+  sh.setRowHeight(2, 28);
+  sh.getRange("A2:G2").merge()
+    .setValue("Boleh guna Upload Screenshot (Direct) dari menu OCR, atau paste link Drive/URL di column B dan process.")
+    .setBackground(C.bg2).setFontColor(C.dim).setFontFamily("Arial").setFontSize(10)
+    .setHorizontalAlignment("center");
+
+  const headers = ["Timestamp", "Image Link / Drive File ID", "Status", "Parsed Summary", "OCR Text", "Error", "Inserted Row"];
+  sh.setRowHeight(3, 32);
+  sh.getRange(3, 1, 1, headers.length).setValues([headers])
+    .setBackground("#16a085").setFontColor("#fff").setFontWeight("bold")
+    .setFontFamily("Arial").setFontSize(10).setHorizontalAlignment("center");
+
+  [140, 320, 110, 240, 380, 260, 110].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+
+  for (let r = 4; r <= 203; r++) {
+    const rowBg = (r % 2 === 0) ? C.bg2 : C.bg;
+    sh.getRange(r, 1, 1, 7).setBackground(rowBg).setFontColor(C.text)
+      .setFontFamily("Arial").setFontSize(10).setVerticalAlignment("middle");
+  }
+
+  const statusRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(["Pending", "Done", "Review", "Error"], true).build();
+  sh.getRange(4, 3, 200, 1).setDataValidation(statusRule);
+  sh.setFrozenRows(3);
+}
