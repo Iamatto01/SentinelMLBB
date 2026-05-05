@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import Papa from 'papaparse';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { HEROES } from '../data/heroes';
@@ -19,6 +20,53 @@ const GameLogPage = () => {
     pairs: Array(5).fill(null).map(() => ({ player: '', hero: '' }))
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleImportCSV = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const rows = results.data;
+          for (const row of rows) {
+            const pairs = [];
+            for (let i = 1; i <= 5; i++) {
+              pairs.push({
+                player: row[`Player${i}`] || row[`Player ${i}`] || '',
+                hero: row[`Hero${i}`] || row[`Hero ${i}`] || ''
+              });
+            }
+            const parsedGame = {
+              mode: row['Mode'] || 'Ranked',
+              result: row['Result'] || 'Win',
+              duration: parseInt(row['Duration']) || 0,
+              notes: row['Notes'] || '',
+              pairs: pairs
+            };
+            await addGame(parsedGame);
+          }
+          alert(`Successfully imported ${rows.length} games!`);
+        } catch (err) {
+          console.error(err);
+          alert('Error importing games: ' + err.message);
+        } finally {
+          setIsImporting(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      },
+      error: (err) => {
+        console.error(err);
+        alert('Failed to parse CSV');
+        setIsImporting(false);
+      }
+    });
+  };
 
   if (loading && games.length === 0) return <div className="text-center py-20">Loading games...</div>;
 
@@ -101,7 +149,19 @@ const GameLogPage = () => {
           <h2 className="text-3xl font-bold font-outfit mb-1">Game Log</h2>
           <p className="text-gray-400">View and manage your squad's match history.</p>
         </div>
-        <button onClick={openAddModal} className="btn-primary">+ Add New Game</button>
+        <div className="flex gap-3">
+          <input 
+            type="file" 
+            accept=".csv" 
+            ref={fileInputRef} 
+            onChange={handleImportCSV} 
+            className="hidden" 
+          />
+          <button onClick={() => fileInputRef.current?.click()} className="btn-secondary" disabled={isImporting}>
+            {isImporting ? 'Importing...' : 'Import CSV'}
+          </button>
+          <button onClick={openAddModal} className="btn-primary">+ Add New Game</button>
+        </div>
       </div>
 
       <div className="card">

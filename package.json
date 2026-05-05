@@ -15,6 +15,7 @@
     "google-spreadsheet": "^5.2.0",
     "googleapis": "^171.4.0",
     "jwt-decode": "^4.0.0",
+    "papaparse": "^5.5.3",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2",
