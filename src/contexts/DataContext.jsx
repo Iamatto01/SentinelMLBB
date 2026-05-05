@@ -7,7 +7,10 @@ export const DataProvider = ({ children }) => {
   const { user } = useAuth();
   
   const [games, setGames] = useState([]);
-  const [players, setPlayers] = useState(["Aliff", "Bob", "Charlie", "Danish", "Ezra"]); // Mock data for now
+  const [players, setPlayers] = useState(() => {
+    const saved = localStorage.getItem('sentinel_players');
+    return saved ? JSON.parse(saved) : ["Aliff", "Bob", "Charlie", "Danish", "Ezra"];
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -18,6 +21,14 @@ export const DataProvider = ({ children }) => {
       setGames([]);
     }
   }, [user]);
+
+  useEffect(() => {
+    localStorage.setItem('sentinel_players', JSON.stringify(players));
+  }, [players]);
+
+  const removePlayer = (name) => {
+    setPlayers(prev => prev.filter(p => p !== name));
+  };
 
   const fetchData = async () => {
     if (!user?.sheetId) return;
@@ -105,7 +116,32 @@ export const DataProvider = ({ children }) => {
   };
 
   const deleteGame = async (num) => {
-    setGames(prev => prev.filter(g => g.num !== num));
+    if (!user?.sheetId) return;
+    if (!confirm(`Are you sure you want to delete Game #${num}?`)) return;
+    try {
+      const GAS_URL = import.meta.env.VITE_GAS_WEB_APP_URL;
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "deleteGame",
+          sheetId: user.sheetId,
+          gameNum: num
+        }),
+        redirect: "follow",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8",
+        }
+      });
+      const result = await res.json();
+      if (result.status === "success") {
+        fetchData(); // Refresh
+      } else {
+        alert("Gagal delete game: " + result.message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error: " + err.message);
+    }
   };
 
   const addPlayer = async (name) => {
@@ -115,7 +151,7 @@ export const DataProvider = ({ children }) => {
   };
 
   return (
-    <DataContext.Provider value={{ games, players, loading, error, addGame, updateGame, deleteGame, addPlayer, refreshData: fetchData }}>
+    <DataContext.Provider value={{ games, players, loading, error, addGame, updateGame, deleteGame, addPlayer, removePlayer, refreshData: fetchData }}>
       {children}
     </DataContext.Provider>
   );

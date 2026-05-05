@@ -484,6 +484,17 @@ function updateParsedGameInLog_(parsed, gameNum) {
   return rowNum;
 }
 
+function deleteGameInLog_(gameNum) {
+  const ss = getSafeActiveSpreadsheet();
+  const sh = ss.getSheetByName("🎮 Game Log");
+  
+  if (!gameNum || isNaN(gameNum)) throw new Error("Invalid game number for delete.");
+  const rowNum = parseInt(gameNum) + 3; // gameNum 1 is on row 4
+  
+  // Clear the content so the row remains but data is ignored by readGameLog
+  sh.getRange(rowNum, 1, 1, 16).clearContent();
+}
+
 function sortGameLogSheet(mode, direction) {
   const ss = getSafeActiveSpreadsheet();
   const sh = ss.getSheetByName("🎮 Game Log");

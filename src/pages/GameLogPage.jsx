@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { HEROES } from '../data/heroes';
 
 const GameLogPage = () => {
-  const { games, loading, addGame, updateGame, players } = useData();
+  const { games, loading, addGame, updateGame, deleteGame, players } = useData();
   const { user } = useAuth();
   const [filterMode, setFilterMode] = useState('All');
   
@@ -223,7 +223,10 @@ const GameLogPage = () => {
                   </td>
                   <td className="p-4 text-sm text-gray-400 max-w-[200px] truncate">{game.notes}</td>
                   <td className="p-4">
-                    <button onClick={() => openEditModal(game)} className="text-accent hover:text-accent-hover transition-colors text-sm font-semibold">Edit</button>
+                    <div className="flex gap-3">
+                      <button onClick={() => openEditModal(game)} className="text-accent hover:text-accent-hover transition-colors text-sm font-semibold">Edit</button>
+                      <button onClick={() => { if(window.confirm(`Delete Game #${game.num}?`)) deleteGame(game.num); }} className="text-lose hover:text-red-400 transition-colors text-sm font-semibold">Delete</button>
+                    </div>
                   </td>
                 </tr>
               ))}

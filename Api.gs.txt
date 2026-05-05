@@ -84,6 +84,10 @@ function doPost(e) {
       var gameNum = payload.gameNum;
       var updatedRow = updateParsedGameInLog_(parsed, gameNum);
       output = { status: "success", row: updatedRow };
+    } else if (action === "deleteGame") {
+      var gameNum = payload.gameNum;
+      deleteGameInLog_(gameNum);
+      output = { status: "success" };
     } else if (action === "registerUser") {
       // Admin registering a new user — auto-creates a clean sheet for the client
       var masterSheet = SpreadsheetApp.getActiveSpreadsheet();
