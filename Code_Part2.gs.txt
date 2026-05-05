@@ -1230,3 +1230,190 @@ function processManualAddGame(formData) {
     return { success: false, message: "Error: " + e.message };
   }
 }
+
+// ==========================================
+// WEB APP BACKEND DATA FUNCTIONS
+// ==========================================
+
+function getDashboardData() {
+  var ss = getSafeActiveSpreadsheet();
+  var games = readGameLog(ss);
+  if (games.length === 0) {
+    return { totalGames: 0, wins: 0, losses: 0, winRate: 0, currentStreak: 0, streakType: "-", bestPlayer: "-", mostPickedHero: "-", avgDuration: 0, totalPlayers: 0 };
+  }
+  
+  var wins = games.filter(function(g){ return g.result === "Win"; }).length;
+  var losses = games.length - wins;
+  var wr = Math.round((wins / games.length) * 100);
+  
+  // Streak
+  var streak = 0, streakType = "";
+  for (var i = games.length - 1; i >= 0; i--) {
+    if (i === games.length - 1) { streakType = games[i].result; streak = 1; }
+    else if (games[i].result === streakType) streak++;
+    else break;
+  }
+  
+  // Best player
+  var pStats = {};
+  games.forEach(function(g) {
+    g.players.forEach(function(p) {
+      if (!pStats[p]) pStats[p] = { games: 0, wins: 0 };
+      pStats[p].games++;
+      if (g.result === "Win") pStats[p].wins++;
+    });
+  });
+  var bestPlayer = "-";
+  var bestWR = -1;
+  Object.keys(pStats).forEach(function(p) {
+    if (pStats[p].games >= 3) {
+      var pwr = (pStats[p].wins / pStats[p].games) * 100;
+      if (pwr > bestWR) { bestWR = pwr; bestPlayer = p + " (" + Math.round(pwr) + "%)"; }
+    }
+  });
+  
+  // Most picked hero
+  var heroCount = {};
+  games.forEach(function(g) { g.heroes.forEach(function(h) { if (h) heroCount[h] = (heroCount[h]||0) + 1; }); });
+  var topHero = "-";
+  var topCount = 0;
+  Object.keys(heroCount).forEach(function(h) { if (heroCount[h] > topCount) { topCount = heroCount[h]; topHero = h + " (" + topCount + "x)"; } });
+  
+  // Avg duration
+  var durs = games.filter(function(g){ return g.duration > 0; }).map(function(g){ return g.duration; });
+  var avgDur = durs.length > 0 ? Math.round(durs.reduce(function(a,b){return a+b;},0) / durs.length) : 0;
+  
+  // Unique players
+  var allPlayers = {};
+  games.forEach(function(g) { g.players.forEach(function(p) { allPlayers[p] = true; }); });
+  
+  return {
+    totalGames: games.length,
+    wins: wins,
+    losses: losses,
+    winRate: wr,
+    currentStreak: streak,
+    streakType: streakType,
+    bestPlayer: bestPlayer,
+    mostPickedHero: topHero,
+    avgDuration: avgDur,
+    totalPlayers: Object.keys(allPlayers).length
+  };
+}
+
+function getLeaderboardData() {
+  var ss = getSafeActiveSpreadsheet();
+  var games = readGameLog(ss);
+  var stats = {};
+  
+  games.forEach(function(g) {
+    g.players.forEach(function(p, i) {
+      if (!stats[p]) stats[p] = { games: 0, wins: 0, heroes: {} };
+      stats[p].games++;
+      if (g.result === "Win") stats[p].wins++;
+      var h = g.heroes[i];
+      if (h) {
+        if (!stats[p].heroes[h]) stats[p].heroes[h] = { picks: 0, wins: 0 };
+        stats[p].heroes[h].picks++;
+        if (g.result === "Win") stats[p].heroes[h].wins++;
+      }
+    });
+  });
+  
+  var result = [];
+  Object.keys(stats).forEach(function(name, idx) {
+    var s = stats[name];
+    var wr = s.games > 0 ? Math.round((s.wins / s.games) * 100) : 0;
+    // Find most picked hero
+    var topHero = "-", topPicks = 0;
+    Object.keys(s.heroes).forEach(function(h) {
+      if (s.heroes[h].picks > topPicks) { topPicks = s.heroes[h].picks; topHero = h; }
+    });
+    result.push({
+      name: name,
+      games: s.games,
+      wins: s.wins,
+      losses: s.games - s.wins,
+      wr: wr,
+      topHero: topHero,
+      color: PLAYER_COLORS[idx % PLAYER_COLORS.length] || "#fff"
+    });
+  });
+  
+  result.sort(function(a, b) { return b.wr - a.wr || b.games - a.games; });
+  return result;
+}
+
+function getDraftHelperData() {
+  var ss = getSafeActiveSpreadsheet();
+  var games = readGameLog(ss);
+  var heroStats = {};
+  
+  games.forEach(function(g) {
+    g.heroes.forEach(function(h) {
+      if (!h) return;
+      if (!heroStats[h]) heroStats[h] = { picks: 0, wins: 0 };
+      heroStats[h].picks++;
+      if (g.result === "Win") heroStats[h].wins++;
+    });
+  });
+  
+  var roles = { Tank: [], Fighter: [], Assassin: [], Mage: [], Marksman: [], Support: [] };
+  Object.keys(heroStats).forEach(function(hero) {
+    var role = HERO_ROLES[hero] || "?";
+    if (!roles[role]) return;
+    var s = heroStats[hero];
+    if (s.picks < 2) return;
+    roles[role].push({
+      hero: hero,
+      picks: s.picks,
+      wins: s.wins,
+      wr: Math.round((s.wins / s.picks) * 100)
+    });
+  });
+  
+  // Sort each role by WR desc, take top 3
+  Object.keys(roles).forEach(function(role) {
+    roles[role].sort(function(a, b) { return b.wr - a.wr || b.picks - a.picks; });
+    roles[role] = roles[role].slice(0, 3);
+  });
+  
+  return roles;
+}
+
+function getChartData() {
+  var ss = getSafeActiveSpreadsheet();
+  var games = readGameLog(ss);
+  
+  // Timeline (last 30)
+  var timeline = games.slice(-30).map(function(g) {
+    return { num: g.num, result: g.result };
+  });
+  
+  // Role distribution
+  var roleDist = { Tank: 0, Fighter: 0, Assassin: 0, Mage: 0, Marksman: 0, Support: 0 };
+  games.forEach(function(g) {
+    g.heroes.forEach(function(h) {
+      var role = HERO_ROLES[h] || "?";
+      if (roleDist[role] !== undefined) roleDist[role]++;
+    });
+  });
+  
+  // Mode distribution
+  var modeDist = {};
+  games.forEach(function(g) {
+    var m = g.mode || "Unknown";
+    modeDist[m] = (modeDist[m] || 0) + 1;
+  });
+  
+  return { timeline: timeline, roleDist: roleDist, modeDist: modeDist };
+}
+
+function getAllWebAppData() {
+  return {
+    dashboard: getDashboardData(),
+    leaderboard: getLeaderboardData(),
+    draft: getDraftHelperData(),
+    charts: getChartData()
+  };
+}

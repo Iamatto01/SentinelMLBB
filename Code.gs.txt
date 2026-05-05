@@ -69,6 +69,7 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
 
   ui.createMenu("⚔️ MLBB System")
+    .addItem("🌐 Open Web App", "showWebAppUrl")
     .addItem("💻 Control Panel", "showControlPanel")
     .addSeparator()
     .addItem("🔧 Setup Full System", "setupFullSystem")
@@ -94,9 +95,7 @@ function onEdit(e) {
 }
 
 function applyHeaderFilter_(sheet, headerRow, columnCount, lastRow) {
-  const existing = sheet.getFilter();
-  if (existing) existing.remove();
-  sheet.getRange(headerRow, 1, lastRow - headerRow + 1, columnCount).createFilter();
+  // Filters removed - users sort from Sidebar/WebApp instead
 }
 
 function setupFullSystem() {
@@ -542,4 +541,24 @@ function showControlPanel() {
       .setTitle('SentinelMLBB Control Panel')
       .setWidth(300);
   SpreadsheetApp.getUi().showSidebar(html);
+}
+
+function showWebAppUrl() {
+  var url = ScriptApp.getService().getUrl();
+  if (!url) {
+    SpreadsheetApp.getUi().alert('Web App belum di-deploy!\n\n1. Klik Deploy > New Deployment\n2. Pilih "Web App"\n3. Execute as: Me, Access: Anyone\n4. Deploy');
+    return;
+  }
+  var html = HtmlService.createHtmlOutput(
+    '<p style="font-family:Arial;font-size:14px;">Buka link ini dalam browser:</p>' +
+    '<p><a href="' + url + '" target="_blank" style="font-size:16px;color:#e94560;font-weight:bold;">' + url + '</a></p>' +
+    '<p style="font-size:12px;color:#888;">Tip: Bookmark link ini atau share kepada squad member.</p>'
+  ).setWidth(500).setHeight(200);
+  SpreadsheetApp.getUi().showModalDialog(html, 'SentinelMLBB Web App');
+}
+
+function doGetWebApp() {
+  return HtmlService.createHtmlOutputFromFile('WebApp')
+    .setTitle('SentinelMLBB')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }

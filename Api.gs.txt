@@ -11,7 +11,15 @@ function getSafeActiveSpreadsheet() {
 }
 
 function doGet(e) {
-  var action = e.parameter.action;
+  var action = (e && e.parameter) ? e.parameter.action : null;
+  
+  // If no action, serve the full-screen Web App
+  if (!action) {
+    return HtmlService.createHtmlOutputFromFile('WebApp')
+      .setTitle('SentinelMLBB')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+  
   var email = e.parameter.email;
   var sheetId = e.parameter.sheetId;
   

@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SentinelMLBB</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0a16;--bg2:#12122a;--bg3:#1a1a3e;--card:#161633;--accent:#e94560;--accent2:#c23152;--text:#ecf0f1;--dim:#6b7280;--win:#10b981;--lose:#ef4444;--gold:#f59e0b;--blue:#3b82f6;--purple:#8b5cf6;--cyan:#06b6d4;--border:rgba(255,255,255,0.06)}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;padding-bottom:70px}
+.app-header{background:linear-gradient(135deg,#1a0a2e 0%,#2d1045 50%,#1a0a2e 100%);padding:20px;text-align:center;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.app-header::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(233,69,96,0.08) 0%,transparent 60%);animation:pulse 6s ease infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.app-header h1{font-size:22px;font-weight:800;background:linear-gradient(135deg,#e94560,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px}
+.app-header p{font-size:11px;color:var(--dim);margin-top:4px}
+.page{display:none;padding:16px;max-width:600px;margin:0 auto}
+.page.active{display:block}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;position:relative;overflow:hidden}
+.stat-card::after{content:'';position:absolute;top:0;right:0;width:60px;height:60px;border-radius:0 12px 0 60px;opacity:0.08}
+.stat-card.accent::after{background:var(--accent)}
+.stat-card.win::after{background:var(--win)}
+.stat-card.lose::after{background:var(--lose)}
+.stat-card.gold::after{background:var(--gold)}
+.stat-card .value{font-size:26px;font-weight:800;line-height:1}
+.stat-card .label{font-size:10px;color:var(--dim);margin-top:4px;text-transform:uppercase;letter-spacing:0.5px}
+.stat-card.wide{grid-column:span 2}
+.section-title{font-size:14px;font-weight:700;color:var(--accent);margin:20px 0 10px;display:flex;align-items:center;gap:8px}
+.timeline{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:16px}
+.tl-bar{width:16px;height:40px;border-radius:4px;transition:transform 0.2s}
+.tl-bar:hover{transform:scaleY(1.2)}
+.tl-bar.w{background:linear-gradient(180deg,var(--win),#059669)}
+.tl-bar.l{background:linear-gradient(180deg,var(--lose),#b91c1c)}
+.role-bar-wrap{margin-bottom:8px}
+.role-bar-label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px}
+.role-bar-label span:first-child{font-weight:600}
+.role-bar-label span:last-child{color:var(--dim)}
+.role-bar{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}
+.role-bar-fill{height:100%;border-radius:4px;transition:width 0.8s ease}
+.lb-card{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;transition:border 0.2s}
+.lb-card:hover{border-color:rgba(233,69,96,0.3)}
+.lb-rank{font-size:20px;min-width:32px;text-align:center}
+.lb-info{flex:1;min-width:0}
+.lb-name{font-weight:700;font-size:14px}
+.lb-sub{font-size:11px;color:var(--dim);margin-top:2px}
+.lb-wr{text-align:right}
+.lb-wr .pct{font-size:20px;font-weight:800}
+.lb-wr .games{font-size:10px;color:var(--dim)}
+.wr-bar{height:4px;background:var(--bg3);border-radius:2px;margin-top:6px;overflow:hidden}
+.wr-bar-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--gold))}
+.draft-role{margin-bottom:16px}
+.draft-role-title{font-size:13px;font-weight:700;padding:8px 12px;border-radius:8px 8px 0 0;display:flex;align-items:center;gap:6px}
+.draft-heroes{background:var(--card);border:1px solid var(--border);border-radius:0 0 8px 8px;overflow:hidden}
+.draft-hero{display:flex;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border)}
+.draft-hero:last-child{border-bottom:none}
+.draft-hero .medal{font-size:16px;min-width:24px}
+.draft-hero .name{flex:1;font-weight:600;font-size:13px}
+.draft-hero .wr{font-weight:700;font-size:13px}
+.draft-hero .picks{font-size:11px;color:var(--dim);margin-left:8px}
+.game-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px}
+.game-row .num{font-weight:700;color:var(--dim);font-size:11px;min-width:28px}
+.game-row .info{flex:1;min-width:0}
+.game-row .top{display:flex;align-items:center;gap:6px;font-size:12px}
+.game-row .lineup{font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
+.badge-w{background:rgba(16,185,129,0.15);color:var(--win)}
+.badge-l{background:rgba(239,68,68,0.15);color:var(--lose)}
+.badge-m{background:rgba(59,130,246,0.15);color:var(--blue)}
+.del-btn{background:transparent;border:1px solid rgba(239,68,68,0.3);color:var(--lose);width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:12px;flex-shrink:0}
+.del-btn:hover{background:rgba(239,68,68,0.15)}
+.btn{width:100%;border:none;padding:12px;border-radius:8px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;font-size:13px;margin-top:10px;transition:all 0.2s}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.btn-primary:hover:not(:disabled){box-shadow:0 4px 15px rgba(233,69,96,0.3)}
+.btn-blue{background:linear-gradient(135deg,var(--blue),#2563eb);color:#fff}
+.btn-sec{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+.btn-sec:hover{background:rgba(255,255,255,0.05)}
+input,select,textarea{width:100%;padding:9px 10px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;font-family:'Inter',sans-serif;font-size:13px}
+input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(233,69,96,0.15)}
+label{display:block;margin-top:10px;margin-bottom:4px;font-size:11px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.form-row{display:flex;gap:8px}
+.form-row>div{flex:1}
+.player-row{display:flex;gap:5px;margin-bottom:5px;align-items:center}
+.player-row .slot{width:20px;height:20px;border-radius:50%;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--dim);flex-shrink:0}
+.player-row select,.player-row input{flex:1}
+.status{margin-top:12px;padding:10px;border-radius:6px;font-size:12px;display:none;animation:fadeIn 0.3s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.status.ok{background:rgba(16,185,129,0.15);color:var(--win);border:1px solid rgba(16,185,129,0.3);display:block}
+.status.err{background:rgba(239,68,68,0.15);color:var(--lose);border:1px solid rgba(239,68,68,0.3);display:block}
+.loader{display:none;text-align:center;padding:20px;color:var(--dim)}
+.empty{text-align:center;padding:40px 16px;color:var(--dim);font-size:13px}
+.nav{position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);display:flex;z-index:100;backdrop-filter:blur(10px)}
+.nav button{flex:1;background:transparent;border:none;color:var(--dim);padding:10px 4px;cursor:pointer;font-family:'Inter',sans-serif;font-size:10px;font-weight:600;transition:color 0.2s;display:flex;flex-direction:column;align-items:center;gap:3px}
+.nav button .icon{font-size:18px}
+.nav button.active{color:var(--accent)}
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:200;justify-content:center;align-items:center;padding:16px}
+.modal-overlay.show{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:20px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto}
+.modal h3{font-size:16px;margin-bottom:14px;color:var(--accent)}
+.divider{border:0;border-top:1px solid var(--border);margin:16px 0}
+</style>
+</head>
+<body>
+<div class="app-header">
+<h1>⚔️ SENTINELMLBB</h1>
+<p>Squad Postgame Analysis System</p>
+</div>
+
+<div id="pg-home" class="page active">
+<div class="loader" id="dashLoader">Loading dashboard...</div>
+<div id="dashContent" style="display:none">
+<div class="stats-grid" id="statsGrid"></div>
+<div class="section-title">📈 Win/Loss Timeline</div>
+<div class="timeline" id="timeline"></div>
+<div class="section-title">🎭 Role Distribution</div>
+<div id="roleBars"></div>
+</div>
+</div>
+
+<div id="pg-rank" class="page">
+<div class="section-title">🏆 Player Rankings</div>
+<div id="lbList"><div class="empty">Loading...</div></div>
+</div>
+
+<div id="pg-draft" class="page">
+<div class="section-title">🎯 Draft Helper — Top Heroes by Role</div>
+<p style="font-size:11px;color:var(--dim);margin-bottom:12px">Based on your squad's Win Rate data (min 2 picks)</p>
+<div id="draftContent"><div class="empty">Loading...</div></div>
+</div>
+
+<div id="pg-games" class="page">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+<div class="section-title" style="margin:0">🎮 Game Log</div>
+<div style="display:flex;gap:6px">
+<button class="btn btn-sec" style="width:auto;margin:0;padding:6px 10px;font-size:11px" onclick="loadGames()">🔄</button>
+<button class="btn btn-primary" style="width:auto;margin:0;padding:6px 10px;font-size:11px" onclick="openAddModal()">+ Add</button>
+</div>
+</div>
+<div id="gamesList"><div class="empty">Klik 🔄 untuk muat game.</div></div>
+<hr class="divider">
+<div class="section-title">📂 Import CSV</div>
+<p style="font-size:11px;color:var(--dim);margin-bottom:8px">Save as CSV dari Excel sebelum upload.</p>
+<input type="file" id="csvFile" accept=".csv">
+<button class="btn btn-primary" id="btnCsv" onclick="importCSV()">Upload & Proses</button>
+<hr class="divider">
+<button class="btn btn-blue" onclick="doRefresh()">📊 Refresh Stats</button>
+<button class="btn btn-sec" onclick="doAction('backupToGoogleDrive')">💾 Backup</button>
+<div id="gStatus" class="status"></div>
+</div>
+
+<!-- Add Game Modal -->
+<div class="modal-overlay" id="addModal">
+<div class="modal">
+<h3>📝 Add New Game</h3>
+<div class="form-row">
+<div><label>Mode</label><select id="fMode"><option value="Ranked">Ranked</option><option value="Classic">Classic</option><option value="Custom">Custom</option><option value="Tour">Tour</option><option value="MCL">MCL</option></select></div>
+<div><label>Result</label><select id="fResult"><option value="Win">Win ✅</option><option value="Lose">Lose ❌</option></select></div>
+<div><label>Min</label><input type="number" id="fDur" value="15" min="1" max="60"></div>
+</div>
+<label>Notes</label><input type="text" id="fNotes" placeholder="e.g. Lord steal...">
+<label>Lineup</label>
+<div id="fLineup"></div>
+<button class="btn btn-primary" id="btnSave" onclick="saveGame()">💾 Simpan</button>
+<button class="btn btn-sec" onclick="closeAddModal()">Batal</button>
+<div id="mStatus" class="status"></div>
+</div>
+</div>
+
+<nav class="nav">
+<button class="active" onclick="go('home',this)"><span class="icon">🏠</span>Home</button>
+<button onclick="go('rank',this)"><span class="icon">🏆</span>Rankings</button>
+<button onclick="go('draft',this)"><span class="icon">🎯</span>Draft</button>
+<button onclick="go('games',this)"><span class="icon">🎮</span>Games</button>
+</nav>
+
+<script>
+var _players=[],_heroes=[];
+var roleColors={Tank:'#3b82f6',Fighter:'#f59e0b',Assassin:'#ef4444',Mage:'#8b5cf6',Marksman:'#06b6d4',Support:'#10b981'};
+var roleIcons={Tank:'🛡',Fighter:'⚔',Assassin:'🗡',Mage:'🔮',Marksman:'🏹',Support:'💚'};
+
+function go(id,btn){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});
+  document.querySelectorAll('.nav button').forEach(function(b){b.classList.remove('active')});
+  document.getElementById('pg-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='home')loadDashboard();
+  if(id==='rank')loadLeaderboard();
+  if(id==='draft')loadDraft();
+  if(id==='games')loadGames();
+}
+
+function loadDashboard(){
+  document.getElementById('dashLoader').style.display='block';
+  document.getElementById('dashContent').style.display='none';
+  google.script.run.withSuccessHandler(function(d){
+    document.getElementById('dashLoader').style.display='none';
+    document.getElementById('dashContent').style.display='block';
+    renderDashboard(d);
+  }).withFailureHandler(function(e){
+    document.getElementById('dashLoader').innerHTML='<span style="color:var(--lose)">Error: '+e.message+'</span>';
+  }).getAllWebAppData();
+}
+
+function renderDashboard(d){
+  var db=d.dashboard,ch=d.charts;
+  var g=document.getElementById('statsGrid');
+  g.innerHTML=
+    card(db.totalGames,'Total Games','accent')+
+    card(db.winRate+'%','Win Rate',db.winRate>=50?'win':'lose')+
+    card(db.wins,'Wins','win')+card(db.losses,'Losses','lose')+
+    card(db.currentStreak+' '+db.streakType,'Current Streak','gold')+
+    card(db.avgDuration+'m','Avg Duration','accent')+
+    '<div class="stat-card wide accent"><div class="value" style="font-size:15px">⭐ '+db.bestPlayer+'</div><div class="label">Best Player (WR)</div></div>'+
+    '<div class="stat-card wide gold"><div class="value" style="font-size:15px">🎭 '+db.mostPickedHero+'</div><div class="label">Most Picked Hero</div></div>';
+  // Timeline
+  var tl=document.getElementById('timeline');
+  tl.innerHTML=ch.timeline.map(function(t){return '<div class="tl-bar '+(t.result==='Win'?'w':'l')+'" title="Game #'+t.num+' - '+t.result+'"></div>'}).join('');
+  // Role bars
+  var rb=document.getElementById('roleBars');
+  var maxR=Math.max.apply(null,Object.values(ch.roleDist))||1;
+  var html='';
+  Object.keys(ch.roleDist).forEach(function(r){
+    var v=ch.roleDist[r],pct=Math.round((v/maxR)*100);
+    html+='<div class="role-bar-wrap"><div class="role-bar-label"><span>'+roleIcons[r]+' '+r+'</span><span>'+v+' picks</span></div><div class="role-bar"><div class="role-bar-fill" style="width:'+pct+'%;background:'+roleColors[r]+'"></div></div></div>';
+  });
+  rb.innerHTML=html;
+}
+
+function card(val,lbl,cls){return '<div class="stat-card '+cls+'"><div class="value">'+val+'</div><div class="label">'+lbl+'</div></div>'}
+
+function loadLeaderboard(){
+  document.getElementById('lbList').innerHTML='<div class="empty">Loading...</div>';
+  google.script.run.withSuccessHandler(function(data){
+    if(!data||data.length===0){document.getElementById('lbList').innerHTML='<div class="empty">Tiada data.</div>';return}
+    var medals=['🥇','🥈','🥉'];
+    var html=data.map(function(p,i){
+      var wrColor=p.wr>=60?'var(--win)':p.wr>=45?'var(--gold)':'var(--lose)';
+      return '<div class="lb-card"><div class="lb-rank">'+(medals[i]||'#'+(i+1))+'</div><div class="lb-info"><div class="lb-name" style="color:'+p.color+'">'+p.name+'</div><div class="lb-sub">'+p.topHero+' main · '+p.wins+'W '+p.losses+'L</div><div class="wr-bar"><div class="wr-bar-fill" style="width:'+p.wr+'%"></div></div></div><div class="lb-wr"><div class="pct" style="color:'+wrColor+'">'+p.wr+'%</div><div class="games">'+p.games+' games</div></div></div>'
+    }).join('');
+    document.getElementById('lbList').innerHTML=html;
+  }).getLeaderboardData();
+}
+
+function loadDraft(){
+  document.getElementById('draftContent').innerHTML='<div class="empty">Loading...</div>';
+  google.script.run.withSuccessHandler(function(data){
+    var html='';
+    Object.keys(data).forEach(function(role){
+      var heroes=data[role];
+      var c=roleColors[role]||'#888';
+      html+='<div class="draft-role"><div class="draft-role-title" style="background:'+c+'22;color:'+c+'">'+roleIcons[role]+' '+role+'</div><div class="draft-heroes">';
+      if(heroes.length===0){html+='<div class="draft-hero"><span class="name" style="color:var(--dim)">No data (min 2 picks)</span></div>'}
+      else{var med=['🥇','🥈','🥉'];heroes.forEach(function(h,i){
+        var wc=h.wr>=60?'var(--win)':h.wr>=45?'var(--gold)':'var(--lose)';
+        html+='<div class="draft-hero"><span class="medal">'+med[i]+'</span><span class="name">'+h.hero+'</span><span class="wr" style="color:'+wc+'">'+h.wr+'%</span><span class="picks">'+h.picks+' picks</span></div>'
+      })}
+      html+='</div></div>';
+    });
+    document.getElementById('draftContent').innerHTML=html;
+  }).getDraftHelperData();
+}
+
+function loadGames(){
+  document.getElementById('gamesList').innerHTML='<div class="empty">Loading...</div>';
+  google.script.run.withSuccessHandler(function(games){
+    if(!games||games.length===0){document.getElementById('gamesList').innerHTML='<div class="empty">Tiada game log.</div>';return}
+    document.getElementById('gamesList').innerHTML=games.map(function(g){
+      return '<div class="game-row"><span class="num">#'+g.num+'</span><div class="info"><div class="top"><span class="badge '+(g.result==='Win'?'badge-w':'badge-l')+'">'+g.result+'</span><span class="badge badge-m">'+g.mode+'</span><span style="color:var(--dim);font-size:11px">'+g.date+'</span></div><div class="lineup">'+g.lineup+'</div></div><button class="del-btn" onclick="delGame('+g.num+')">🗑</button></div>'
+    }).join('');
+  }).getGamesList();
+}
+
+function delGame(n){if(confirm('Padam Game #'+n+'?')){showGStatus('Deleting...',true);google.script.run.withSuccessHandler(function(r){showGStatus(r.message,r.success);if(r.success)loadGames()}).deleteGameFromSidebar(n)}}
+
+function openAddModal(){
+  document.getElementById('addModal').classList.add('show');
+  if(_players.length===0){
+    google.script.run.withSuccessHandler(function(p){_players=p;google.script.run.withSuccessHandler(function(h){_heroes=h;buildForm()}).getHeroesList()}).getPlayersList();
+  }
+}
+function closeAddModal(){document.getElementById('addModal').classList.remove('show');document.getElementById('mStatus').className='status'}
+
+function buildForm(){
+  var c=document.getElementById('fLineup'),html='',opts='<option value="">Player...</option>';
+  _players.forEach(function(p){opts+='<option value="'+p+'">'+p+'</option>'});
+  for(var i=1;i<=5;i++){html+='<div class="player-row"><span class="slot">'+i+'</span><select id="fp'+i+'">'+opts+'</select><input type="text" id="fh'+i+'" placeholder="Hero..." list="hlst"></div>'}
+  html+='<datalist id="hlst">'+_heroes.map(function(h){return '<option value="'+h+'">'}).join('')+'</datalist>';
+  c.innerHTML=html;
+}
+
+function saveGame(){
+  var fd={mode:document.getElementById('fMode').value,result:document.getElementById('fResult').value,duration:document.getElementById('fDur').value,notes:document.getElementById('fNotes').value};
+  var has=false;
+  for(var i=1;i<=5;i++){fd['player'+i]=document.getElementById('fp'+i).value;fd['hero'+i]=document.getElementById('fh'+i).value;if(fd['player'+i]&&fd['hero'+i])has=true}
+  if(!has){showMStatus('Pilih min 1 Player+Hero!',false);return}
+  document.getElementById('btnSave').disabled=true;
+  google.script.run.withSuccessHandler(function(r){
+    document.getElementById('btnSave').disabled=false;showMStatus(r.message,r.success);
+    if(r.success){for(var i=1;i<=5;i++){document.getElementById('fp'+i).value='';document.getElementById('fh'+i).value=''}document.getElementById('fNotes').value='';setTimeout(function(){closeAddModal();loadGames()},1000)}
+  }).withFailureHandler(function(e){document.getElementById('btnSave').disabled=false;showMStatus(e.message,false)}).processManualAddGame(fd);
+}
+
+function importCSV(){
+  var fi=document.getElementById('csvFile');
+  if(!fi.files.length){showGStatus('Pilih fail CSV dulu.',false);return}
+  document.getElementById('btnCsv').disabled=true;
+  var r=new FileReader();r.onload=function(e){
+    google.script.run.withSuccessHandler(function(res){document.getElementById('btnCsv').disabled=false;showGStatus(res.message,res.success);if(res.success)fi.value=''}).withFailureHandler(function(err){document.getElementById('btnCsv').disabled=false;showGStatus(err.message,false)}).processCsvImport(e.target.result);
+  };r.readAsText(fi.files[0]);
+}
+
+function doRefresh(){showGStatus('Refreshing...',true);google.script.run.withSuccessHandler(function(){showGStatus('Stats refreshed!',true)}).withFailureHandler(function(e){showGStatus(e.message,false)}).refreshAllStats(true)}
+function doAction(fn){google.script.run.withSuccessHandler(function(){showGStatus('Done!',true)}).withFailureHandler(function(e){showGStatus(e.message,false)})[fn]()}
+function showGStatus(m,ok){var e=document.getElementById('gStatus');e.textContent=m;e.className='status '+(ok?'ok':'err')}
+function showMStatus(m,ok){var e=document.getElementById('mStatus');e.textContent=m;e.className='status '+(ok?'ok':'err')}
+
+// Auto-load dashboard on start
+window.onload=function(){loadDashboard()};
+</script>
+</body>
+</html>
