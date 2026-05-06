@@ -300,8 +300,8 @@ function extractDriveFileId_(text) {
 function extractTextFromImageBlob_(blob) {
   if (typeof Drive !== "undefined" && Drive.Files && typeof Drive.Files.insert === "function") {
     try {
-      const resource = { title: "OCR_TMP_" + Date.now(), mimeType: MimeType.GOOGLE_DOCS };
-      const doc = Drive.Files.insert(resource, blob, { ocr: true, ocrLanguage: "en" });
+      const resource = { title: "OCR_TMP_" + Date.now() };
+      const doc = Drive.Files.insert(resource, blob, { ocr: true, ocrLanguage: "en", convert: true });
       const text = DocumentApp.openById(doc.id).getBody().getText() || "";
       DriveApp.getFileById(doc.id).setTrashed(true);
       return text;
