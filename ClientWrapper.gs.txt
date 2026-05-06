@@ -1,0 +1,26 @@
+// ========================================================
+// SENTINEL MLBB - CLIENT WRAPPER (CARA 2: LIBRARY)
+// ========================================================
+// Kod ini sahaja yang customer akan nampak dalam fail mereka.
+// Pastikan anda dah "Add a library" (SentinelCore) di sebelah kiri sebelum run.
+
+function onOpen() {
+  SentinelCore.buildMenuForClient();
+}
+
+function showControlPanel() {
+  SentinelCore.showControlPanel();
+}
+
+function showWebAppUrl() {
+  SentinelCore.showWebAppUrl();
+}
+
+// Function ini penting untuk link Web App dengan Sheet customer
+function doGet(e) {
+  return SentinelCore.doGetWebApp(e);
+}
+
+function doPost(e) {
+  return SentinelCore.doPost(e);
+}

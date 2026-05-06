@@ -83,6 +83,14 @@ function onOpen() {
     .addToUi();
 }
 
+function buildMenuForClient() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu("⚔️ MLBB System")
+    .addItem("🌐 Open Web App", "showWebAppUrl")
+    .addItem("💻 Control Panel", "showControlPanel")
+    .addToUi();
+}
+
 function onEdit(e) {
   if (!e || !e.range) return;
   const sh = e.range.getSheet();
@@ -557,8 +565,9 @@ function showWebAppUrl() {
   SpreadsheetApp.getUi().showModalDialog(html, 'SentinelMLBB Web App');
 }
 
-function doGetWebApp() {
+function doGetWebApp(e) {
   return HtmlService.createHtmlOutputFromFile('WebApp')
     .setTitle('SentinelMLBB')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }

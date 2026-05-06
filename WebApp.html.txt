@@ -1,322 +1,967 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SentinelMLBB</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#0a0a16;--bg2:#12122a;--bg3:#1a1a3e;--card:#161633;--accent:#e94560;--accent2:#c23152;--text:#ecf0f1;--dim:#6b7280;--win:#10b981;--lose:#ef4444;--gold:#f59e0b;--blue:#3b82f6;--purple:#8b5cf6;--cyan:#06b6d4;--border:rgba(255,255,255,0.06)}
-body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;padding-bottom:70px}
-.app-header{background:linear-gradient(135deg,#1a0a2e 0%,#2d1045 50%,#1a0a2e 100%);padding:20px;text-align:center;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
-.app-header::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(233,69,96,0.08) 0%,transparent 60%);animation:pulse 6s ease infinite}
-@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
-.app-header h1{font-size:22px;font-weight:800;background:linear-gradient(135deg,#e94560,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px}
-.app-header p{font-size:11px;color:var(--dim);margin-top:4px}
-.page{display:none;padding:16px;max-width:600px;margin:0 auto}
-.page.active{display:block}
-.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
-.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;position:relative;overflow:hidden}
-.stat-card::after{content:'';position:absolute;top:0;right:0;width:60px;height:60px;border-radius:0 12px 0 60px;opacity:0.08}
-.stat-card.accent::after{background:var(--accent)}
-.stat-card.win::after{background:var(--win)}
-.stat-card.lose::after{background:var(--lose)}
-.stat-card.gold::after{background:var(--gold)}
-.stat-card .value{font-size:26px;font-weight:800;line-height:1}
-.stat-card .label{font-size:10px;color:var(--dim);margin-top:4px;text-transform:uppercase;letter-spacing:0.5px}
-.stat-card.wide{grid-column:span 2}
-.section-title{font-size:14px;font-weight:700;color:var(--accent);margin:20px 0 10px;display:flex;align-items:center;gap:8px}
-.timeline{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:16px}
-.tl-bar{width:16px;height:40px;border-radius:4px;transition:transform 0.2s}
-.tl-bar:hover{transform:scaleY(1.2)}
-.tl-bar.w{background:linear-gradient(180deg,var(--win),#059669)}
-.tl-bar.l{background:linear-gradient(180deg,var(--lose),#b91c1c)}
-.role-bar-wrap{margin-bottom:8px}
-.role-bar-label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px}
-.role-bar-label span:first-child{font-weight:600}
-.role-bar-label span:last-child{color:var(--dim)}
-.role-bar{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}
-.role-bar-fill{height:100%;border-radius:4px;transition:width 0.8s ease}
-.lb-card{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;transition:border 0.2s}
-.lb-card:hover{border-color:rgba(233,69,96,0.3)}
-.lb-rank{font-size:20px;min-width:32px;text-align:center}
-.lb-info{flex:1;min-width:0}
-.lb-name{font-weight:700;font-size:14px}
-.lb-sub{font-size:11px;color:var(--dim);margin-top:2px}
-.lb-wr{text-align:right}
-.lb-wr .pct{font-size:20px;font-weight:800}
-.lb-wr .games{font-size:10px;color:var(--dim)}
-.wr-bar{height:4px;background:var(--bg3);border-radius:2px;margin-top:6px;overflow:hidden}
-.wr-bar-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--gold))}
-.draft-role{margin-bottom:16px}
-.draft-role-title{font-size:13px;font-weight:700;padding:8px 12px;border-radius:8px 8px 0 0;display:flex;align-items:center;gap:6px}
-.draft-heroes{background:var(--card);border:1px solid var(--border);border-radius:0 0 8px 8px;overflow:hidden}
-.draft-hero{display:flex;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border)}
-.draft-hero:last-child{border-bottom:none}
-.draft-hero .medal{font-size:16px;min-width:24px}
-.draft-hero .name{flex:1;font-weight:600;font-size:13px}
-.draft-hero .wr{font-weight:700;font-size:13px}
-.draft-hero .picks{font-size:11px;color:var(--dim);margin-left:8px}
-.game-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px}
-.game-row .num{font-weight:700;color:var(--dim);font-size:11px;min-width:28px}
-.game-row .info{flex:1;min-width:0}
-.game-row .top{display:flex;align-items:center;gap:6px;font-size:12px}
-.game-row .lineup{font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
-.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
-.badge-w{background:rgba(16,185,129,0.15);color:var(--win)}
-.badge-l{background:rgba(239,68,68,0.15);color:var(--lose)}
-.badge-m{background:rgba(59,130,246,0.15);color:var(--blue)}
-.del-btn{background:transparent;border:1px solid rgba(239,68,68,0.3);color:var(--lose);width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:12px;flex-shrink:0}
-.del-btn:hover{background:rgba(239,68,68,0.15)}
-.btn{width:100%;border:none;padding:12px;border-radius:8px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;font-size:13px;margin-top:10px;transition:all 0.2s}
-.btn:disabled{opacity:0.5;cursor:not-allowed}
-.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
-.btn-primary:hover:not(:disabled){box-shadow:0 4px 15px rgba(233,69,96,0.3)}
-.btn-blue{background:linear-gradient(135deg,var(--blue),#2563eb);color:#fff}
-.btn-sec{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
-.btn-sec:hover{background:rgba(255,255,255,0.05)}
-input,select,textarea{width:100%;padding:9px 10px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;font-family:'Inter',sans-serif;font-size:13px}
-input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(233,69,96,0.15)}
-label{display:block;margin-top:10px;margin-bottom:4px;font-size:11px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
-.form-row{display:flex;gap:8px}
-.form-row>div{flex:1}
-.player-row{display:flex;gap:5px;margin-bottom:5px;align-items:center}
-.player-row .slot{width:20px;height:20px;border-radius:50%;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--dim);flex-shrink:0}
-.player-row select,.player-row input{flex:1}
-.status{margin-top:12px;padding:10px;border-radius:6px;font-size:12px;display:none;animation:fadeIn 0.3s}
-@keyframes fadeIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
-.status.ok{background:rgba(16,185,129,0.15);color:var(--win);border:1px solid rgba(16,185,129,0.3);display:block}
-.status.err{background:rgba(239,68,68,0.15);color:var(--lose);border:1px solid rgba(239,68,68,0.3);display:block}
-.loader{display:none;text-align:center;padding:20px;color:var(--dim)}
-.empty{text-align:center;padding:40px 16px;color:var(--dim);font-size:13px}
-.nav{position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);display:flex;z-index:100;backdrop-filter:blur(10px)}
-.nav button{flex:1;background:transparent;border:none;color:var(--dim);padding:10px 4px;cursor:pointer;font-family:'Inter',sans-serif;font-size:10px;font-weight:600;transition:color 0.2s;display:flex;flex-direction:column;align-items:center;gap:3px}
-.nav button .icon{font-size:18px}
-.nav button.active{color:var(--accent)}
-.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:200;justify-content:center;align-items:center;padding:16px}
-.modal-overlay.show{display:flex}
-.modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:20px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto}
-.modal h3{font-size:16px;margin-bottom:14px;color:var(--accent)}
-.divider{border:0;border-top:1px solid var(--border);margin:16px 0}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SentinelMLBB System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #05050A;
+            --bg-card: rgba(20, 20, 30, 0.6);
+            --bg-glass: rgba(255, 255, 255, 0.03);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --accent-main: #E94560;
+            --accent-glow: rgba(233, 69, 96, 0.4);
+            --text-main: #FFFFFF;
+            --text-muted: #94A3B8;
+            --success: #10B981;
+            --danger: #EF4444;
+            --warning: #F59E0B;
+            --info: #3B82F6;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            background-image: radial-gradient(circle at 50% 0%, rgba(233, 69, 96, 0.15) 0%, transparent 50%),
+                              radial-gradient(circle at 100% 100%, rgba(59, 130, 246, 0.1) 0%, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            padding-bottom: 90px; /* Space for nav bar */
+        }
+
+        /* ----- GLASSMORPHISM UTILITIES ----- */
+        .glass-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+        }
+
+        /* ----- HEADER ----- */
+        .app-header {
+            padding: 30px 20px 20px;
+            text-align: center;
+            position: relative;
+        }
+        .app-header h1 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .app-header h1 span {
+            color: var(--accent-main);
+            -webkit-text-fill-color: var(--accent-main);
+            text-shadow: 0 0 20px var(--accent-glow);
+        }
+        .app-header p {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-top: 5px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* ----- PAGES ----- */
+        .page {
+            display: none;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 0 20px;
+            animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        .page.active {
+            display: block;
+        }
+
+        @keyframes fadeUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin: 25px 0 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-title i {
+            color: var(--accent-main);
+        }
+
+        /* ----- DASHBOARD GRIDS ----- */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .stat-box {
+            padding: 15px;
+            border-radius: 16px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .stat-box.wide {
+            grid-column: span 2;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .stat-box i.bg-icon {
+            position: absolute;
+            right: -10px;
+            bottom: -10px;
+            font-size: 60px;
+            opacity: 0.05;
+            transform: rotate(-15deg);
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+
+        /* Color accents for stat boxes */
+        .box-accent { background: linear-gradient(135deg, rgba(233,69,96,0.1) 0%, rgba(20,20,30,0.6) 100%); border: 1px solid rgba(233,69,96,0.2); }
+        .box-win { background: linear-gradient(135deg, rgba(16,185,129,0.1) 0%, rgba(20,20,30,0.6) 100%); border: 1px solid rgba(16,185,129,0.2); }
+        .box-lose { background: linear-gradient(135deg, rgba(239,68,68,0.1) 0%, rgba(20,20,30,0.6) 100%); border: 1px solid rgba(239,68,68,0.2); }
+        .box-gold { background: linear-gradient(135deg, rgba(245,158,11,0.1) 0%, rgba(20,20,30,0.6) 100%); border: 1px solid rgba(245,158,11,0.2); }
+
+        /* ----- CHARTS ----- */
+        .timeline {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            padding: 10px 0;
+        }
+        .tl-bar {
+            width: 12px;
+            height: 35px;
+            border-radius: 6px;
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        .tl-bar:hover { transform: scaleY(1.3); }
+        .tl-w { background: var(--success); box-shadow: 0 0 10px rgba(16,185,129,0.4); }
+        .tl-l { background: var(--danger); box-shadow: 0 0 10px rgba(239,68,68,0.4); }
+
+        .role-row {
+            margin-bottom: 12px;
+        }
+        .role-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .role-labels i { width: 20px; text-align: center; margin-right: 5px; }
+        .role-track {
+            height: 8px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .role-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* ----- LEADERBOARD ----- */
+        .rank-card {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            margin-bottom: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .rank-card:hover {
+            transform: translateX(5px);
+            border-color: var(--accent-main);
+        }
+        .rank-num {
+            font-size: 24px;
+            font-weight: 800;
+            width: 35px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+        .rank-1 { color: #FFD700; text-shadow: 0 0 15px rgba(255,215,0,0.5); font-size: 28px; }
+        .rank-2 { color: #C0C0C0; font-size: 26px; }
+        .rank-3 { color: #CD7F32; font-size: 26px; }
+        
+        .rank-info { flex: 1; }
+        .rank-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+        .rank-stats { font-size: 12px; color: var(--text-muted); }
+        
+        .rank-wr-box {
+            text-align: right;
+        }
+        .rank-wr-val { font-size: 22px; font-weight: 800; }
+        .rank-wr-bar {
+            width: 60px;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            margin-top: 5px;
+            margin-left: auto;
+            overflow: hidden;
+        }
+        .rank-wr-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-main), #FF9A9E);
+        }
+
+        /* ----- DRAFT HELPER ----- */
+        .draft-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+        .draft-role-card {
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            overflow: hidden;
+            background: var(--bg-card);
+        }
+        .draft-header {
+            padding: 12px 15px;
+            font-weight: 700;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid var(--border-glass);
+        }
+        .draft-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .draft-item:last-child { border-bottom: none; }
+        .draft-medal { width: 25px; font-size: 16px; text-align: center; }
+        .draft-name { flex: 1; font-weight: 600; font-size: 14px; margin-left: 10px; }
+        .draft-wr { font-weight: 800; font-size: 15px; }
+        .draft-picks { font-size: 11px; color: var(--text-muted); margin-left: 8px; width: 45px; text-align: right; }
+
+        /* ----- GAME LOG & MODALS ----- */
+        .game-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 15px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .game-badge-res {
+            width: 4px;
+            height: 40px;
+            border-radius: 4px;
+        }
+        .game-info { flex: 1; }
+        .game-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .g-tag { padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; }
+        .g-win { background: rgba(16,185,129,0.15); color: var(--success); }
+        .g-lose { background: rgba(239,68,68,0.15); color: var(--danger); }
+        .g-mode { background: rgba(255,255,255,0.1); color: #fff; }
+        .g-date { font-size: 11px; color: var(--text-muted); }
+        .game-lineup { font-size: 12px; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .btn-icon {
+            background: rgba(239,68,68,0.1);
+            color: var(--danger);
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-icon:hover { background: var(--danger); color: #fff; }
+
+        /* Forms & Inputs */
+        .input-group { margin-bottom: 15px; }
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+        input, select {
+            width: 100%;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border-glass);
+            color: white;
+            padding: 12px 15px;
+            border-radius: 12px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent-main);
+            box-shadow: 0 0 0 4px var(--accent-glow);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-main) 0%, #8e2341 100%);
+            color: white;
+            box-shadow: 0 4px 15px var(--accent-glow);
+        }
+        .btn-primary:hover { box-shadow: 0 6px 20px var(--accent-glow); }
+        .btn-secondary {
+            background: rgba(255,255,255,0.05);
+            color: white;
+            border: 1px solid var(--border-glass);
+        }
+
+        .lineup-builder { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 16px; border: 1px solid var(--border-glass); }
+        .p-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .p-row:last-child { margin-bottom: 0; }
+        .p-row select, .p-row input { padding: 10px; font-size: 13px; }
+
+        /* ----- BOTTOM NAVIGATION ----- */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border-glass);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 10px 25px; /* Extra padding for iOS home indicator */
+            z-index: 1000;
+        }
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-muted);
+            text-decoration: none;
+            cursor: pointer;
+            width: 20%;
+            transition: all 0.3s;
+            background: transparent;
+            border: none;
+        }
+        .nav-item i {
+            font-size: 20px;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .nav-item span {
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .nav-item.active {
+            color: var(--accent-main);
+        }
+        .nav-item.active i {
+            transform: translateY(-4px) scale(1.1);
+            text-shadow: 0 0 15px var(--accent-glow);
+        }
+        
+        /* Floating Add Action Button */
+        .fab-wrap {
+            position: relative;
+            top: -25px;
+        }
+        .fab {
+            background: linear-gradient(135deg, var(--accent-main), #FF9A9E);
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            box-shadow: 0 10px 25px var(--accent-glow);
+            border: none;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+        .fab:hover { transform: scale(1.05); }
+
+        /* Loader & Status */
+        .full-loader {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(233,69,96,0.2);
+            border-top-color: var(--accent-main);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Modals */
+        .modal-bg {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(5px);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .modal-bg.show { display: flex; opacity: 1; }
+        .modal-content {
+            background: var(--bg-base);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding: 25px;
+            transform: translateY(20px);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .modal-bg.show .modal-content { transform: translateY(0); }
+        
+        .toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px);
+            background: var(--bg-card); backdrop-filter: blur(10px);
+            border: 1px solid var(--border-glass);
+            padding: 12px 20px; border-radius: 30px;
+            font-weight: 600; font-size: 13px;
+            z-index: 3000; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-bottom: 2px solid var(--success); }
+        .toast.error { border-bottom: 2px solid var(--danger); }
+
+    </style>
 </head>
 <body>
-<div class="app-header">
-<h1>⚔️ SENTINELMLBB</h1>
-<p>Squad Postgame Analysis System</p>
-</div>
 
-<div id="pg-home" class="page active">
-<div class="loader" id="dashLoader">Loading dashboard...</div>
-<div id="dashContent" style="display:none">
-<div class="stats-grid" id="statsGrid"></div>
-<div class="section-title">📈 Win/Loss Timeline</div>
-<div class="timeline" id="timeline"></div>
-<div class="section-title">🎭 Role Distribution</div>
-<div id="roleBars"></div>
-</div>
-</div>
+    <div class="app-header">
+        <h1>SENTINEL<span>MLBB</span></h1>
+        <p>Premium Analytics Console</p>
+    </div>
 
-<div id="pg-rank" class="page">
-<div class="section-title">🏆 Player Rankings</div>
-<div id="lbList"><div class="empty">Loading...</div></div>
-</div>
+    <!-- HOME DASHBOARD -->
+    <div id="pg-home" class="page active">
+        <div id="dashLoader" class="full-loader">
+            <div class="spinner"></div>
+            <p>Syncing database...</p>
+        </div>
+        
+        <div id="dashContent" style="display: none;">
+            <div class="stats-grid" id="mainStats">
+                <!-- Injected via JS -->
+            </div>
 
-<div id="pg-draft" class="page">
-<div class="section-title">🎯 Draft Helper — Top Heroes by Role</div>
-<p style="font-size:11px;color:var(--dim);margin-bottom:12px">Based on your squad's Win Rate data (min 2 picks)</p>
-<div id="draftContent"><div class="empty">Loading...</div></div>
-</div>
+            <div class="glass-card" style="margin-bottom: 25px;">
+                <div class="section-title" style="margin-top: 0;"><i class="fa-solid fa-chart-line"></i> Recent Form (Last 30)</div>
+                <div class="timeline" id="timelineBar"></div>
+            </div>
 
-<div id="pg-games" class="page">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-<div class="section-title" style="margin:0">🎮 Game Log</div>
-<div style="display:flex;gap:6px">
-<button class="btn btn-sec" style="width:auto;margin:0;padding:6px 10px;font-size:11px" onclick="loadGames()">🔄</button>
-<button class="btn btn-primary" style="width:auto;margin:0;padding:6px 10px;font-size:11px" onclick="openAddModal()">+ Add</button>
-</div>
-</div>
-<div id="gamesList"><div class="empty">Klik 🔄 untuk muat game.</div></div>
-<hr class="divider">
-<div class="section-title">📂 Import CSV</div>
-<p style="font-size:11px;color:var(--dim);margin-bottom:8px">Save as CSV dari Excel sebelum upload.</p>
-<input type="file" id="csvFile" accept=".csv">
-<button class="btn btn-primary" id="btnCsv" onclick="importCSV()">Upload & Proses</button>
-<hr class="divider">
-<button class="btn btn-blue" onclick="doRefresh()">📊 Refresh Stats</button>
-<button class="btn btn-sec" onclick="doAction('backupToGoogleDrive')">💾 Backup</button>
-<div id="gStatus" class="status"></div>
-</div>
+            <div class="glass-card">
+                <div class="section-title" style="margin-top: 0;"><i class="fa-solid fa-masks-theater"></i> Squad Role Distribution</div>
+                <div id="roleDistBars"></div>
+            </div>
+        </div>
+    </div>
 
-<!-- Add Game Modal -->
-<div class="modal-overlay" id="addModal">
-<div class="modal">
-<h3>📝 Add New Game</h3>
-<div class="form-row">
-<div><label>Mode</label><select id="fMode"><option value="Ranked">Ranked</option><option value="Classic">Classic</option><option value="Custom">Custom</option><option value="Tour">Tour</option><option value="MCL">MCL</option></select></div>
-<div><label>Result</label><select id="fResult"><option value="Win">Win ✅</option><option value="Lose">Lose ❌</option></select></div>
-<div><label>Min</label><input type="number" id="fDur" value="15" min="1" max="60"></div>
-</div>
-<label>Notes</label><input type="text" id="fNotes" placeholder="e.g. Lord steal...">
-<label>Lineup</label>
-<div id="fLineup"></div>
-<button class="btn btn-primary" id="btnSave" onclick="saveGame()">💾 Simpan</button>
-<button class="btn btn-sec" onclick="closeAddModal()">Batal</button>
-<div id="mStatus" class="status"></div>
-</div>
-</div>
+    <!-- LEADERBOARD -->
+    <div id="pg-rank" class="page">
+        <div class="section-title"><i class="fa-solid fa-crown"></i> Hall of Fame</div>
+        <div id="lbContent">
+            <div class="full-loader"><div class="spinner"></div></div>
+        </div>
+    </div>
 
-<nav class="nav">
-<button class="active" onclick="go('home',this)"><span class="icon">🏠</span>Home</button>
-<button onclick="go('rank',this)"><span class="icon">🏆</span>Rankings</button>
-<button onclick="go('draft',this)"><span class="icon">🎯</span>Draft</button>
-<button onclick="go('games',this)"><span class="icon">🎮</span>Games</button>
-</nav>
+    <!-- DRAFT HELPER -->
+    <div id="pg-draft" class="page">
+        <div class="section-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Meta Suggestions</div>
+        <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 20px;">Top performing heroes based on your squad's actual win rates (min 2 matches).</p>
+        <div id="draftContent" class="draft-container">
+            <div class="full-loader"><div class="spinner"></div></div>
+        </div>
+    </div>
 
-<script>
-var _players=[],_heroes=[];
-var roleColors={Tank:'#3b82f6',Fighter:'#f59e0b',Assassin:'#ef4444',Mage:'#8b5cf6',Marksman:'#06b6d4',Support:'#10b981'};
-var roleIcons={Tank:'🛡',Fighter:'⚔',Assassin:'🗡',Mage:'🔮',Marksman:'🏹',Support:'💚'};
+    <!-- GAME LOG & SETTINGS -->
+    <div id="pg-games" class="page">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="section-title"><i class="fa-solid fa-gamepad"></i> Match History</div>
+            <button class="btn-secondary" style="width: 40px; height: 40px; border-radius: 12px; border:none;" onclick="loadGames()"><i class="fa-solid fa-rotate-right"></i></button>
+        </div>
+        
+        <div id="gamesContent">
+            <div class="full-loader"><div class="spinner"></div></div>
+        </div>
 
-function go(id,btn){
-  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});
-  document.querySelectorAll('.nav button').forEach(function(b){b.classList.remove('active')});
-  document.getElementById('pg-'+id).classList.add('active');
-  btn.classList.add('active');
-  if(id==='home')loadDashboard();
-  if(id==='rank')loadLeaderboard();
-  if(id==='draft')loadDraft();
-  if(id==='games')loadGames();
-}
+        <div class="glass-card" style="margin-top: 30px;">
+            <div class="section-title" style="margin-top: 0;"><i class="fa-solid fa-sliders"></i> System Controls</div>
+            <div class="input-group">
+                <label>Import Match Data (CSV)</label>
+                <input type="file" id="csvFile" accept=".csv" style="margin-bottom: 10px;">
+                <button class="btn btn-secondary" onclick="uploadCsv()"><i class="fa-solid fa-file-import"></i> Upload & Process</button>
+            </div>
+            <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 20px 0;">
+            <button class="btn btn-primary" onclick="runBackend('refreshAllStats')" style="margin-bottom: 10px;"><i class="fa-solid fa-arrows-rotate"></i> Force Sync Database</button>
+            <button class="btn btn-secondary" onclick="runBackend('backupToGoogleDrive')"><i class="fa-solid fa-cloud-arrow-up"></i> Backup to Drive</button>
+        </div>
+    </div>
 
-function loadDashboard(){
-  document.getElementById('dashLoader').style.display='block';
-  document.getElementById('dashContent').style.display='none';
-  google.script.run.withSuccessHandler(function(d){
-    document.getElementById('dashLoader').style.display='none';
-    document.getElementById('dashContent').style.display='block';
-    renderDashboard(d);
-  }).withFailureHandler(function(e){
-    document.getElementById('dashLoader').innerHTML='<span style="color:var(--lose)">Error: '+e.message+'</span>';
-  }).getAllWebAppData();
-}
+    <!-- ADD GAME MODAL -->
+    <div id="modalAdd" class="modal-bg">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="font-size: 20px; font-weight: 700;"><i class="fa-solid fa-plus" style="color: var(--accent-main)"></i> Record Match</h3>
+                <i class="fa-solid fa-xmark" style="font-size: 20px; color: var(--text-muted); cursor: pointer;" onclick="closeModal()"></i>
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <div class="input-group" style="flex: 1;">
+                    <label>Mode</label>
+                    <select id="iMode">
+                        <option>Ranked</option><option>Classic</option><option>Custom</option><option>Tour</option><option>MCL</option>
+                    </select>
+                </div>
+                <div class="input-group" style="flex: 1;">
+                    <label>Result</label>
+                    <select id="iResult">
+                        <option value="Win">Win</option><option value="Lose">Lose</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <label>Duration (Minutes)</label>
+                <input type="number" id="iDur" value="15" min="1">
+            </div>
+            
+            <div class="input-group">
+                <label>Match Notes (Optional)</label>
+                <input type="text" id="iNotes" placeholder="e.g. Epic comeback...">
+            </div>
 
-function renderDashboard(d){
-  var db=d.dashboard,ch=d.charts;
-  var g=document.getElementById('statsGrid');
-  g.innerHTML=
-    card(db.totalGames,'Total Games','accent')+
-    card(db.winRate+'%','Win Rate',db.winRate>=50?'win':'lose')+
-    card(db.wins,'Wins','win')+card(db.losses,'Losses','lose')+
-    card(db.currentStreak+' '+db.streakType,'Current Streak','gold')+
-    card(db.avgDuration+'m','Avg Duration','accent')+
-    '<div class="stat-card wide accent"><div class="value" style="font-size:15px">⭐ '+db.bestPlayer+'</div><div class="label">Best Player (WR)</div></div>'+
-    '<div class="stat-card wide gold"><div class="value" style="font-size:15px">🎭 '+db.mostPickedHero+'</div><div class="label">Most Picked Hero</div></div>';
-  // Timeline
-  var tl=document.getElementById('timeline');
-  tl.innerHTML=ch.timeline.map(function(t){return '<div class="tl-bar '+(t.result==='Win'?'w':'l')+'" title="Game #'+t.num+' - '+t.result+'"></div>'}).join('');
-  // Role bars
-  var rb=document.getElementById('roleBars');
-  var maxR=Math.max.apply(null,Object.values(ch.roleDist))||1;
-  var html='';
-  Object.keys(ch.roleDist).forEach(function(r){
-    var v=ch.roleDist[r],pct=Math.round((v/maxR)*100);
-    html+='<div class="role-bar-wrap"><div class="role-bar-label"><span>'+roleIcons[r]+' '+r+'</span><span>'+v+' picks</span></div><div class="role-bar"><div class="role-bar-fill" style="width:'+pct+'%;background:'+roleColors[r]+'"></div></div></div>';
-  });
-  rb.innerHTML=html;
-}
+            <div class="input-group">
+                <label>Squad Lineup</label>
+                <div class="lineup-builder" id="formLineup">
+                    <div class="spinner" style="width: 20px; height: 20px; margin: 0 auto;"></div>
+                </div>
+            </div>
 
-function card(val,lbl,cls){return '<div class="stat-card '+cls+'"><div class="value">'+val+'</div><div class="label">'+lbl+'</div></div>'}
+            <button class="btn btn-primary" id="btnSave" onclick="saveMatch()"><i class="fa-solid fa-check"></i> Save Match</button>
+        </div>
+    </div>
 
-function loadLeaderboard(){
-  document.getElementById('lbList').innerHTML='<div class="empty">Loading...</div>';
-  google.script.run.withSuccessHandler(function(data){
-    if(!data||data.length===0){document.getElementById('lbList').innerHTML='<div class="empty">Tiada data.</div>';return}
-    var medals=['🥇','🥈','🥉'];
-    var html=data.map(function(p,i){
-      var wrColor=p.wr>=60?'var(--win)':p.wr>=45?'var(--gold)':'var(--lose)';
-      return '<div class="lb-card"><div class="lb-rank">'+(medals[i]||'#'+(i+1))+'</div><div class="lb-info"><div class="lb-name" style="color:'+p.color+'">'+p.name+'</div><div class="lb-sub">'+p.topHero+' main · '+p.wins+'W '+p.losses+'L</div><div class="wr-bar"><div class="wr-bar-fill" style="width:'+p.wr+'%"></div></div></div><div class="lb-wr"><div class="pct" style="color:'+wrColor+'">'+p.wr+'%</div><div class="games">'+p.games+' games</div></div></div>'
-    }).join('');
-    document.getElementById('lbList').innerHTML=html;
-  }).getLeaderboardData();
-}
+    <!-- BOTTOM NAVIGATION -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="switchPage('home', this)">
+            <i class="fa-solid fa-house"></i>
+            <span>Home</span>
+        </button>
+        <button class="nav-item" onclick="switchPage('rank', this)">
+            <i class="fa-solid fa-trophy"></i>
+            <span>Rankings</span>
+        </button>
+        <div class="fab-wrap">
+            <button class="fab" onclick="openModal()">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+        </div>
+        <button class="nav-item" onclick="switchPage('draft', this)">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>Draft</span>
+        </button>
+        <button class="nav-item" onclick="switchPage('games', this)">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+            <span>History</span>
+        </button>
+    </nav>
 
-function loadDraft(){
-  document.getElementById('draftContent').innerHTML='<div class="empty">Loading...</div>';
-  google.script.run.withSuccessHandler(function(data){
-    var html='';
-    Object.keys(data).forEach(function(role){
-      var heroes=data[role];
-      var c=roleColors[role]||'#888';
-      html+='<div class="draft-role"><div class="draft-role-title" style="background:'+c+'22;color:'+c+'">'+roleIcons[role]+' '+role+'</div><div class="draft-heroes">';
-      if(heroes.length===0){html+='<div class="draft-hero"><span class="name" style="color:var(--dim)">No data (min 2 picks)</span></div>'}
-      else{var med=['🥇','🥈','🥉'];heroes.forEach(function(h,i){
-        var wc=h.wr>=60?'var(--win)':h.wr>=45?'var(--gold)':'var(--lose)';
-        html+='<div class="draft-hero"><span class="medal">'+med[i]+'</span><span class="name">'+h.hero+'</span><span class="wr" style="color:'+wc+'">'+h.wr+'%</span><span class="picks">'+h.picks+' picks</span></div>'
-      })}
-      html+='</div></div>';
-    });
-    document.getElementById('draftContent').innerHTML=html;
-  }).getDraftHelperData();
-}
+    <div id="toast" class="toast"><i id="toastIcon" class="fa-solid fa-check"></i> <span id="toastMsg">Success</span></div>
 
-function loadGames(){
-  document.getElementById('gamesList').innerHTML='<div class="empty">Loading...</div>';
-  google.script.run.withSuccessHandler(function(games){
-    if(!games||games.length===0){document.getElementById('gamesList').innerHTML='<div class="empty">Tiada game log.</div>';return}
-    document.getElementById('gamesList').innerHTML=games.map(function(g){
-      return '<div class="game-row"><span class="num">#'+g.num+'</span><div class="info"><div class="top"><span class="badge '+(g.result==='Win'?'badge-w':'badge-l')+'">'+g.result+'</span><span class="badge badge-m">'+g.mode+'</span><span style="color:var(--dim);font-size:11px">'+g.date+'</span></div><div class="lineup">'+g.lineup+'</div></div><button class="del-btn" onclick="delGame('+g.num+')">🗑</button></div>'
-    }).join('');
-  }).getGamesList();
-}
+    <script>
+        // Data Caches
+        let _players = [];
+        let _heroes = [];
+        const roleColors = { Tank:'#3B82F6', Fighter:'#F59E0B', Assassin:'#EF4444', Mage:'#8B5CF6', Marksman:'#06B6D4', Support:'#10B981' };
+        const roleIcons = { Tank:'fa-shield-halved', Fighter:'fa-gavel', Assassin:'fa-skull', Mage:'fa-hat-wizard', Marksman:'fa-bow-arrow', Support:'fa-hand-holding-heart' };
 
-function delGame(n){if(confirm('Padam Game #'+n+'?')){showGStatus('Deleting...',true);google.script.run.withSuccessHandler(function(r){showGStatus(r.message,r.success);if(r.success)loadGames()}).deleteGameFromSidebar(n)}}
+        // Toast Notification
+        function showToast(msg, isSuccess = true) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            document.getElementById('toastIcon').className = isSuccess ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-exclamation';
+            toast.className = 'toast show ' + (isSuccess ? 'success' : 'error');
+            setTimeout(() => toast.className = 'toast', 3000);
+        }
 
-function openAddModal(){
-  document.getElementById('addModal').classList.add('show');
-  if(_players.length===0){
-    google.script.run.withSuccessHandler(function(p){_players=p;google.script.run.withSuccessHandler(function(h){_heroes=h;buildForm()}).getHeroesList()}).getPlayersList();
-  }
-}
-function closeAddModal(){document.getElementById('addModal').classList.remove('show');document.getElementById('mStatus').className='status'}
+        // Navigation
+        function switchPage(pageId, btnElement) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+            document.getElementById('pg-' + pageId).classList.add('active');
+            if(btnElement) btnElement.classList.add('active');
+            
+            if(pageId === 'home') loadDashboard();
+            if(pageId === 'rank') loadLeaderboard();
+            if(pageId === 'draft') loadDraft();
+            if(pageId === 'games') loadGames();
+        }
 
-function buildForm(){
-  var c=document.getElementById('fLineup'),html='',opts='<option value="">Player...</option>';
-  _players.forEach(function(p){opts+='<option value="'+p+'">'+p+'</option>'});
-  for(var i=1;i<=5;i++){html+='<div class="player-row"><span class="slot">'+i+'</span><select id="fp'+i+'">'+opts+'</select><input type="text" id="fh'+i+'" placeholder="Hero..." list="hlst"></div>'}
-  html+='<datalist id="hlst">'+_heroes.map(function(h){return '<option value="'+h+'">'}).join('')+'</datalist>';
-  c.innerHTML=html;
-}
+        // Dashboard
+        function loadDashboard() {
+            document.getElementById('dashLoader').style.display = 'block';
+            document.getElementById('dashContent').style.display = 'none';
+            google.script.run.withSuccessHandler(res => {
+                document.getElementById('dashLoader').style.display = 'none';
+                document.getElementById('dashContent').style.display = 'block';
+                renderDashboard(res);
+            }).withFailureHandler(err => showToast(err.message, false)).getAllWebAppData();
+        }
 
-function saveGame(){
-  var fd={mode:document.getElementById('fMode').value,result:document.getElementById('fResult').value,duration:document.getElementById('fDur').value,notes:document.getElementById('fNotes').value};
-  var has=false;
-  for(var i=1;i<=5;i++){fd['player'+i]=document.getElementById('fp'+i).value;fd['hero'+i]=document.getElementById('fh'+i).value;if(fd['player'+i]&&fd['hero'+i])has=true}
-  if(!has){showMStatus('Pilih min 1 Player+Hero!',false);return}
-  document.getElementById('btnSave').disabled=true;
-  google.script.run.withSuccessHandler(function(r){
-    document.getElementById('btnSave').disabled=false;showMStatus(r.message,r.success);
-    if(r.success){for(var i=1;i<=5;i++){document.getElementById('fp'+i).value='';document.getElementById('fh'+i).value=''}document.getElementById('fNotes').value='';setTimeout(function(){closeAddModal();loadGames()},1000)}
-  }).withFailureHandler(function(e){document.getElementById('btnSave').disabled=false;showMStatus(e.message,false)}).processManualAddGame(fd);
-}
+        function renderDashboard(data) {
+            const db = data.dashboard;
+            const ch = data.charts;
+            
+            // Cards
+            document.getElementById('mainStats').innerHTML = `
+                <div class="stat-box box-accent">
+                    <i class="fa-solid fa-gamepad bg-icon"></i>
+                    <div class="stat-value">${db.totalGames}</div>
+                    <div class="stat-label">Total Matches</div>
+                </div>
+                <div class="stat-box ${db.winRate >= 50 ? 'box-win' : 'box-lose'}">
+                    <i class="fa-solid fa-percent bg-icon"></i>
+                    <div class="stat-value">${db.winRate}%</div>
+                    <div class="stat-label">Win Rate</div>
+                </div>
+                <div class="stat-box box-win">
+                    <i class="fa-solid fa-arrow-trend-up bg-icon"></i>
+                    <div class="stat-value" style="color:var(--success)">${db.wins}</div>
+                    <div class="stat-label">Victories</div>
+                </div>
+                <div class="stat-box box-lose">
+                    <i class="fa-solid fa-arrow-trend-down bg-icon"></i>
+                    <div class="stat-value" style="color:var(--danger)">${db.losses}</div>
+                    <div class="stat-label">Defeats</div>
+                </div>
+                <div class="stat-box wide box-gold">
+                    <i class="fa-solid fa-fire bg-icon"></i>
+                    <div>
+                        <div class="stat-label" style="margin-top:0">Current Streak</div>
+                        <div class="stat-value">${db.currentStreak} ${db.streakType}</div>
+                    </div>
+                    <div style="text-align: right">
+                        <div class="stat-label" style="margin-top:0">MVP (WR)</div>
+                        <div class="stat-value" style="font-size:20px">${db.bestPlayer}</div>
+                    </div>
+                </div>
+            `;
 
-function importCSV(){
-  var fi=document.getElementById('csvFile');
-  if(!fi.files.length){showGStatus('Pilih fail CSV dulu.',false);return}
-  document.getElementById('btnCsv').disabled=true;
-  var r=new FileReader();r.onload=function(e){
-    google.script.run.withSuccessHandler(function(res){document.getElementById('btnCsv').disabled=false;showGStatus(res.message,res.success);if(res.success)fi.value=''}).withFailureHandler(function(err){document.getElementById('btnCsv').disabled=false;showGStatus(err.message,false)}).processCsvImport(e.target.result);
-  };r.readAsText(fi.files[0]);
-}
+            // Timeline
+            document.getElementById('timelineBar').innerHTML = ch.timeline.map(t => 
+                `<div class="tl-bar ${t.result === 'Win' ? 'tl-w' : 'tl-l'}" title="Game #${t.num}: ${t.result}"></div>`
+            ).join('');
 
-function doRefresh(){showGStatus('Refreshing...',true);google.script.run.withSuccessHandler(function(){showGStatus('Stats refreshed!',true)}).withFailureHandler(function(e){showGStatus(e.message,false)}).refreshAllStats(true)}
-function doAction(fn){google.script.run.withSuccessHandler(function(){showGStatus('Done!',true)}).withFailureHandler(function(e){showGStatus(e.message,false)})[fn]()}
-function showGStatus(m,ok){var e=document.getElementById('gStatus');e.textContent=m;e.className='status '+(ok?'ok':'err')}
-function showMStatus(m,ok){var e=document.getElementById('mStatus');e.textContent=m;e.className='status '+(ok?'ok':'err')}
+            // Roles
+            const maxR = Math.max(...Object.values(ch.roleDist)) || 1;
+            let roleHtml = '';
+            for (const [role, count] of Object.entries(ch.roleDist)) {
+                if(count === 0) continue;
+                const pct = Math.round((count / maxR) * 100);
+                const color = roleColors[role] || '#fff';
+                const icon = roleIcons[role] || 'fa-user';
+                roleHtml += `
+                    <div class="role-row">
+                        <div class="role-labels">
+                            <span><i class="fa-solid ${icon}" style="color:${color}"></i> ${role}</span>
+                            <span style="color:var(--text-muted)">${count} picks</span>
+                        </div>
+                        <div class="role-track">
+                            <div class="role-fill" style="width: ${pct}%; background: ${color}; box-shadow: 0 0 10px ${color}"></div>
+                        </div>
+                    </div>
+                `;
+            }
+            document.getElementById('roleDistBars').innerHTML = roleHtml || '<div class="stat-label text-center">No data yet</div>';
+        }
 
-// Auto-load dashboard on start
-window.onload=function(){loadDashboard()};
-</script>
+        // Leaderboard
+        function loadLeaderboard() {
+            document.getElementById('lbContent').innerHTML = '<div class="full-loader"><div class="spinner"></div></div>';
+            google.script.run.withSuccessHandler(data => {
+                if(!data.length) { document.getElementById('lbContent').innerHTML = '<div class="full-loader">No data</div>'; return; }
+                
+                let html = '';
+                data.forEach((p, i) => {
+                    let rankHtml = `<div class="rank-num">${i+1}</div>`;
+                    if(i===0) rankHtml = `<div class="rank-num rank-1"><i class="fa-solid fa-crown"></i></div>`;
+                    else if(i===1) rankHtml = `<div class="rank-num rank-2"><i class="fa-solid fa-medal"></i></div>`;
+                    else if(i===2) rankHtml = `<div class="rank-num rank-3"><i class="fa-solid fa-award"></i></div>`;
+
+                    const wrColor = p.wr >= 60 ? 'var(--success)' : p.wr >= 45 ? 'var(--warning)' : 'var(--danger)';
+
+                    html += `
+                        <div class="rank-card">
+                            ${rankHtml}
+                            <div class="rank-info">
+                                <div class="rank-name" style="color: ${p.color}">${p.name}</div>
+                                <div class="rank-stats"><i class="fa-solid fa-hand-fist"></i> ${p.topHero} main &bull; ${p.wins}W ${p.losses}L</div>
+                            </div>
+                            <div class="rank-wr-box">
+                                <div class="rank-wr-val" style="color: ${wrColor}">${p.wr}%</div>
+                                <div class="rank-wr-bar"><div class="rank-wr-fill" style="width: ${p.wr}%; background: ${wrColor}"></div></div>
+                            </div>
+                        </div>
+                    `;
+                });
+                document.getElementById('lbContent').innerHTML = html;
+            }).getLeaderboardData();
+        }
+
+        // Draft
+        function loadDraft() {
+            document.getElementById('draftContent').innerHTML = '<div class="full-loader"><div class="spinner"></div></div>';
+            google.script.run.withSuccessHandler(data => {
+                let html = '';
+                for (const [role, heroes] of Object.entries(data)) {
+                    const color = roleColors[role] || '#fff';
+                    const icon = roleIcons[role] || 'fa-user';
+                    
+                    html += `
+                        <div class="draft-role-card">
+                            <div class="draft-header">
+                                <i class="fa-solid ${icon}" style="color:${color}"></i> ${role}
+                            </div>
+                    `;
+                    
+                    if(heroes.length === 0) {
+                        html += `<div class="draft-item"><span class="draft-name" style="color:var(--text-muted)">Need more data</span></div>`;
+                    } else {
+                        const medals = ['<i class="fa-solid fa-crown" style="color:#FFD700"></i>', '<i class="fa-solid fa-medal" style="color:#C0C0C0"></i>', '<i class="fa-solid fa-award" style="color:#CD7F32"></i>'];
+                        heroes.forEach((h, i) => {
+                            const wrColor = h.wr >= 60 ? 'var(--success)' : h.wr >= 45 ? 'var(--warning)' : 'var(--danger)';
+                            html += `
+                                <div class="draft-item">
+                                    <div class="draft-medal">${medals[i] || ''}</div>
+                                    <div class="draft-name">${h.hero}</div>
+                                    <div class="draft-wr" style="color:${wrColor}">${h.wr}%</div>
+                                    <div class="draft-picks">${h.picks} p</div>
+                                </div>
+                            `;
+                        });
+                    }
+                    html += `</div>`;
+                }
+                document.getElementById('draftContent').innerHTML = html;
+            }).getDraftHelperData();
+        }
+
+        // Games History
+        function loadGames() {
+            document.getElementById('gamesContent').innerHTML = '<div class="full-loader"><div class="spinner"></div></div>';
+            google.script.run.withSuccessHandler(games => {
+                if(!games.length) { document.getElementById('gamesContent').innerHTML = '<div class="full-loader">No matches yet</div>'; return; }
+                
+                let html = '';
+                games.forEach(g => {
+                    const isWin = g.result === 'Win';
+                    html += `
+                        <div class="game-card">
+                            <div class="game-badge-res ${isWin ? 'tl-w' : 'tl-l'}"></div>
+                            <div class="game-info">
+                                <div class="game-top">
+                                    <span class="g-tag ${isWin ? 'g-win' : 'g-lose'}">${g.result}</span>
+                                    <span class="g-tag g-mode">${g.mode}</span>
+                                    <span class="g-date">#${g.num} &bull; ${g.date}</span>
+                                </div>
+                                <div class="game-lineup">${g.lineup}</div>
+                            </div>
+                            <button class="btn-icon" onclick="deleteGame(${g.num})"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    `;
+                });
+                document.getElementById('gamesContent').innerHTML = html;
+            }).getGamesList();
+        }
+
+        // Actions
+        function runBackend(fn) {
+            showToast('Processing...');
+            google.script.run.withSuccessHandler(() => showToast('Operation successful!'))
+                .withFailureHandler(e => showToast(e.message, false))[fn]();
+        }
+
+        function deleteGame(num) {
+            if(!confirm(`Delete Match #${num}?`)) return;
+            showToast('Deleting...');
+            google.script.run.withSuccessHandler(r => {
+                showToast(r.message, r.success);
+                if(r.success) loadGames();
+            }).withFailureHandler(e => showToast(e.message, false)).deleteGameFromSidebar(num);
+        }
+
+        function uploadCsv() {
+            const fi = document.getElementById('csvFile');
+            if(!fi.files.length) { showToast('Select a CSV file first', false); return; }
+            showToast('Uploading...');
+            const reader = new FileReader();
+            reader.onload = e => {
+                google.script.run.withSuccessHandler(r => {
+                    showToast(r.message, r.success);
+                    if(r.success) { fi.value = ''; loadGames(); }
+                }).withFailureHandler(err => showToast(err.message, false)).processCsvImport(e.target.result);
+            };
+            reader.readAsText(fi.files[0]);
+        }
+
+        // Modal Logic
+        function openModal() {
+            document.getElementById('modalAdd').classList.add('show');
+            if(_players.length === 0) {
+                google.script.run.withSuccessHandler(p => {
+                    _players = p;
+                    google.script.run.withSuccessHandler(h => {
+                        _heroes = h;
+                        buildFormLineup();
+                    }).getHeroesList();
+                }).getPlayersList();
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modalAdd').classList.remove('show');
+        }
+
+        function buildFormLineup() {
+            let pOpts = '<option value="">Select Player...</option>' + _players.map(p => `<option value="${p}">${p}</option>`).join('');
+            let html = '';
+            for(let i=1; i<=5; i++) {
+                html += `
+                    <div class="p-row">
+                        <select id="fp${i}">${pOpts}</select>
+                        <input type="text" id="fh${i}" placeholder="Hero..." list="heroListDL">
+                    </div>
+                `;
+            }
+            html += `<datalist id="heroListDL">${_heroes.map(h => `<option value="${h}">`).join('')}</datalist>`;
+            document.getElementById('formLineup').innerHTML = html;
+        }
+
+        function saveMatch() {
+            const fd = {
+                mode: document.getElementById('iMode').value,
+                result: document.getElementById('iResult').value,
+                duration: document.getElementById('iDur').value,
+                notes: document.getElementById('iNotes').value
+            };
+            let hasData = false;
+            for(let i=1; i<=5; i++) {
+                const p = document.getElementById('fp'+i);
+                const h = document.getElementById('fh'+i);
+                if(p && h) {
+                    fd['player'+i] = p.value;
+                    fd['hero'+i] = h.value;
+                    if(p.value && h.value) hasData = true;
+                }
+            }
+            if(!hasData) { showToast('Select at least 1 player and hero!', false); return; }
+            
+            const btn = document.getElementById('btnSave');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+            
+            google.script.run.withSuccessHandler(r => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Match';
+                showToast(r.message, r.success);
+                if(r.success) {
+                    for(let i=1; i<=5; i++) { document.getElementById('fp'+i).value=''; document.getElementById('fh'+i).value=''; }
+                    document.getElementById('iNotes').value='';
+                    closeModal();
+                    if(document.getElementById('pg-games').classList.contains('active')) loadGames();
+                }
+            }).withFailureHandler(e => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Match';
+                showToast(e.message, false);
+            }).processManualAddGame(fd);
+        }
+
+        // Init
+        window.onload = () => loadDashboard();
+
+    </script>
 </body>
 </html>
