@@ -30,26 +30,34 @@ export default function CompsPage() {
   }, []);
 
   // Build compositions based on team size
-  // Group games by their player/hero combos
+  // Group games by their hero combos (order-independent)
   const compMap: Record<string, { heroes: string[]; players: string[]; wins: number; total: number; games: GameData[] }> = {};
 
   games.forEach((g) => {
-    const slots = (g.players || []).slice(0, teamSize);
-    if (slots.length < teamSize) return; // skip games with fewer players
+    const allPlayers = g.players || [];
+    if (allPlayers.length < teamSize) return; // skip games with fewer players
 
-    // Sort hero names to normalize the comp key
-    const heroNames = slots.map((p) => p.hero_name || "?").sort();
-    const key = heroNames.join(" + ");
+    // Get hero names, trim whitespace, sort alphabetically for order-independent key
+    const heroNames = allPlayers
+      .slice(0, teamSize)
+      .map((p) => (p.hero_name || "?").trim())
+      .filter(Boolean);
+    if (heroNames.length < teamSize) return;
+
+    // Build normalized key (lowercase + sorted) so different slot orders = same comp
+    const sortedNames = [...heroNames].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    const key = sortedNames.map((n) => n.toLowerCase()).join("|");
 
     if (!compMap[key]) {
-      compMap[key] = { heroes: heroNames, players: [], wins: 0, total: 0, games: [] };
+      // Store properly cased hero names for display
+      compMap[key] = { heroes: sortedNames, players: [], wins: 0, total: 0, games: [] };
     }
     compMap[key].total++;
     compMap[key].games.push(g);
     if (g.result?.toLowerCase() === "win") compMap[key].wins++;
 
     // Track unique players
-    slots.forEach((p) => {
+    allPlayers.slice(0, teamSize).forEach((p) => {
       if (p.player_name && !compMap[key].players.includes(p.player_name)) {
         compMap[key].players.push(p.player_name);
       }
