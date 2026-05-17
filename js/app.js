@@ -344,14 +344,22 @@ window.showAddGameModal = () => {
   let datalist = `<datalist id="heroes-list">`;
   HEROES.forEach(h => datalist += `<option value="${h}">`);
   datalist += `</datalist>`;
-  container.innerHTML += datalist;
+  
+  // Populate player datalist from cachedStats
+  let playerList = `<datalist id="players-list">`;
+  if (cachedStats && cachedStats.players) {
+    Object.keys(cachedStats.players).sort().forEach(p => playerList += `<option value="${p}">`);
+  }
+  playerList += `</datalist>`;
+  
+  container.innerHTML += datalist + playerList;
 
   for (let i = 0; i < 5; i++) {
     const pName = lastGame && lastGame.players[i] ? lastGame.players[i].player_name : '';
     container.innerHTML += `
       <div class="grid-2" style="margin-bottom:10px;">
         <div class="form-group" style="margin-bottom:0;">
-           <input type="text" id="p${i}-name" placeholder="Player ${i+1} Name" value="${pName}">
+           <input type="text" id="p${i}-name" list="players-list" placeholder="Player ${i+1} Name" value="${pName}">
         </div>
         <div class="form-group" style="margin-bottom:0;">
            <input type="text" id="p${i}-hero" list="heroes-list" placeholder="Hero">
