@@ -7,10 +7,10 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
-    "hono": "^4.7.0",
-    "@libsql/client": "^0.14.0"
+    "@libsql/client": "^0.14.0",
+    "hono": "^4.7.0"
   },
   "devDependencies": {
-    "wrangler": "^3.99.0"
+    "wrangler": "^4.92.0"
   }
 }

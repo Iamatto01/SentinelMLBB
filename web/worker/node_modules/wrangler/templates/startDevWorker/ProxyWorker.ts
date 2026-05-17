@@ -23,6 +23,7 @@ type Request = Parameters<
 >[0];
 
 const LIVE_RELOAD_PROTOCOL = "WRANGLER_PROXYWORKER_LIVE_RELOAD_PROTOCOL";
+const LIVE_RELOAD_PATHNAME = "/cdn-cgi/live-reload";
 export default {
 	fetch(req, env) {
 		const singleton = env.DURABLE_OBJECT.idFromName("");
@@ -128,8 +129,6 @@ export class ProxyWorker implements DurableObject {
 				proxyData.userWorkerInnerUrlOverrides ?? {},
 				request.url
 			);
-			headers.set("MF-Original-URL", innerUrl.href);
-			headers.set("MF-Disable-Pretty-Error", "true"); // disables the UserWorker miniflare instance from rendering the pretty error -- instead the ProxyWorker miniflare instance will intercept the json error response and render the pretty error page
 
 			// Preserve client `Accept-Encoding`, rather than using Worker's default
 			// of `Accept-Encoding: br, gzip`
@@ -137,6 +136,11 @@ export class ProxyWorker implements DurableObject {
 			if (encoding !== undefined) headers.set("Accept-Encoding", encoding);
 
 			rewriteUrlRelatedHeaders(headers, outerUrl, innerUrl);
+
+			// Set after `rewriteUrlRelatedHeaders` so that any occurrences of the
+			// outer host inside the URL's query string (e.g. `?redirect_uri=`)
+			// are preserved in `request.url` inside the user worker.
+			headers.set("MF-Original-URL", innerUrl.href);
 
 			// merge proxyData headers with the request headers
 			for (const [key, value] of Object.entries(proxyData.headers ?? {})) {
@@ -152,12 +156,20 @@ export class ProxyWorker implements DurableObject {
 
 			// explicitly NOT await-ing this promise, we are in a loop and want to process the whole queue quickly + synchronously
 			void fetch(userWorkerUrl, new Request(request, { headers }))
-				.then((res) => {
+				.then(async (res) => {
 					res = new Response(res.body, res);
 					rewriteUrlRelatedHeaders(res.headers, innerUrl, outerUrl);
 
+					await checkForPreviewTokenError(res, this.env, proxyData);
+
 					if (isHtmlResponse(res)) {
 						res = insertLiveReloadScript(request, res, this.env, proxyData);
+					}
+
+					if (isSseResponse(res)) {
+						void sendMessageToProxyController(this.env, {
+							type: "sseResponseDetected",
+						});
 					}
 
 					deferredResponse.resolve(res);
@@ -226,7 +238,16 @@ function isRequestFromProxyController(req: Request, env: Env): boolean {
 function isHtmlResponse(res: Response): boolean {
 	return res.headers.get("content-type")?.startsWith("text/html") ?? false;
 }
+function isSseResponse(res: Response): boolean {
+	return (
+		res.headers.get("content-type")?.startsWith("text/event-stream") ?? false
+	);
+}
 function isRequestForLiveReloadWebsocket(req: Request): boolean {
+	if (new URL(req.url).pathname !== LIVE_RELOAD_PATHNAME) {
+		return false;
+	}
+
 	const websocketProtocol = req.headers.get("Sec-WebSocket-Protocol");
 	const isWebSocketUpgrade = req.headers.get("Upgrade") === "websocket";
 
@@ -243,6 +264,35 @@ function sendMessageToProxyController(
 	});
 }
 
+async function checkForPreviewTokenError(
+	response: Response,
+	env: Env,
+	proxyData: ProxyData
+) {
+	if (response.status !== 400) {
+		return;
+	}
+
+	// At this point HTMLRewriter tries to parse the compressed stream,
+	// so we clone and read the text instead.
+	const clone = response.clone();
+	const text = await clone.text();
+	// Naive string match should be good enough when combined with status code check.
+	// "Invalid Workers Preview configuration" is the HTML error returned when the
+	// preview token has expired. "error code: 1031" is a text/plain error returned
+	// by remote bindings (e.g. Workers AI) when their underlying session has timed out.
+	// Both indicate the preview session needs to be refreshed.
+	if (
+		text.includes("Invalid Workers Preview configuration") ||
+		text.includes("error code: 1031")
+	) {
+		void sendMessageToProxyController(env, {
+			type: "previewTokenExpired",
+			proxyData,
+		});
+	}
+}
+
 function insertLiveReloadScript(
 	request: Request,
 	response: Response,
@@ -251,26 +301,8 @@ function insertLiveReloadScript(
 ) {
 	const htmlRewriter = new HTMLRewriter();
 
-	// if preview-token-expired response, errorDetails will contain "Invalid Workers Preview configuration"
-	let errorDetails = "";
-	htmlRewriter.on("#cf-error-details", {
-		text(element) {
-			errorDetails += element.text;
-		},
-	});
-
 	htmlRewriter.onDocument({
 		end(end) {
-			if (
-				response.status === 400 &&
-				errorDetails.includes("Invalid Workers Preview configuration")
-			) {
-				void sendMessageToProxyController(env, {
-					type: "previewTokenExpired",
-					proxyData,
-				});
-			}
-
 			// if liveReload enabled, append a script tag
 			// TODO: compare to existing nodejs implementation
 			if (proxyData.liveReload) {
@@ -297,7 +329,7 @@ const liveReloadScript = `
 		function initLiveReload() {
 			if (ws) return;
 			var origin = (location.protocol === "http:" ? "ws://" : "wss://") + location.host;
-			ws = new WebSocket(origin + "/cdn-cgi/live-reload", "${LIVE_RELOAD_PROTOCOL}");
+			ws = new WebSocket(origin + "${LIVE_RELOAD_PATHNAME}", "${LIVE_RELOAD_PROTOCOL}");
 			ws.onclose = recover;
 			ws.onerror = recover;
 			ws.onmessage = location.reload.bind(location);
