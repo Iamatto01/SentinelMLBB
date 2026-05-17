@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "motion/react";
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
 import {
   LayoutDashboard,
@@ -96,11 +97,21 @@ export default function DashboardLayout({
         <SidebarBody className="justify-between gap-10">
           <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
             <div className="flex items-center gap-2 px-2 py-4">
-              <span className="text-2xl">⚔️</span>
+              <motion.div
+                animate={{ rotate: open ? 360 : 0 }}
+                transition={{ duration: 0.5, ease: "easeInOut" }}
+                className="text-2xl"
+              >
+                ⚔️
+              </motion.div>
               {open && (
-                <span className="font-bold text-lg bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-indigo-500 whitespace-pre">
-                  SENTINEL
-                </span>
+                <motion.span
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="font-bold text-lg bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-indigo-500 whitespace-pre"
+                >
+                  SentinelMLBB
+                </motion.span>
               )}
             </div>
             <div className="mt-8 flex flex-col gap-2">
@@ -118,18 +129,26 @@ export default function DashboardLayout({
           </div>
           <div>
             <div className="flex items-center justify-start gap-2 group/sidebar py-2 px-2">
-              <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-indigo-500 to-teal-400 flex items-center justify-center text-white font-bold text-xs shrink-0">
+              <motion.div
+                whileHover={{ scale: 1.15, rotate: 5 }}
+                whileTap={{ scale: 0.95 }}
+                className="h-7 w-7 rounded-full bg-gradient-to-tr from-indigo-500 to-teal-400 flex items-center justify-center text-white font-bold text-xs shrink-0 cursor-pointer shadow-lg shadow-indigo-500/30"
+              >
                 {user.name[0]?.toUpperCase()}
-              </div>
+              </motion.div>
               {open && (
-                <div className="flex flex-col whitespace-pre">
+                <motion.div
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex flex-col whitespace-pre"
+                >
                   <span className="text-sm text-neutral-700 dark:text-neutral-200 font-medium">
                     {user.name}
                   </span>
                   <span className="text-xs text-neutral-500 capitalize">
                     {user.role}
                   </span>
-                </div>
+                </motion.div>
               )}
             </div>
           </div>
@@ -140,16 +159,12 @@ export default function DashboardLayout({
           <Navbar>
             <NavBody>
               <div className="flex items-center w-full justify-between px-4">
-                <span className="font-bold text-lg hidden md:block">Sentinel Analytics</span>
-                <div className="flex gap-4">
-                   <button className="text-sm font-medium hover:text-teal-500 transition-colors">Documentation</button>
-                   <button className="text-sm font-medium hover:text-teal-500 transition-colors">Support</button>
-                </div>
+                <span className="font-bold text-lg hidden md:block bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-indigo-500">SentinelMLBB</span>
               </div>
             </NavBody>
             <MobileNav>
               <MobileNavHeader>
-                <span className="font-bold">Sentinel</span>
+                <span className="font-bold bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-indigo-500">SentinelMLBB</span>
                 <MobileNavToggle isOpen={false} onClick={() => {}} />
               </MobileNavHeader>
             </MobileNav>

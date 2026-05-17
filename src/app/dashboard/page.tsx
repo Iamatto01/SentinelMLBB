@@ -63,16 +63,17 @@ export default function DashboardPage() {
 
   const roleData = Object.entries(heroCount)
     .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 6);
+    .sort((a, b) => b.value - a.value);
 
+  // ALL heroes win rate data (no limit, for scrollable list)
   const winRateData = Object.entries(heroCount)
     .map(([name, total]) => ({
       name,
+      wins: heroWins[name] || 0,
+      games: total,
       winRate: Math.round(((heroWins[name] || 0) / total) * 100),
     }))
-    .sort((a, b) => b.winRate - a.winRate)
-    .slice(0, 6);
+    .sort((a, b) => b.winRate - a.winRate);
 
   // Most played hero
   const topHero = roleData.length > 0 ? roleData[0].name : "N/A";
@@ -127,20 +128,24 @@ export default function DashboardPage() {
         </div>
 
         <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 rounded-2xl shadow-sm">
-          <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200 mb-6">Win Rate by Hero (%)</h2>
-          <div className="h-[300px] w-full">
-            {mounted && winRateData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={winRateData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.2} />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
-                  <Tooltip cursor={{ fill: 'rgba(107, 114, 128, 0.1)' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                  <Bar dataKey="winRate" fill="#8B5CF6" radius={[4, 4, 0, 0]} barSize={32} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-neutral-400 text-sm">
+          <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200 mb-4">Win Rate by Hero</h2>
+          <div className="max-h-[340px] overflow-y-auto pr-2 space-y-3">
+            {winRateData.length > 0 ? winRateData.map((hero, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300 w-28 truncate shrink-0">{hero.name}</span>
+                <div className="flex-1 h-6 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden relative">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${hero.winRate >= 60 ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' : hero.winRate >= 50 ? 'bg-gradient-to-r from-blue-400 to-indigo-500' : 'bg-gradient-to-r from-orange-400 to-red-500'}`}
+                    style={{ width: `${hero.winRate}%` }}
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-neutral-800 dark:text-white mix-blend-difference">
+                    {hero.winRate}%
+                  </span>
+                </div>
+                <span className="text-xs text-neutral-400 w-16 text-right shrink-0">{hero.wins}W/{hero.games - hero.wins}L</span>
+              </div>
+            )) : (
+              <div className="h-[200px] flex items-center justify-center text-neutral-400 text-sm">
                 {loading ? "Loading..." : "No game data yet"}
               </div>
             )}
