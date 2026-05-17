@@ -1,0 +1,740 @@
+﻿// ============================================================
+// SENTINEL MLBB â€” CORE SYSTEM (SentinelCore.gs)
+// DEPLOY THIS AS A LIBRARY to hide your code from clients.
+// ============================================================
+// ============================================================
+// SENTINEL MLBB â€” STANDALONE CLIENT
+// ============================================================
+
+// â”€â”€â”€ GLOBAL STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+var PLAYERS = [];
+var GLOBAL_SS = null;
+
+// â”€â”€â”€ HERO DATA (DO NOT EDIT) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+var HEROES = [
+  "Aamon","Akai","Aldous","Alice","Alpha","Alucard","Angela","Argus","Arlott","Atlas",
+  "Aulus","Aurora","Badang","Balmond","Bane","Barats","Baxia","Beatrix","Belerick","Benedetta",
+  "Brody","Bruno","Carmilla","Cecilion","Chang'e","Chip","Chou","Cici","Claude","Clint",
+  "Cyclops","Diggie","Dyrroth","Edith","Esmeralda","Estes","Eudora","Fanny","Faramis","Floryn",
+  "Franco","Fredrinn","Freya","Gatotkaca","Gloo","Gord","Granger","Grock","Guinevere","Gusion",
+  "Hanabi","Hanzo","Harith","Harley","Hayabusa","Helcurt","Hilda","Hylos","Irithel","Ixia",
+  "Jawhead","Johnson","Joy","Julian","Kadita","Kagura","Kaja","Kalea","Karina","Karrie",
+  "Khaleed","Khufra","Kimmy","Lancelot","Lapu-Lapu","Layla","Leomord","Lesley","Ling","Lolita",
+  "Lukas","Lunox","Luo Yi","Lylia","Marcel","Martis","Masha","Mathilda","Melissa","Minotaur",
+  "Minsitthar","Miya","Moskov","Nana","Natalia","Nolan","Obsidia","Odette","Paquito","Pharsa","Phoveus",
+  "Popol and Kupa","Rafaela","Roger","Ruby","Saber","Selena","Sora","Suyou","Tamuz","Terizla",
+  "Thamuz","Tigreal","Uranus","Valentina","Valir","Vexana","Wanwan","X.Borg","Xavier",
+  "Yi Sun-shin","Yin","Yu Zhong","Yve","Zetian","Zhask","Zhuxin"
+];
+
+var HERO_ROLES = {
+  "Aamon":"Assassin","Akai":"Tank","Aldous":"Fighter","Alice":"Mage","Alpha":"Fighter",
+  "Alucard":"Fighter","Angela":"Support","Argus":"Fighter","Arlott":"Fighter","Atlas":"Tank",
+  "Aulus":"Fighter","Aurora":"Mage","Badang":"Fighter","Balmond":"Fighter","Bane":"Fighter",
+  "Barats":"Tank","Baxia":"Tank","Beatrix":"Marksman","Belerick":"Tank","Benedetta":"Assassin",
+  "Brody":"Marksman","Bruno":"Marksman","Carmilla":"Support","Cecilion":"Mage","Chang'e":"Mage",
+  "Chip":"Tank","Chou":"Fighter","Cici":"Fighter","Claude":"Marksman","Clint":"Marksman",
+  "Cyclops":"Mage","Diggie":"Support","Dyrroth":"Fighter","Edith":"Tank","Esmeralda":"Mage",
+  "Estes":"Support","Eudora":"Mage","Fanny":"Assassin","Faramis":"Support","Floryn":"Support",
+  "Franco":"Tank","Fredrinn":"Fighter","Freya":"Fighter","Gatotkaca":"Tank","Gloo":"Tank",
+  "Gord":"Mage","Granger":"Marksman","Grock":"Tank","Guinevere":"Fighter","Gusion":"Assassin",
+  "Hanabi":"Marksman","Hanzo":"Assassin","Harith":"Mage","Harley":"Mage","Hayabusa":"Assassin",
+  "Helcurt":"Assassin","Hilda":"Fighter","Hylos":"Tank","Irithel":"Marksman","Ixia":"Marksman",
+  "Jawhead":"Fighter","Johnson":"Tank","Joy":"Assassin","Julian":"Fighter","Kadita":"Mage",
+  "Kagura":"Mage","Kaja":"Support","Kalea":"Mage","Karina":"Assassin","Karrie":"Marksman",
+  "Khaleed":"Fighter","Khufra":"Tank","Kimmy":"Marksman","Lancelot":"Assassin","Lapu-Lapu":"Fighter",
+  "Layla":"Marksman","Leomord":"Fighter","Lesley":"Marksman","Ling":"Assassin","Lolita":"Tank",
+  "Lukas":"Fighter","Lunox":"Mage","Luo Yi":"Mage","Lylia":"Mage","Marcel":"Fighter",
+  "Martis":"Fighter","Masha":"Fighter","Mathilda":"Support","Melissa":"Marksman","Minotaur":"Tank",
+  "Minsitthar":"Fighter","Miya":"Marksman","Moskov":"Marksman","Nana":"Mage","Natalia":"Assassin",
+  "Nolan":"Assassin","Obsidia":"Mage","Odette":"Mage","Paquito":"Fighter","Pharsa":"Mage","Phoveus":"Fighter",
+  "Popol and Kupa":"Marksman","Rafaela":"Support","Roger":"Fighter","Ruby":"Fighter",
+  "Saber":"Assassin","Selena":"Assassin","Sora":"Fighter","Suyou":"Fighter","Tamuz":"Fighter",
+  "Terizla":"Fighter","Thamuz":"Fighter","Tigreal":"Tank","Uranus":"Tank","Valentina":"Mage",
+  "Valir":"Mage","Vexana":"Mage","Wanwan":"Marksman","X.Borg":"Fighter","Xavier":"Mage",
+  "Yi Sun-shin":"Assassin","Yin":"Fighter","Yu Zhong":"Fighter","Yve":"Mage","Zetian":"Mage",
+  "Zhask":"Mage","Zhuxin":"Mage"
+};
+
+var C = {
+  bg:"#0f0f23", bg2:"#1a1a2e", bg3:"#16213e",
+  accent:"#e94560", accent2:"#0f3460", gold:"#f1c40f",
+  win:"#2ecc71", lose:"#e74c3c", text:"#ecf0f1",
+  dim:"#7f8c8d", purple:"#9b59b6", blue:"#3498db",
+  orange:"#e67e22", cyan:"#1abc9c"
+};
+
+var PLAYER_COLORS = ["#ff6b6b","#ffd93d","#6bcb77","#4d96ff","#ff6bff","#ff9f43","#54a0ff","#5f27cd","#01a3a4"];
+
+// â”€â”€â”€ HELPERS// â”€â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function getSafeActiveSpreadsheet() {
+  if (typeof GLOBAL_SS !== 'undefined' && GLOBAL_SS) return GLOBAL_SS;
+  return SpreadsheetApp.getActiveSpreadsheet();
+}
+function getDocSetting(key, fallback) {
+  var v = PropertiesService.getDocumentProperties().getProperty(key);
+  return (v !== null && v !== "") ? v : fallback;
+}
+function setDocSetting(key, value) {
+  PropertiesService.getDocumentProperties().setProperty(key, String(value));
+}
+function getRoleRank(role) {
+  var o = { Tank:1, Fighter:2, Assassin:3, Mage:4, Marksman:5, Support:6, "?":7 };
+  return o[role] || 99;
+}
+function compareDesc(a, b) { return b - a; }
+function getRoleColor(role) {
+  var m = {
+    Tank:     { bg:"#1e3a5f", text:"#6db3f8" },
+    Fighter:  { bg:"#5f3a1e", text:"#f8a86d" },
+    Assassin: { bg:"#4a1e5f", text:"#c86df8" },
+    Mage:     { bg:"#1e5f5f", text:"#6df8f8" },
+    Marksman: { bg:"#5f5f1e", text:"#f8f86d" },
+    Support:  { bg:"#1e5f3a", text:"#6df8a8" }
+  };
+  return m[role] || { bg:"#333", text:"#fff" };
+}
+function jsonOut(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// â”€â”€â”€ MENUS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu("âš”ï¸ MLBB System")
+    .addItem("📤 Upload CSV / XLSX", "showUploadDialog")
+    .addSeparator()
+    .addItem("📊 Refresh Stats", "refreshAllStats")
+    .addSeparator()
+    .addItem("ðŸ—‘ï¸ Clear All Data", "clearAllGameData")
+    .addToUi();
+}
+
+function onEdit(e) {
+  if (!e || !e.range) return;
+  var sh = e.range.getSheet();
+  if (sh.getName() !== "🎮 Game Log") return;
+  if (e.range.getRow() < 4) return;
+  if (e.range.getColumn() < 2 || e.range.getColumn() > 16) return;
+  refreshAllStats(true);
+}
+
+function clearAllGameData() {
+  var ui = SpreadsheetApp.getUi();
+  var resp = ui.alert("âš ï¸ Clear All Data?",
+    "This will delete ALL game log entries and reset all stats sheets.\n\nThis CANNOT be undone!",
+    ui.ButtonSet.YES_NO);
+  if (resp !== ui.Button.YES) return;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var gl = ss.getSheetByName("🎮 Game Log");
+  if (gl) {
+    var lastRow = gl.getLastRow();
+    if (lastRow >= 4) gl.getRange(4, 1, lastRow - 3, 16).clearContent();
+  }
+  ["👥 Player Stats","🦸 Hero Pool","🧩 Team Comps","📊 Analytics","📸 Screenshots"].forEach(function(n){
+    var s = ss.getSheetByName(n);
+    if (s) {
+      var lr = s.getLastRow();
+      if (lr >= 3) s.getRange(3, 1, lr - 2, s.getMaxColumns()).clear();
+      try { s.getCharts().forEach(function(c){ s.removeChart(c); }); } catch(e){}
+    }
+  });
+  var cd = ss.getSheetByName("âš™ï¸ ChartData");
+  if (cd) { try { ss.deleteSheet(cd); } catch(e){} }
+  PLAYERS = [];
+  ui.alert("âœ… All data cleared!");
+}
+
+function trimSheet(sh, targetCols) {
+  var lastRow = sh.getLastRow();
+  var maxRows = sh.getMaxRows();
+  if (maxRows > lastRow && lastRow > 0) {
+    try { sh.deleteRows(lastRow + 1, maxRows - lastRow); } catch(e){}
+  }
+  var maxCols = sh.getMaxColumns();
+  if (targetCols && maxCols > targetCols) {
+    try { sh.hideColumns(targetCols + 1, maxCols - targetCols); } catch(e){}
+  }
+}
+
+// â”€â”€â”€ GAME LOG CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function readGameLog(ss) {
+  var sh = ss.getSheetByName("🎮 Game Log");
+  if (!sh) return [];
+  
+  // Auto-restore headers if they are missing
+  var topVal = String(sh.getRange(3, 1).getValue()).trim();
+  if (topVal !== "#") {
+    try {
+      sh.setRowHeight(1, 50);
+      sh.getRange("A1:P1").merge().setValue("âš”ï¸ MLBB SQUAD POSTGAME ANALYSIS âš”ï¸")
+        .setBackground(C.bg).setFontColor(C.gold).setFontSize(20).setFontFamily("Arial").setFontWeight("bold")
+        .setHorizontalAlignment("center").setVerticalAlignment("middle");
+      sh.setRowHeight(2, 30);
+      sh.getRange("A2:P2").merge().setValue("Log each game below â€” 5 players per game, pick heroes from dropdown, mark Win/Lose")
+        .setBackground(C.bg2).setFontColor(C.dim).setFontSize(10).setFontFamily("Arial").setHorizontalAlignment("center");
+      sh.setRowHeight(3, 35);
+      sh.getRange(3, 1, 1, 16).setValues([["#","Date","Mode","Duration","Player 1","Hero 1","Player 2","Hero 2","Player 3","Hero 3","Player 4","Hero 4","Player 5","Hero 5","Result","Notes"]])
+        .setBackground(C.accent).setFontColor("#fff").setFontWeight("bold").setFontFamily("Arial").setFontSize(10);
+      sh.setFrozenRows(3);
+    } catch(e){}
+  }
+
+  if (sh.getLastRow() < 4) return [];
+  var data = sh.getRange(4, 1, sh.getLastRow() - 3, 16).getValues();
+  var games = [];
+  data.forEach(function(row) {
+    var hasData = row[1] || row[4] || row[14];
+    if (!hasData) return;
+    var players = [], heroes = [];
+    [[4,5],[6,7],[8,9],[10,11],[12,13]].forEach(function(pair) {
+      var p = String(row[pair[0]] || "").trim();
+      var h = String(row[pair[1]] || "").trim();
+      if (p) { players.push(p); heroes.push(h); }
+    });
+    games.push({
+      num:      row[0] || games.length + 1,
+      date:     row[1] || "",
+      mode:     String(row[2] || ""),
+      duration: parseInt(row[3]) || 0,
+      players:  players,
+      heroes:   heroes,
+      result:   String(row[14] || ""),
+      notes:    String(row[15] || "")
+    });
+  });
+  return games;
+}
+
+function appendParsedGameToLog_(parsed) {
+  var ss = getSafeActiveSpreadsheet();
+  var sh = ss.getSheetByName("🎮 Game Log");
+  var values = sh.getRange(4, 1, 200, 16).getValues();
+  var insertRow = 4;
+  for (var i = 0; i < values.length; i++) {
+    if (!values[i][1] && !values[i][4] && !values[i][14]) { insertRow = i + 4; break; }
+    if (i === 199) insertRow = 204;
+  }
+  var pairs = parsed.pairs || [];
+  var row = [
+    insertRow - 3,
+    parsed.date ? Utilities.formatDate(new Date(parsed.date), Session.getScriptTimeZone(), "yyyy-MM-dd") : Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd"),
+    parsed.mode || "Ranked",
+    parsed.duration || 0,
+    pairs[0] ? pairs[0].player : "", pairs[0] ? pairs[0].hero : "",
+    pairs[1] ? pairs[1].player : "", pairs[1] ? pairs[1].hero : "",
+    pairs[2] ? pairs[2].player : "", pairs[2] ? pairs[2].hero : "",
+    pairs[3] ? pairs[3].player : "", pairs[3] ? pairs[3].hero : "",
+    pairs[4] ? pairs[4].player : "", pairs[4] ? pairs[4].hero : "",
+    parsed.result || "Win",
+    parsed.notes || ""
+  ];
+  sh.getRange(insertRow, 1, 1, 16).setValues([row]);
+  return insertRow;
+}
+
+function updateParsedGameInLog_(parsed, gameNum) {
+  var ss = getSafeActiveSpreadsheet();
+  var sh = ss.getSheetByName("🎮 Game Log");
+  var values = sh.getRange(4, 1, 200, 16).getValues();
+  var targetRow = -1;
+  for (var i = 0; i < values.length; i++) {
+    if (parseInt(values[i][0]) === parseInt(gameNum)) { targetRow = i + 4; break; }
+  }
+  if (targetRow === -1) throw new Error("Game #" + gameNum + " not found.");
+  var pairs = parsed.pairs || [];
+  var row = [
+    gameNum,
+    parsed.date ? Utilities.formatDate(new Date(parsed.date), Session.getScriptTimeZone(), "yyyy-MM-dd") : values[targetRow-4][1],
+    parsed.mode || "Ranked",
+    parsed.duration || 0,
+    pairs[0] ? pairs[0].player : "", pairs[0] ? pairs[0].hero : "",
+    pairs[1] ? pairs[1].player : "", pairs[1] ? pairs[1].hero : "",
+    pairs[2] ? pairs[2].player : "", pairs[2] ? pairs[2].hero : "",
+    pairs[3] ? pairs[3].player : "", pairs[3] ? pairs[3].hero : "",
+    pairs[4] ? pairs[4].player : "", pairs[4] ? pairs[4].hero : "",
+    parsed.result || "Win",
+    parsed.notes || ""
+  ];
+  sh.getRange(targetRow, 1, 1, 16).setValues([row]);
+  return targetRow;
+}
+
+function deleteGameInLog_(gameNum) {
+  var ss = getSafeActiveSpreadsheet();
+  var sh = ss.getSheetByName("🎮 Game Log");
+  var values = sh.getRange(4, 1, 200, 16).getValues();
+  for (var i = 0; i < values.length; i++) {
+    if (parseInt(values[i][0]) === parseInt(gameNum)) {
+      sh.getRange(i + 4, 1, 1, 16).clearContent();
+      return;
+    }
+  }
+  throw new Error("Game #" + gameNum + " not found.");
+}
+
+
+// â”€â”€â”€ STATS ENGINE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function refreshAllStats(silentMode) {
+  var silent = silentMode === true;
+  var ss = getSafeActiveSpreadsheet();
+  var games = readGameLog(ss);
+  if (games.length === 0) {
+    if (!silent) SpreadsheetApp.getUi().alert("No games found! Fill in the 🎮 Game Log first.");
+    return;
+  }
+  var newPlayersFound = autoRegisterPlayers_(ss);
+  updatePlayerStats(ss, games);
+  updateHeroPool(ss, games);
+  updateTeamComps(ss, games);
+
+  if (!silent) {
+    var msg = "âœ… All stats refreshed!\n\n" + games.length + " games processed.";
+    if (newPlayersFound > 0) msg += "\n\n👥 " + newPlayersFound + " new player(s) added to dropdown!";
+    SpreadsheetApp.getUi().alert(msg);
+  }
+}
+
+function autoRegisterPlayers_(ss) {
+  var sh = ss.getSheetByName("🎮 Game Log");
+  if (!sh) return 0;
+  var data = sh.getRange(4, 1, 200, 14).getValues();
+  var allNames = {};
+  data.forEach(function(row) {
+    [4,6,8,10,12].forEach(function(c) {
+      var n = String(row[c] || "").trim();
+      if (n && n.length >= 2) allNames[n] = true;
+    });
+  });
+  var uniqueNames = Object.keys(allNames).sort();
+  if (uniqueNames.length === 0) return 0;
+  var existing = {};
+  PLAYERS.forEach(function(p){ existing[p] = true; });
+  var newCount = uniqueNames.filter(function(n){ return !existing[n]; }).length;
+  PLAYERS = uniqueNames;
+  if (PLAYERS.length > 0) {
+    var rule = SpreadsheetApp.newDataValidation().requireValueInList(PLAYERS, true).setAllowInvalid(true).build();
+    [5,7,9,11,13].forEach(function(c){ sh.getRange(4, c, 200, 1).setDataValidation(rule); });
+  }
+  return newCount;
+}
+
+function clearAllData() {
+  var ui = SpreadsheetApp.getUi();
+  if (ui.alert("âš ï¸ WARNING", "Delete ALL game data and reset? Are you sure?", ui.ButtonSet.YES_NO) === ui.Button.YES) {
+    var ss = getSafeActiveSpreadsheet();
+    ["🎮 Game Log","👥 Player Stats","🦸 Hero Pool","🧩 Team Comps","📊 Analytics","📸 Screenshots"].forEach(function(n) {
+      var s = ss.getSheetByName(n); if (s) s.clear();
+    });
+    // Re-create sheets (client sheet context only)
+    var gameLog = ss.getSheetByName("🎮 Game Log");
+    if (gameLog) { setupGameLog(ss); setupPlayerStats(ss); setupHeroPool(ss); setupTeamComps(ss); setupAnalytics(ss); setupScreenshots(ss); }
+    ui.alert("âœ… All data cleared and reset!");
+  }
+}
+
+// â”€â”€â”€ STATS CALCULATIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function updatePlayerStats(ss, games) {
+  var sh = ss.getSheetByName("👥 Player Stats");
+  var sortMode = getDocSetting("playerStatsSort", "wr");
+  var lastRow = sh.getLastRow();
+  if (lastRow > 3) sh.getRange(4, 1, lastRow-3, 11).breakApart().clear();
+  var stats = {};
+  games.forEach(function(g) {
+    g.players.forEach(function(p, i) {
+      if (!stats[p]) stats[p] = { games:0, wins:0, heroes:{}, durations:[], idx:Object.keys(stats).length };
+      stats[p].games++;
+      if (g.result === "Win") stats[p].wins++;
+      if (g.duration > 0) stats[p].durations.push(g.duration);
+      var h = g.heroes[i];
+      if (h) {
+        if (!stats[p].heroes[h]) stats[p].heroes[h] = { picks:0, wins:0 };
+        stats[p].heroes[h].picks++;
+        if (g.result === "Win") stats[p].heroes[h].wins++;
+      }
+    });
+  });
+  var playersSorted = Object.keys(stats).map(function(p) {
+    var s = stats[p];
+    var wr = s.games > 0 ? (s.wins/s.games)*100 : 0;
+    var avgTime = s.durations.length > 0 ? s.durations.reduce(function(a,b){return a+b;},0)/s.durations.length : 0;
+    return { name:p, idx:s.idx, stats:s, wr:wr, avgTime:avgTime };
+  }).sort(function(a,b) {
+    if (sortMode==="games") return compareDesc(a.stats.games,b.stats.games)||compareDesc(a.wr,b.wr);
+    if (sortMode==="wins") return compareDesc(a.stats.wins,b.stats.wins)||compareDesc(a.stats.games,b.stats.games);
+    if (sortMode==="losses") return compareDesc(a.stats.games-a.stats.wins,b.stats.games-b.stats.wins);
+    if (sortMode==="avgTime") return compareDesc(a.avgTime,b.avgTime);
+    return compareDesc(a.wr,b.wr)||compareDesc(a.stats.games,b.stats.games);
+  });
+  playersSorted.forEach(function(pObj, rank) {
+    var r=4+rank; var s=pObj.stats;
+    var wr=s.games>0?Math.round((s.wins/s.games)*100):0;
+    var mostPicked="-",mostPickedCount=0,bestHero="-",bestHeroWR=0;
+    Object.keys(s.heroes).forEach(function(h){
+      var d=s.heroes[h];
+      if(d.picks>mostPickedCount){mostPicked=h;mostPickedCount=d.picks;}
+      if(d.picks>=2){var hwr=(d.wins/d.picks)*100;if(hwr>bestHeroWR){bestHero=h;bestHeroWR=Math.round(hwr);}}
+    });
+    if(bestHero==="-"&&Object.keys(s.heroes).length>0){
+      var e2=Object.keys(s.heroes).sort(function(a,b){return(s.heroes[b].wins/s.heroes[b].picks)-(s.heroes[a].wins/s.heroes[a].picks);});
+      bestHero=e2[0];bestHeroWR=Math.round((s.heroes[e2[0]].wins/s.heroes[e2[0]].picks)*100);
+    }
+    var filled=Math.round((wr/100)*20);
+    var winBar="ðŸŸ©".repeat(filled)+"â¬›".repeat(20-filled)+" "+wr+"%";
+    var avgTime=s.durations.length>0?Math.round(s.durations.reduce(function(a,b){return a+b;},0)/s.durations.length):0;
+    var uniqueHeroes = Object.keys(s.heroes).length;
+    sh.getRange(r,1,1,12).setValues([[pObj.name,s.games,s.wins,s.games-s.wins,wr+"%",winBar,mostPicked,mostPickedCount,bestHero,bestHeroWR+"%",uniqueHeroes,avgTime>0?avgTime+" min":"-"]])
+      .setBackground(rank%2===0?C.bg2:C.bg).setFontColor(C.text).setFontFamily("Arial").setFontSize(11).setVerticalAlignment("middle");
+    sh.getRange(r,1).setFontWeight("bold").setFontColor(PLAYER_COLORS[pObj.idx%PLAYER_COLORS.length]||C.text);
+    sh.getRange(r,5).setBackground(wr>=60?"#1a4731":wr>=50?"#2d3a1a":"#4a1a1a")
+      .setFontColor(wr>=60?C.win:wr>=50?C.gold:C.lose).setFontWeight("bold");
+    sh.getRange(r,11).setFontColor(C.purple).setFontWeight("bold");
+    sh.getRange(r,12).setFontColor(C.cyan);
+  });
+  sh.getRange(3,1,1,12).setValues([["Player","Games","Wins","Losses","Win %","Win Bar","Most Picked Hero","Pick Count","Best Hero (WR)","Best Hero WR%","Flex (Unique)","Avg Time"]]).setBackground("#0d3320").setFontColor(C.win).setFontWeight("bold").setFontSize(9);
+  var startRow=211;
+  playersSorted.forEach(function(pObj,pi){
+    var s=pObj.stats;
+    var heroList=Object.keys(s.heroes).map(function(h){return[h,s.heroes[h]];})
+      .sort(function(a,b){return(b[1].wins/b[1].picks)-(a[1].wins/a[1].picks)||b[1].picks-a[1].picks;});
+    if(!heroList.length)return;
+    sh.getRange(startRow,1,1,6).merge().setValue("🎮 "+pObj.name.toUpperCase()+" â€” Hero Breakdown")
+      .setBackground(PLAYER_COLORS[pi%PLAYER_COLORS.length]||"#333").setFontColor("#fff").setFontWeight("bold").setFontSize(11);
+    startRow++;
+    sh.getRange(startRow,1,1,6).setValues([["Hero","Role","Picks","Wins","Losses","Win %"]])
+      .setBackground("#1a1a2e").setFontColor("#aaa").setFontWeight("bold").setFontSize(9);
+    startRow++;
+    heroList.forEach(function(e){
+      var wr=Math.round((e[1].wins/e[1].picks)*100);
+      sh.getRange(startRow,1,1,6).setValues([[e[0],HERO_ROLES[e[0]]||"?",e[1].picks,e[1].wins,e[1].picks-e[1].wins,wr+"%"]])
+        .setBackground(C.bg).setFontColor(C.text).setFontSize(10);
+      sh.getRange(startRow,6).setFontColor(wr>=60?C.win:wr>=50?C.gold:C.lose).setFontWeight("bold");
+      startRow++;
+    });
+    startRow++;
+  });
+  trimSheet(sh, 12);
+}
+
+function updateHeroPool(ss, games) {
+  var sh=ss.getSheetByName("🦸 Hero Pool");
+  var lastRow=sh.getLastRow();
+  if(lastRow>3)sh.getRange(4,1,lastRow-3,7).clear();
+  var hs={};
+  games.forEach(function(g){g.heroes.forEach(function(h){if(!h)return;if(!hs[h])hs[h]={picks:0,wins:0};hs[h].picks++;if(g.result==="Win")hs[h].wins++;});});
+  var sm=getDocSetting("heroPoolSort","picks");
+  var sorted=Object.keys(hs).map(function(h){return[h,hs[h]];}).sort(function(a,b){
+    var wrA=a[1].picks>0?(a[1].wins/a[1].picks)*100:0,wrB=b[1].picks>0?(b[1].wins/b[1].picks)*100:0;
+    if(sm==="wins")return compareDesc(a[1].wins,b[1].wins)||compareDesc(a[1].picks,b[1].picks);
+    if(sm==="losses")return compareDesc(a[1].picks-a[1].wins,b[1].picks-b[1].wins);
+    if(sm==="wr")return compareDesc(wrA,wrB)||compareDesc(a[1].picks,b[1].picks);
+    if(sm==="role")return getRoleRank(HERO_ROLES[a[0]]||"?")-getRoleRank(HERO_ROLES[b[0]]||"?")||compareDesc(a[1].picks,b[1].picks);
+    return compareDesc(a[1].picks,b[1].picks)||compareDesc(a[1].wins,b[1].wins);
+  });
+  var maxP=sorted.length>0?sorted[0][1].picks:1;
+  sorted.forEach(function(e,i){
+    var h=e[0],d=e[1],r=4+i,wr=Math.round((d.wins/d.picks)*100),role=HERO_ROLES[h]||"?";
+    var filled=Math.round((d.picks/maxP)*15);
+    var bar="ðŸŸ¦".repeat(filled)+"â¬›".repeat(15-filled)+" "+d.picks;
+    var pickPct = games.length > 0 ? Math.round((d.picks / games.length) * 100) : 0;
+    sh.getRange(r,1,1,8).setValues([[h,role,d.picks,pickPct+"%",d.wins,d.picks-d.wins,wr+"%",bar]])
+      .setBackground(i%2===0?C.bg2:C.bg).setFontColor(C.text).setFontFamily("Arial").setFontSize(10);
+    var rc=getRoleColor(role);
+    sh.getRange(r,2).setBackground(rc.bg).setFontColor(rc.text).setFontWeight("bold");
+    sh.getRange(r,4).setFontColor(C.cyan);
+    sh.getRange(r,7).setFontColor(wr>=60?C.win:wr>=50?C.gold:C.lose).setFontWeight("bold");
+  });
+  sh.getRange(3,1,1,8).setValues([["Hero","Role","Picks","%T (Pick)","Wins","Losses","Win %","Popularity"]]).setBackground("#0d3320").setFontColor(C.win).setFontWeight("bold").setFontSize(9);
+  
+  // Fix Number Formatting (Google Sheets caches old column formats)
+  if (sorted.length > 0) {
+    sh.getRange(4, 3, sorted.length, 1).setNumberFormat("0"); // Picks
+    sh.getRange(4, 5, sorted.length, 2).setNumberFormat("0"); // Wins & Losses
+  }
+  trimSheet(sh, 8);
+}
+
+function updateTeamComps(ss, games) {
+  var sh=ss.getSheetByName("🧩 Team Comps");
+  var lastRow=sh.getLastRow();
+  if(lastRow>2)sh.getRange(3,1,lastRow-2,9).clear();
+  sh.setColumnWidth(9,280);
+  var comps={Win:{},Lose:{}};
+  games.forEach(function(g){
+    if(g.heroes.length!==5)return;
+    var key=g.heroes.slice().sort().join(" | ");
+    var res=g.result;
+    if(!comps[res])return;
+    if(!comps[res][key])comps[res][key]={heroes:g.heroes.slice().sort(),count:0,players:[],notes:[]};
+    comps[res][key].count++;
+    comps[res][key].players.push(g.players.join(", "));
+    if(g.notes)comps[res][key].notes.push(g.notes);
+  });
+  var r=3;
+  sh.getRange(r,1,1,9).merge().setValue("ðŸ† WINNING COMPOSITIONS")
+    .setBackground("#1a4731").setFontColor(C.win).setFontWeight("bold").setFontSize(14).setHorizontalAlignment("center");
+  sh.setRowHeight(r,40);r++;
+  sh.getRange(r,1,1,9).setValues([["#","Hero 1","Hero 2","Hero 3","Hero 4","Hero 5","Times","Players","ðŸ“ Notes"]])
+    .setBackground("#0d3320").setFontColor(C.win).setFontWeight("bold").setFontSize(9);r++;
+  var winComps=Object.keys(comps.Win).map(function(k){return comps.Win[k];}).sort(function(a,b){return b.count-a.count;});
+  if(!winComps.length){sh.getRange(r,1,1,9).merge().setValue("No winning compositions yet").setBackground(C.bg).setFontColor(C.dim).setHorizontalAlignment("center");r++;}
+  else winComps.forEach(function(c,i){
+    var notes=c.notes.filter(function(n){return n;}).join(" | ");
+    sh.getRange(r,1,1,9).setValues([[i+1,c.heroes[0]||"",c.heroes[1]||"",c.heroes[2]||"",c.heroes[3]||"",c.heroes[4]||"",c.count,c.players[0]||"",notes]])
+      .setBackground(i%2===0?"#0f1a14":C.bg).setFontColor(C.text).setFontSize(10);
+    sh.getRange(r,7).setFontColor(C.win).setFontWeight("bold");
+    sh.getRange(r,9).setFontColor(C.orange).setFontStyle("italic");r++;
+  });
+  r++;
+  sh.getRange(r,1,1,9).merge().setValue("💀 LOSING COMPOSITIONS")
+    .setBackground("#4a1a1a").setFontColor(C.lose).setFontWeight("bold").setFontSize(14).setHorizontalAlignment("center");
+  sh.setRowHeight(r,40);r++;
+  sh.getRange(r,1,1,9).setValues([["#","Hero 1","Hero 2","Hero 3","Hero 4","Hero 5","Times","Players","ðŸ“ Notes"]])
+    .setBackground("#3d0d0d").setFontColor(C.lose).setFontWeight("bold").setFontSize(9);r++;
+  var loseComps=Object.keys(comps.Lose).map(function(k){return comps.Lose[k];}).sort(function(a,b){return b.count-a.count;});
+  if(!loseComps.length){sh.getRange(r,1,1,9).merge().setValue("No losing compositions yet").setBackground(C.bg).setFontColor(C.dim).setHorizontalAlignment("center");r++;}
+  else loseComps.forEach(function(c,i){
+    var notes=c.notes.filter(function(n){return n;}).join(" | ");
+    sh.getRange(r,1,1,9).setValues([[i+1,c.heroes[0]||"",c.heroes[1]||"",c.heroes[2]||"",c.heroes[3]||"",c.heroes[4]||"",c.count,c.players[0]||"",notes]])
+      .setBackground(i%2===0?"#1a0f0f":C.bg).setFontColor(C.text).setFontSize(10);
+    sh.getRange(r,7).setFontColor(C.lose).setFontWeight("bold");
+    sh.getRange(r,9).setFontColor(C.orange).setFontStyle("italic");r++;
+  });
+  
+  r++;
+  sh.getRange(r,1,1,9).merge().setValue("âš”ï¸ HERO DUOS (All Pairs, Sorted by Picks)")
+    .setBackground("#2c3e50").setFontColor("#3498db").setFontWeight("bold").setFontSize(14).setHorizontalAlignment("center");
+  sh.setRowHeight(r,40);r++;
+  sh.getRange(r,1,1,9).setValues([["#","Hero 1","Hero 2","Picks","Wins","Losses","Win %","",""]])
+    .setBackground("#1a252f").setFontColor("#3498db").setFontWeight("bold").setFontSize(9);r++;
+    
+  var duos = {};
+  games.forEach(function(g) {
+    if (g.heroes.length < 2) return;
+    var h = g.heroes.filter(function(x){return x;});
+    for (var i=0; i<h.length; i++) {
+      for (var j=i+1; j<h.length; j++) {
+        var key = [h[i], h[j]].sort().join(" + ");
+        if (!duos[key]) duos[key] = { picks: 0, wins: 0, h1: h[i], h2: h[j] };
+        duos[key].picks++;
+        if (g.result === "Win") duos[key].wins++;
+      }
+    }
+  });
+  
+  var topDuos = Object.keys(duos).map(function(k){return duos[k];})
+    .filter(function(d){return d.picks >= 2;})
+    .sort(function(a,b){
+      var wrA = a.wins/a.picks, wrB = b.wins/b.picks;
+      return compareDesc(a.picks, b.picks) || compareDesc(wrA, wrB);
+    });
+    
+  if(!topDuos.length){sh.getRange(r,1,1,9).merge().setValue("No duos with 2+ games yet").setBackground(C.bg).setFontColor(C.dim).setHorizontalAlignment("center");r++;}
+  else {
+    topDuos.forEach(function(d, i) {
+      var wr = Math.round((d.wins/d.picks)*100);
+      sh.getRange(r,1,1,9).setValues([[i+1, d.h1, d.h2, d.picks, d.wins, d.picks-d.wins, wr+"%", "", ""]])
+        .setBackground(i%2===0?"#161b22":C.bg).setFontColor(C.text).setFontSize(10);
+      sh.getRange(r,7).setFontColor(wr>=60?C.win:wr>=50?C.gold:C.lose).setFontWeight("bold");r++;
+    });
+  }
+
+  // --- HERO TRIOS (3-hero combos) ---
+  r++;
+  sh.getRange(r,1,1,9).merge().setValue("🔱 HERO TRIOS (All 3-Hero Combos)")
+    .setBackground("#1a3a2a").setFontColor("#2ecc71").setFontWeight("bold").setFontSize(14).setHorizontalAlignment("center");
+  sh.setRowHeight(r,40);r++;
+  sh.getRange(r,1,1,9).setValues([["#","Hero 1","Hero 2","Hero 3","Picks","Wins","Losses","Win %",""]])
+    .setBackground("#0d2818").setFontColor("#2ecc71").setFontWeight("bold").setFontSize(9);r++;
+  var trios = {};
+  games.forEach(function(g) {
+    var h = g.heroes.filter(function(x){return x;});
+    if (h.length < 3) return;
+    for (var i=0;i<h.length;i++) for (var j=i+1;j<h.length;j++) for (var k=j+1;k<h.length;k++) {
+      var key = [h[i],h[j],h[k]].sort().join(" + ");
+      if (!trios[key]) trios[key] = {picks:0,wins:0,h:[h[i],h[j],h[k]].sort()};
+      trios[key].picks++; if (g.result==="Win") trios[key].wins++;
+    }
+  });
+  var topTrios = Object.keys(trios).map(function(k){return trios[k];})
+    .filter(function(d){return d.picks>=2;})
+    .sort(function(a,b){return compareDesc(a.picks,b.picks)||(b.wins/b.picks)-(a.wins/a.picks);});
+  if(!topTrios.length){sh.getRange(r,1,1,9).merge().setValue("No trios with 2+ games yet").setBackground(C.bg).setFontColor(C.dim).setHorizontalAlignment("center");r++;}
+  else topTrios.forEach(function(d,i){
+    var wr=Math.round((d.wins/d.picks)*100);
+    sh.getRange(r,1,1,9).setValues([[i+1,d.h[0],d.h[1],d.h[2],d.picks,d.wins,d.picks-d.wins,wr+"%",""]])
+      .setBackground(i%2===0?"#0d1f14":C.bg).setFontColor(C.text).setFontSize(10);
+    sh.getRange(r,8).setFontColor(wr>=60?C.win:wr>=50?C.gold:C.lose).setFontWeight("bold");r++;
+  });
+
+  // --- HERO QUADS (4-hero combos) ---
+  r++;
+  sh.getRange(r,1,1,9).merge().setValue("ðŸ’  HERO QUADS (All 4-Hero Combos)")
+    .setBackground("#2a1a3a").setFontColor("#9b59b6").setFontWeight("bold").setFontSize(14).setHorizontalAlignment("center");
+  sh.setRowHeight(r,40);r++;
+  sh.getRange(r,1,1,9).setValues([["#","Hero 1","Hero 2","Hero 3","Hero 4","Picks","Wins","Losses","Win %"]])
+    .setBackground("#1a0d28").setFontColor("#9b59b6").setFontWeight("bold").setFontSize(9);r++;
+  var quads = {};
+  games.forEach(function(g) {
+    var h = g.heroes.filter(function(x){return x;});
+    if (h.length < 4) return;
+    for (var i=0;i<h.length;i++) for (var j=i+1;j<h.length;j++) for (var k=j+1;k<h.length;k++) for (var l=k+1;l<h.length;l++) {
+      var key = [h[i],h[j],h[k],h[l]].sort().join(" + ");
+      if (!quads[key]) quads[key] = {picks:0,wins:0,h:[h[i],h[j],h[k],h[l]].sort()};
+      quads[key].picks++; if (g.result==="Win") quads[key].wins++;
+    }
+  });
+  var topQuads = Object.keys(quads).map(function(k){return quads[k];})
+    .filter(function(d){return d.picks>=2;})
+    .sort(function(a,b){return compareDesc(a.picks,b.picks)||(b.wins/b.picks)-(a.wins/a.picks);});
+  if(!topQuads.length){sh.getRange(r,1,1,9).merge().setValue("No quads with 2+ games yet").setBackground(C.bg).setFontColor(C.dim).setHorizontalAlignment("center");r++;}
+  else topQuads.forEach(function(d,i){
+    var wr=Math.round((d.wins/d.picks)*100);
+    sh.getRange(r,1,1,9).setValues([[i+1,d.h[0],d.h[1],d.h[2],d.h[3],d.picks,d.wins,d.picks-d.wins,wr+"%"]])
+      .setBackground(i%2===0?"#1a0d28":C.bg).setFontColor(C.text).setFontSize(10);
+    sh.getRange(r,9).setFontColor(wr>=60?C.win:wr>=50?C.gold:C.lose).setFontWeight("bold");r++;
+  });
+
+  // --- FULL DRAFT (5-hero combos) ---
+  r++;
+  sh.getRange(r,1,1,9).merge().setValue("ðŸ‘‘ FULL HERO DRAFT (All 5-Hero Lineups)")
+    .setBackground("#3a2a1a").setFontColor("#f39c12").setFontWeight("bold").setFontSize(14).setHorizontalAlignment("center");
+  sh.setRowHeight(r,40);r++;
+  sh.getRange(r,1,1,9).setValues([["#","Hero 1","Hero 2","Hero 3","Hero 4","Hero 5","Picks","W/L","Win %"]])
+    .setBackground("#281a0d").setFontColor("#f39c12").setFontWeight("bold").setFontSize(9);r++;
+  var fulls = {};
+  games.forEach(function(g) {
+    var h = g.heroes.filter(function(x){return x;});
+    if (h.length < 5) return;
+    var key = h.slice(0,5).sort().join(" + ");
+    if (!fulls[key]) fulls[key] = {picks:0,wins:0,h:h.slice(0,5).sort()};
+    fulls[key].picks++; if (g.result==="Win") fulls[key].wins++;
+  });
+  var topFulls = Object.keys(fulls).map(function(k){return fulls[k];})
+    .filter(function(d){return d.picks>=2;})
+    .sort(function(a,b){return compareDesc(a.picks,b.picks)||(b.wins/b.picks)-(a.wins/a.picks);});
+  if(!topFulls.length){sh.getRange(r,1,1,9).merge().setValue("No full drafts with 2+ games yet").setBackground(C.bg).setFontColor(C.dim).setHorizontalAlignment("center");r++;}
+  else topFulls.forEach(function(d,i){
+    var wr=Math.round((d.wins/d.picks)*100);
+    sh.getRange(r,1,1,9).setValues([[i+1,d.h[0],d.h[1],d.h[2],d.h[3],d.h[4],d.picks,d.wins+"W/"+String(d.picks-d.wins)+"L",wr+"%"]])
+      .setBackground(i%2===0?"#281a0d":C.bg).setFontColor(C.text).setFontSize(10);
+    sh.getRange(r,9).setFontColor(wr>=60?C.win:wr>=50?C.gold:C.lose).setFontWeight("bold");r++;
+  });
+
+  trimSheet(sh, 9);
+}
+
+
+
+// â”€â”€â”€ UPLOAD CSV / XLSX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function showUploadDialog() {
+  var html = HtmlService.createHtmlOutput(
+    '<!DOCTYPE html>' +
+    '<html><head><style>' +
+    'body { font-family: Arial, sans-serif; background: #0f0f23; color: #ecf0f1; padding: 20px; }' +
+    'h3 { color: #e94560; margin-top: 0; }' +
+    'input[type="file"] { margin-bottom: 20px; color: #ecf0f1; width: 100%; }' +
+    'button { background: #e94560; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; }' +
+    'button:hover { background: #c8324a; }' +
+    '#status { margin-top: 15px; font-size: 13px; color: #f1c40f; text-align: center; }' +
+    '</style>' +
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>' +
+    '</head><body>' +
+    '<h3>📤 Upload CSV / XLSX</h3>' +
+    '<p style="font-size:12px;color:#888;margin-bottom:15px;">Select a file containing your game logs to append them to your Game Log sheet.</p>' +
+    '<input type="file" id="fileInput" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" />' +
+    '<button onclick="processFile()">Upload & Process</button>' +
+    '<div id="status"></div>' +
+    '<script>' +
+    'function processFile() {' +
+    '  var fileInput = document.getElementById("fileInput");' +
+    '  if (!fileInput.files.length) { document.getElementById("status").innerText = "Please select a file first."; return; }' +
+    '  var file = fileInput.files[0];' +
+    '  var reader = new FileReader();' +
+    '  document.getElementById("status").innerText = "Reading file...";' +
+    '  reader.onload = function(e) {' +
+    '    try {' +
+    '      var data = new Uint8Array(e.target.result);' +
+    '      var workbook = XLSX.read(data, {type: "array"});' +
+    '      var firstSheetName = workbook.SheetNames[0];' +
+    '      var worksheet = workbook.Sheets[firstSheetName];' +
+    '      var json = XLSX.utils.sheet_to_json(worksheet, {header: 1});' +
+    '      document.getElementById("status").innerText = "Sending data to sheet...";' +
+    '      google.script.run.withSuccessHandler(function(res) {' +
+    '        document.getElementById("status").innerText = res;' +
+    '        setTimeout(function(){ google.script.host.close(); }, 2000);' +
+    '      }).withFailureHandler(function(err) {' +
+    '        document.getElementById("status").innerText = "Error: " + err.message;' +
+    '      }).processUploadedData(json);' +
+    '    } catch(err) {' +
+    '      document.getElementById("status").innerText = "Error reading file: " + err.message;' +
+    '    }' +
+    '  };' +
+    '  reader.readAsArrayBuffer(file);' +
+    '}' +
+    '</script></body></html>'
+  ).setWidth(360).setHeight(280);
+  SpreadsheetApp.getUi().showModalDialog(html, "Restore Data");
+}
+
+function processUploadedData(data) {
+  if (!data || data.length === 0) return "File is empty.";
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("🎮 Game Log");
+  if (!sh) return "Error: '🎮 Game Log' sheet not found.";
+  
+  var values = sh.getRange(4, 1, 200, 16).getValues();
+  var insertRow = 4;
+  for (var i = 0; i < values.length; i++) {
+    if (!values[i][1] && !values[i][4] && !values[i][14]) { insertRow = i + 4; break; }
+    if (i === 199) insertRow = 204;
+  }
+  
+  var validData = [];
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    if (!row || row.length < 1) continue;
+    
+    // Skip likely header rows
+    if (String(row[1]).toLowerCase().indexOf("date") > -1 || String(row[0]).toLowerCase() === "#" || String(row[0]).toLowerCase() === "date") continue;
+    
+    var newRow = new Array(16).fill("");
+    for (var j = 0; j < 16; j++) {
+      if (j < row.length) newRow[j] = row[j] !== undefined ? row[j] : "";
+    }
+    
+    // Require at least a date, a player name, or a result
+    if (newRow[1] || newRow[4] || newRow[14]) {
+      // Auto-assign game number if missing
+      if (!newRow[0]) newRow[0] = (insertRow - 4) + validData.length + 1;
+      
+      // Fix date formats if they come in as excel serial numbers
+      if (typeof newRow[1] === "number" && newRow[1] > 20000) {
+        var date = new Date(Math.round((newRow[1] - 25569) * 86400 * 1000));
+        newRow[1] = date;
+      }
+      
+      // Fix duration if it was formatted as a time (hh:mm) in Excel but meant (mm:ss)
+      var dur = parseFloat(newRow[3]);
+      if (!isNaN(dur)) {
+        if (dur > 0 && dur <= 1) {
+          newRow[3] = Math.round(dur * 24); // Extracts the 'hours' which were intended as 'minutes'
+        } else {
+          newRow[3] = Math.round(dur);
+        }
+      } else {
+        newRow[3] = 0;
+      }
+      
+      validData.push(newRow);
+    }
+  }
+  
+  if (validData.length === 0) return "No valid game logs found in file.";
+  if (insertRow + validData.length - 1 > sh.getMaxRows()) {
+    sh.insertRowsAfter(sh.getMaxRows(), validData.length);
+  }
+  
+  sh.getRange(insertRow, 1, validData.length, 16).setValues(validData);
+  
+  return "âœ… " + validData.length + " games uploaded! Please Refresh Stats.";
+}

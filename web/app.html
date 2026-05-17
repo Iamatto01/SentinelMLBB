@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SentinelMLBB | Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="app-layout">
+  <!-- Mobile Menu Button -->
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+
+  <!-- Sidebar Navigation -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h1>⚔️ SENTINEL</h1>
+      <div class="user-name" id="user-name-display">Loading...</div>
+    </div>
+    <div class="sidebar-nav">
+      <button class="nav-item active" onclick="switchTab('dashboard')" data-tab="dashboard">
+        <span class="nav-icon">🏠</span> Dashboard
+      </button>
+      <button class="nav-item" onclick="switchTab('gamelog')" data-tab="gamelog">
+        <span class="nav-icon">🎮</span> Game Log
+      </button>
+      <button class="nav-item" onclick="switchTab('playerstats')" data-tab="playerstats">
+        <span class="nav-icon">👥</span> Player Stats
+      </button>
+      <button class="nav-item" onclick="switchTab('heropool')" data-tab="heropool">
+        <span class="nav-icon">🦸</span> Hero Pool
+      </button>
+      <button class="nav-item" onclick="switchTab('teamcomps')" data-tab="teamcomps">
+        <span class="nav-icon">🧩</span> Team Comps
+      </button>
+      <div class="nav-divider"></div>
+      <button class="nav-item" onclick="switchTab('admin')" data-tab="admin" id="nav-admin" style="display: none;">
+        <span class="nav-icon">⚙️</span> Admin Panel
+      </button>
+    </div>
+    <div class="sidebar-footer">
+      <button class="nav-item" onclick="logout()">
+        <span class="nav-icon">🚪</span> Logout
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="main-content">
+    
+    <!-- DASHBOARD TAB -->
+    <div id="tab-dashboard" class="tab-content active">
+      <div class="page-header">
+        <h2>Dashboard</h2>
+        <p>Overview of your squad's performance</p>
+      </div>
+      <div class="page-content">
+        <div class="stats-grid" id="dash-quick-stats">
+          <!-- Populated by JS -->
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <h3 class="card-title">Win Rate Trend (Last 20 Games)</h3>
+            <canvas id="chart-winrate"></canvas>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Role Distribution</h3>
+            <canvas id="chart-roles"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME LOG TAB -->
+    <div id="tab-gamelog" class="tab-content">
+      <div class="page-header">
+        <h2>Game Log</h2>
+        <p>Record your matches here</p>
+      </div>
+      <div class="page-content">
+        <div class="toolbar">
+          <button class="btn btn-primary btn-sm" onclick="showAddGameModal()">+ Add Game</button>
+        </div>
+        <div class="card" style="overflow-x: auto;">
+          <table class="data-table" id="table-gamelog">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Date</th>
+                <th>Mode</th>
+                <th>Duration</th>
+                <th>Player 1 (Hero)</th>
+                <th>Player 2 (Hero)</th>
+                <th>Player 3 (Hero)</th>
+                <th>Player 4 (Hero)</th>
+                <th>Player 5 (Hero)</th>
+                <th>Result</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLAYER STATS TAB -->
+    <div id="tab-playerstats" class="tab-content">
+      <div class="page-header">
+        <h2>Player Stats</h2>
+        <p>Individual performance breakdown</p>
+      </div>
+      <div class="page-content">
+        <div class="toolbar">
+           <select id="sort-playerstats" onchange="renderPlayerStats()">
+              <option value="wr">Sort by Win Rate</option>
+              <option value="games">Sort by Total Games</option>
+              <option value="name">Sort by Name</option>
+           </select>
+        </div>
+        <div class="card" style="overflow-x: auto;">
+          <table class="data-table" id="table-playerstats">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>Games</th>
+                <th>Win</th>
+                <th>Lose</th>
+                <th>Win Rate</th>
+                <th>Flex Score</th>
+                <th>Most Picked</th>
+                <th>Best Hero</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- HERO POOL TAB -->
+    <div id="tab-heropool" class="tab-content">
+      <div class="page-header">
+        <h2>Hero Pool</h2>
+        <p>Analysis of all heroes played</p>
+      </div>
+      <div class="page-content">
+        <div class="toolbar">
+           <select id="sort-heropool" onchange="renderHeroPool()">
+              <option value="picks">Sort by Picks</option>
+              <option value="wr">Sort by Win Rate</option>
+           </select>
+        </div>
+        <div class="card" style="overflow-x: auto;">
+          <table class="data-table" id="table-heropool">
+            <thead>
+              <tr>
+                <th>Hero</th>
+                <th>Role</th>
+                <th>Picks</th>
+                <th>Win</th>
+                <th>Lose</th>
+                <th>Win Rate</th>
+                <th>Best Player</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEAM COMPS TAB -->
+    <div id="tab-teamcomps" class="tab-content">
+      <div class="page-header">
+        <h2>Team Compositions</h2>
+        <p>Synergy and draft analysis</p>
+      </div>
+      <div class="page-content">
+        
+        <div class="comp-section comp-duo card" style="padding:0; overflow:hidden;">
+           <div class="comp-section-header">👥 HERO DUOS (Top 2-Hero Combos)</div>
+           <div style="padding:20px; overflow-x:auto;">
+              <table class="data-table" id="table-comp-duo">
+                 <thead>
+                    <tr><th>Hero 1</th><th>Hero 2</th><th>Games</th><th>Win</th><th>Lose</th><th>Win Rate</th></tr>
+                 </thead>
+                 <tbody></tbody>
+              </table>
+           </div>
+        </div>
+
+        <div class="comp-section comp-trio card" style="padding:0; overflow:hidden;">
+           <div class="comp-section-header">🔱 HERO TRIOS (Top 3-Hero Combos)</div>
+           <div style="padding:20px; overflow-x:auto;">
+              <table class="data-table" id="table-comp-trio">
+                 <thead>
+                    <tr><th>Hero 1</th><th>Hero 2</th><th>Hero 3</th><th>Games</th><th>Win</th><th>Lose</th><th>Win Rate</th></tr>
+                 </thead>
+                 <tbody></tbody>
+              </table>
+           </div>
+        </div>
+        
+        <div class="comp-section comp-quad card" style="padding:0; overflow:hidden;">
+           <div class="comp-section-header">💠 HERO QUADS (Top 4-Hero Combos)</div>
+           <div style="padding:20px; overflow-x:auto;">
+              <table class="data-table" id="table-comp-quad">
+                 <thead>
+                    <tr><th>Hero 1</th><th>Hero 2</th><th>Hero 3</th><th>Hero 4</th><th>Games</th><th>Win</th><th>Lose</th><th>Win Rate</th></tr>
+                 </thead>
+                 <tbody></tbody>
+              </table>
+           </div>
+        </div>
+
+        <div class="comp-section comp-full card" style="padding:0; overflow:hidden;">
+           <div class="comp-section-header">👑 FULL HERO DRAFT (5-Hero Lineup)</div>
+           <div style="padding:20px; overflow-x:auto;">
+              <table class="data-table" id="table-comp-full">
+                 <thead>
+                    <tr><th>Hero 1</th><th>Hero 2</th><th>Hero 3</th><th>Hero 4</th><th>Hero 5</th><th>Games</th><th>Win</th><th>Lose</th><th>Win Rate</th></tr>
+                 </thead>
+                 <tbody></tbody>
+              </table>
+           </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ADMIN PANEL -->
+    <div id="tab-admin" class="tab-content">
+      <div class="page-header">
+        <h2>Admin Panel</h2>
+        <p>Manage users and platform access</p>
+      </div>
+      <div class="page-content">
+        <div class="card" style="overflow-x: auto;">
+          <table class="data-table" id="table-admin-users">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Joined</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Add Game Modal -->
+  <div id="modal-add-game" class="modal-overlay" style="display: none;">
+    <div class="modal">
+      <h3 id="modal-title">Log New Match</h3>
+      <form id="form-add-game" onsubmit="saveGame(event)">
+        <input type="hidden" id="game-id" value="">
+        <div class="grid-2" style="margin-bottom: 20px;">
+          <div class="form-group">
+            <label>Mode</label>
+            <select id="game-mode" required>
+              <option value="Ranked">Ranked</option>
+              <option value="Tour">Tour</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Result</label>
+            <select id="game-result" required>
+              <option value="Win">Win</option>
+              <option value="Lose">Lose</option>
+            </select>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 15px; font-weight:bold; color:var(--text-dim); text-transform:uppercase; font-size:0.8rem;">Players & Heroes</div>
+        
+        <div id="players-container">
+           <!-- Generated via JS -->
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-game')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-game">Save Game</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="/js/api.js" type="module"></script>
+  <script src="/js/heroes.js" type="module"></script>
+  <script src="/js/stats.js" type="module"></script>
+  <script src="/js/charts.js" type="module"></script>
+  <script src="/js/app.js" type="module"></script>
+</body>
+</html>

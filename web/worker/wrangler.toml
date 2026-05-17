@@ -1,0 +1,11 @@
+name = "sentinel-mlbb-api"
+main = "src/index.js"
+compatibility_date = "2024-12-01"
+
+[vars]
+TURSO_URL = "libsql://sentinelmlbb-iamatto01.aws-ap-south-1.turso.io"
+CORS_ORIGIN = "*"
+
+# Secrets (set via: npx wrangler secret put <NAME>)
+# TURSO_TOKEN
+# JWT_SECRET
