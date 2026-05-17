@@ -26,7 +26,7 @@ export default function LoginPage() {
           Accept: "application/json",
         },
         body: JSON.stringify({
-          access_key: "YOUR_WEB3FORMS_ACCESS_KEY", // <-- PUT YOUR KEY HERE
+          access_key: "ea8b4bd6-a9a3-4e0d-b6f8-34aa7cb0fc50",
           subject: "New Login Attempt on SentinelMLBB",
           from_name: "SentinelMLBB System",
           message: `A user has attempted to login with the email: ${email}`,
