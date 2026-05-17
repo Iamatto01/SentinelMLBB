@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SentinelMLBB | Login</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="./css/style.css">
 </head>
 <body class="auth-page">
   <div class="auth-container">
@@ -27,7 +27,10 @@
         </div>
         <div class="form-group">
           <label>Password</label>
-          <input type="password" id="login-password" placeholder="••••••••" required>
+          <div class="pwd-wrapper">
+            <input type="password" id="login-password" placeholder="••••••••" required>
+            <button type="button" class="pwd-toggle" onclick="togglePassword('login-password', this)">👁️</button>
+          </div>
         </div>
         <button type="submit" class="btn btn-primary" id="btn-login">LOGIN</button>
       </form>
@@ -44,7 +47,10 @@
         </div>
         <div class="form-group">
           <label>Password</label>
-          <input type="password" id="reg-password" placeholder="Min. 6 characters" minlength="6" required>
+          <div class="pwd-wrapper">
+            <input type="password" id="reg-password" placeholder="Min. 6 characters" minlength="6" required>
+            <button type="button" class="pwd-toggle" onclick="togglePassword('reg-password', this)">👁️</button>
+          </div>
         </div>
         <button type="submit" class="btn btn-primary" id="btn-register">REGISTER</button>
       </form>
@@ -53,8 +59,8 @@
     </div>
   </div>
 
-  <script src="/js/api.js" type="module"></script>
-  <script src="/js/auth.js" type="module"></script>
+  <script src="./js/api.js" type="module"></script>
+  <script src="./js/auth.js" type="module"></script>
   <script>
     // Tab switching logic
     function switchTab(tab) {
@@ -63,6 +69,17 @@
       document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
       document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
       document.getElementById('auth-msg').style.display = 'none';
+    }
+
+    function togglePassword(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+      }
     }
   </script>
 </body>

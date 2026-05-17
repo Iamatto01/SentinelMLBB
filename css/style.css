@@ -695,3 +695,8 @@ input, select, textarea { font-family: inherit; }
   .auth-card { padding: 24px; }
   .modal { padding: 20px; max-width: 100%; }
 }
+
+.pwd-wrapper { position: relative; display: flex; align-items: center; }
+.pwd-wrapper input { padding-right: 40px; }
+.pwd-toggle { position: absolute; right: 12px; background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.1rem; padding: 4px; transition: var(--transition); }
+.pwd-toggle:hover { color: var(--text); }
