@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail } from "lucide-react";
 
+const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,16 +18,30 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    // Simulate login validation
-    setTimeout(() => {
-      if (email && password) {
-        localStorage.setItem("user", JSON.stringify({ name: "User", role: "user", email }));
+    try {
+      const res = await fetch(`${API_URL}/api/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.ok) {
+        // Store the real JWT token and user info
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
         router.push("/dashboard");
+      } else if (res.status === 403) {
+        setError("Account pending activation. Contact admin.");
       } else {
-        setError("Please enter both email and password.");
-        setLoading(false);
+        setError(data.error || "Invalid email or password.");
       }
-    }, 1000);
+    } catch (err) {
+      setError("Cannot reach server. Check your connection.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -60,7 +76,7 @@ export default function LoginPage() {
           </div>
 
           {/* Password Input */}
-          <div className="relative mt-4">
+          <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -79,7 +95,6 @@ export default function LoginPage() {
           <div className="flex items-center justify-between px-2">
             <label className="flex items-center space-x-2 text-xs text-slate-500 cursor-pointer">
               <div className="w-5 h-5 bg-[#e0e5ec] rounded shadow-[inset_2px_2px_5px_0_rgba(163,177,198,0.6),inset_-2px_-2px_5px_0_rgba(255,255,255,0.5)] flex items-center justify-center">
-                {/* Checkbox visual placeholder */}
               </div>
               <span>Remember me</span>
             </label>
@@ -97,14 +112,12 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full py-4 bg-[#e0e5ec] text-slate-600 font-bold rounded-2xl shadow-[6px_6px_10px_0_rgba(163,177,198,0.6),-6px_-6px_10px_0_rgba(255,255,255,0.5)] active:shadow-[inset_4px_4px_8px_0_rgba(163,177,198,0.6),inset_-4px_-4px_8px_0_rgba(255,255,255,0.5)] transition-all flex items-center justify-center disabled:opacity-50"
           >
-            {loading ? "Sending..." : "Sign In"}
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
-
-
-        <p className="text-xs text-slate-500">
-          Don't have an account? <a href="#" className="font-bold text-slate-700 hover:underline">Sign up</a>
+        <p className="text-xs text-slate-500 mt-8">
+          Don&apos;t have an account? <a href="#" className="font-bold text-slate-700 hover:underline">Sign up</a>
         </p>
       </div>
     </main>

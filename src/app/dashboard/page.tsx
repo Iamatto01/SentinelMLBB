@@ -4,30 +4,79 @@ import React, { useState, useEffect } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Swords, Trophy, Target, Activity } from "lucide-react";
 
+const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
+
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
+  const [games, setGames] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setMounted(true);
+    fetchGames();
   }, []);
 
-  const roleData = [
-    { name: "Marksman", value: 35 },
-    { name: "Assassin", value: 20 },
-    { name: "Mage", value: 25 },
-    { name: "Tank", value: 10 },
-    { name: "Fighter", value: 5 },
-    { name: "Support", value: 5 },
-  ];
+  const fetchGames = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) { setLoading(false); return; }
+      const res = await fetch(`${API_URL}/api/games`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGames(data.games || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch games:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const winRateData = [
-    { name: "Marksman", winRate: 65 },
-    { name: "Assassin", winRate: 55 },
-    { name: "Mage", winRate: 60 },
-    { name: "Tank", winRate: 45 },
-    { name: "Fighter", winRate: 50 },
-    { name: "Support", winRate: 58 },
-  ];
+  // Compute stats
+  const totalGames = games.length;
+  const wins = games.filter((g) => g.result?.toLowerCase() === "win").length;
+  const winRate = totalGames > 0 ? ((wins / totalGames) * 100).toFixed(1) : "0.0";
+
+  // Average KDA from game_players
+  let totalKills = 0, totalDeaths = 0, totalAssists = 0;
+  games.forEach((g) => {
+    (g.players || []).forEach((p: any) => {
+      totalKills += p.kills || 0;
+      totalDeaths += p.deaths || 0;
+      totalAssists += p.assists || 0;
+    });
+  });
+  const avgKDA = totalDeaths > 0 ? ((totalKills + totalAssists) / totalDeaths).toFixed(1) : "0.0";
+
+  // Role/hero distribution from players
+  const heroCount: Record<string, number> = {};
+  const heroWins: Record<string, number> = {};
+  games.forEach((g) => {
+    (g.players || []).forEach((p: any) => {
+      const hero = p.hero_name || "Unknown";
+      heroCount[hero] = (heroCount[hero] || 0) + 1;
+      if (g.result?.toLowerCase() === "win") heroWins[hero] = (heroWins[hero] || 0) + 1;
+    });
+  });
+
+  const roleData = Object.entries(heroCount)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6);
+
+  const winRateData = Object.entries(heroCount)
+    .map(([name, total]) => ({
+      name,
+      winRate: Math.round(((heroWins[name] || 0) / total) * 100),
+    }))
+    .sort((a, b) => b.winRate - a.winRate)
+    .slice(0, 6);
+
+  // Most played hero
+  const topHero = roleData.length > 0 ? roleData[0].name : "N/A";
+  const topHeroWR = heroCount[topHero] > 0 ? Math.round(((heroWins[topHero] || 0) / heroCount[topHero]) * 100) : 0;
 
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8B5CF6", "#EC4899"];
 
@@ -39,73 +88,64 @@ export default function DashboardPage() {
             Overview
           </h1>
           <p className="text-neutral-500 dark:text-neutral-400">
-            Welcome back to the Sentinel Dashboard. Here's your summary.
+            {loading ? "Loading your data..." : `Welcome back to the Sentinel Dashboard. ${totalGames} games recorded.`}
           </p>
         </div>
       </div>
 
       {/* Summary Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Matches" value="1,284" icon={<Swords className="text-indigo-500" />} trend="+12 this week" />
-        <StatCard title="Overall Win Rate" value="58.4%" icon={<Trophy className="text-yellow-500" />} trend="+2.1% from last season" />
-        <StatCard title="Average KDA" value="4.2" icon={<Target className="text-teal-500" />} trend="Top 15% player" />
-        <StatCard title="Most Played" value="Claude" icon={<Activity className="text-pink-500" />} trend="65% win rate" />
+        <StatCard title="Total Matches" value={totalGames.toLocaleString()} icon={<Swords className="text-indigo-500" />} trend={`${wins} wins`} />
+        <StatCard title="Overall Win Rate" value={`${winRate}%`} icon={<Trophy className="text-yellow-500" />} trend={`${wins}W ${totalGames - wins}L`} />
+        <StatCard title="Average KDA" value={avgKDA} icon={<Target className="text-teal-500" />} trend={`${totalKills}K/${totalDeaths}D/${totalAssists}A`} />
+        <StatCard title="Most Played" value={topHero} icon={<Activity className="text-pink-500" />} trend={`${topHeroWR}% win rate`} />
       </div>
       
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
-        
-        {/* Pie Chart */}
         <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 rounded-2xl shadow-sm">
-          <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200 mb-6">Roles Distribution</h2>
+          <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200 mb-6">Hero Distribution</h2>
           <div className="h-[300px] w-full">
-            {mounted && (
+            {mounted && roleData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={roleData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {roleData.map((entry, index) => (
+                  <Pie data={roleData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
+                    {roleData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  />
+                  <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                   <Legend verticalAlign="bottom" height={36} />
                 </PieChart>
               </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-neutral-400 text-sm">
+                {loading ? "Loading..." : "No game data yet"}
+              </div>
             )}
           </div>
         </div>
 
-        {/* Bar Chart */}
         <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 rounded-2xl shadow-sm">
-          <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200 mb-6">Win Rate by Role (%)</h2>
+          <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200 mb-6">Win Rate by Hero (%)</h2>
           <div className="h-[300px] w-full">
-            {mounted && (
+            {mounted && winRateData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={winRateData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.2} />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
-                  <Tooltip 
-                    cursor={{ fill: 'rgba(107, 114, 128, 0.1)' }}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  />
+                  <Tooltip cursor={{ fill: 'rgba(107, 114, 128, 0.1)' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                   <Bar dataKey="winRate" fill="#8B5CF6" radius={[4, 4, 0, 0]} barSize={32} />
                 </BarChart>
               </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-neutral-400 text-sm">
+                {loading ? "Loading..." : "No game data yet"}
+              </div>
             )}
           </div>
         </div>
-
       </div>
     </div>
   );
@@ -119,9 +159,7 @@ function StatCard({ title, value, icon, trend }: { title: string; value: string;
           <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-1">{title}</p>
           <h3 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{value}</h3>
         </div>
-        <div className="p-3 bg-neutral-50 dark:bg-neutral-800 rounded-xl">
-          {icon}
-        </div>
+        <div className="p-3 bg-neutral-50 dark:bg-neutral-800 rounded-xl">{icon}</div>
       </div>
       <div className="text-xs font-medium text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-500/10 inline-block px-2 py-1 rounded-md self-start">
         {trend}
