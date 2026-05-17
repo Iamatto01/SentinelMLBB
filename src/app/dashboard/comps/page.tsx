@@ -30,19 +30,16 @@ export default function CompsPage() {
   }, []);
 
   // Build compositions based on team size
-  // Group games by their hero combos (order-independent)
+  // Only include games where the exact number of players matches the selected team size
   const compMap: Record<string, { heroes: string[]; players: string[]; wins: number; total: number; games: GameData[] }> = {};
 
   games.forEach((g) => {
-    const allPlayers = g.players || [];
-    if (allPlayers.length < teamSize) return; // skip games with fewer players
+    const allPlayers = (g.players || []).filter((p) => p.hero_name && p.hero_name.trim());
+    // Only match games with EXACTLY this many players
+    if (allPlayers.length !== teamSize) return;
 
-    // Get hero names, trim whitespace, sort alphabetically for order-independent key
-    const heroNames = allPlayers
-      .slice(0, teamSize)
-      .map((p) => (p.hero_name || "?").trim())
-      .filter(Boolean);
-    if (heroNames.length < teamSize) return;
+    // Get hero names, trim whitespace
+    const heroNames = allPlayers.map((p) => p.hero_name.trim());
 
     // Build normalized key (lowercase + sorted) so different slot orders = same comp
     const sortedNames = [...heroNames].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
@@ -57,7 +54,7 @@ export default function CompsPage() {
     if (g.result?.toLowerCase() === "win") compMap[key].wins++;
 
     // Track unique players
-    allPlayers.slice(0, teamSize).forEach((p) => {
+    allPlayers.forEach((p) => {
       if (p.player_name && !compMap[key].players.includes(p.player_name)) {
         compMap[key].players.push(p.player_name);
       }

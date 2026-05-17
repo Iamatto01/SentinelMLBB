@@ -61,9 +61,14 @@ export default function DashboardPage() {
     });
   });
 
-  const roleData = Object.entries(heroCount)
+  const allHeroData = Object.entries(heroCount)
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
+
+  // Top 8 heroes for pie chart, rest grouped as "Others"
+  const topHeroes = allHeroData.slice(0, 8);
+  const othersTotal = allHeroData.slice(8).reduce((sum, h) => sum + h.value, 0);
+  const roleData = othersTotal > 0 ? [...topHeroes, { name: "Others", value: othersTotal }] : topHeroes;
 
   // ALL heroes win rate data (no limit, for scrollable list)
   const winRateData = Object.entries(heroCount)
@@ -76,10 +81,10 @@ export default function DashboardPage() {
     .sort((a, b) => b.winRate - a.winRate);
 
   // Most played hero
-  const topHero = roleData.length > 0 ? roleData[0].name : "N/A";
+  const topHero = allHeroData.length > 0 ? allHeroData[0].name : "N/A";
   const topHeroWR = heroCount[topHero] > 0 ? Math.round(((heroWins[topHero] || 0) / heroCount[topHero]) * 100) : 0;
 
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8B5CF6", "#EC4899"];
+  const COLORS = ["#6366f1", "#14b8a6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16", "#9ca3af"];
 
   return (
     <div className="w-full h-full flex flex-col gap-6 animate-in fade-in duration-500">
