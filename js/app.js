@@ -18,6 +18,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   currentUser = JSON.parse(userJson);
   document.getElementById('user-name-display').textContent = currentUser.name;
   
+  // Set avatar initial and role
+  const avatarEl = document.getElementById('user-avatar');
+  const roleEl = document.getElementById('user-role-display');
+  if (avatarEl) avatarEl.textContent = (currentUser.name || 'U')[0].toUpperCase();
+  if (roleEl) roleEl.textContent = currentUser.role === 'admin' ? 'Admin' : 'Player';
+  
   if (currentUser.role === 'admin') {
     document.getElementById('nav-admin').style.display = 'flex';
   }
