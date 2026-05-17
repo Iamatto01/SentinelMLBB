@@ -103,6 +103,10 @@ input, select, textarea { font-family: inherit; }
   color: var(--text); font-size: 0.9rem;
   transition: var(--transition); outline: none;
 }
+.form-group select option {
+  background: var(--bg2);
+  color: #fff;
+}
 .form-group input:focus, .form-group select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); background: rgba(124,92,252,0.04); }
 .form-group input::placeholder { color: var(--text-muted); }
 
