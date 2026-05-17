@@ -6,7 +6,7 @@ async function checkAuth() {
   if (token) {
     try {
       await api.getMe();
-      window.location.href = '/app.html';
+      window.location.href = './app.html';
     } catch (e) {
       localStorage.removeItem('jwt');
       localStorage.removeItem('user');
@@ -35,7 +35,7 @@ window.handleLogin = async (e) => {
     if (res.ok) {
       localStorage.setItem('jwt', res.token);
       localStorage.setItem('user', JSON.stringify(res.user));
-      window.location.href = '/app.html';
+      window.location.href = './app.html';
     }
   } catch (err) {
     showMessage(err.message, 'error');

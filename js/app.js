@@ -11,7 +11,7 @@ let cachedStats = null;
 document.addEventListener('DOMContentLoaded', async () => {
   const userJson = localStorage.getItem('user');
   if (!userJson) {
-    window.location.href = '/index.html';
+    window.location.href = './index.html';
     return;
   }
   
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 window.logout = () => {
   localStorage.removeItem('jwt');
   localStorage.removeItem('user');
-  window.location.href = '/index.html';
+  window.location.href = './index.html';
 };
 
 window.switchTab = (tabId) => {
