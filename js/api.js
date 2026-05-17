@@ -1,4 +1,4 @@
-const API_URL = 'http://127.0.0.1:8787/api';
+const API_URL = 'https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev/api';
 
 export const api = {
   async request(endpoint, options = {}) {
