@@ -12,6 +12,7 @@ import {
   Swords,
   Settings,
   LogOut,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -69,6 +70,11 @@ export default function DashboardLayout({
       label: "Team Comps",
       href: "/dashboard/comps",
       icon: <Swords className="text-neutral-700 dark:text-neutral-200 h-5 w-5 shrink-0" />,
+    },
+    {
+      label: "Draft Simulator",
+      href: "/dashboard/draft",
+      icon: <Sparkles className="text-neutral-700 dark:text-neutral-200 h-5 w-5 shrink-0" />,
     },
   ];
 
