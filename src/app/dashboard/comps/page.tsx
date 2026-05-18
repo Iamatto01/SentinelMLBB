@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 
 const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
 
@@ -12,6 +12,16 @@ type GameData = {
   result: string;
   players: { slot: number; player_name: string; hero_name: string }[];
 };
+
+/** Generate all k-size combinations from an array */
+function combinations<T>(arr: T[], k: number): T[][] {
+  if (k === 0) return [[]];
+  if (arr.length < k) return [];
+  const [first, ...rest] = arr;
+  const withFirst = combinations(rest, k - 1).map((c) => [first, ...c]);
+  const withoutFirst = combinations(rest, k);
+  return [...withFirst, ...withoutFirst];
+}
 
 export default function CompsPage() {
   const [games, setGames] = useState<GameData[]>([]);
@@ -29,45 +39,43 @@ export default function CompsPage() {
     })();
   }, []);
 
-  // Build compositions based on team size
-  // Only include games where the exact number of players matches the selected team size
-  const compMap: Record<string, { heroes: string[]; players: string[]; wins: number; total: number; games: GameData[] }> = {};
+  // Build compositions: for each game with >= teamSize players,
+  // generate all subsets of that size and track which combos recur across games
+  const comps = useMemo(() => {
+    const compMap: Record<string, { heroes: string[]; wins: number; total: number }> = {};
 
-  games.forEach((g) => {
-    const allPlayers = (g.players || []).filter((p) => p.hero_name && p.hero_name.trim());
-    // Only match games with EXACTLY this many players
-    if (allPlayers.length !== teamSize) return;
+    games.forEach((g) => {
+      const allPlayers = (g.players || []).filter((p) => p.hero_name && p.hero_name.trim());
+      // Need at least teamSize players in the game
+      if (allPlayers.length < teamSize) return;
 
-    // Get hero names, trim whitespace
-    const heroNames = allPlayers.map((p) => p.hero_name.trim());
+      const heroNames = allPlayers.map((p) => p.hero_name.trim());
 
-    // Build normalized key (lowercase + sorted) so different slot orders = same comp
-    const sortedNames = [...heroNames].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-    const key = sortedNames.map((n) => n.toLowerCase()).join("|");
+      // Generate all C(n, teamSize) hero subsets from this game
+      const heroCombos = combinations(heroNames, teamSize);
 
-    if (!compMap[key]) {
-      // Store properly cased hero names for display
-      compMap[key] = { heroes: sortedNames, players: [], wins: 0, total: 0, games: [] };
-    }
-    compMap[key].total++;
-    compMap[key].games.push(g);
-    if (g.result?.toLowerCase() === "win") compMap[key].wins++;
+      heroCombos.forEach((combo) => {
+        // Normalize: sort alphabetically, case-insensitive key
+        const sorted = [...combo].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        const key = sorted.map((n) => n.toLowerCase()).join("|");
 
-    // Track unique players
-    allPlayers.forEach((p) => {
-      if (p.player_name && !compMap[key].players.includes(p.player_name)) {
-        compMap[key].players.push(p.player_name);
-      }
+        if (!compMap[key]) {
+          compMap[key] = { heroes: sorted, wins: 0, total: 0 };
+        }
+        compMap[key].total++;
+        if (g.result?.toLowerCase() === "win") compMap[key].wins++;
+      });
     });
-  });
 
-  const comps = Object.entries(compMap)
-    .map(([key, v]) => ({
-      key,
-      ...v,
-      winRate: v.total > 0 ? Math.round((v.wins / v.total) * 100) : 0,
-    }))
-    .sort((a, b) => b.total - a.total);
+    return Object.entries(compMap)
+      .map(([key, v]) => ({
+        key,
+        ...v,
+        winRate: v.total > 0 ? Math.round((v.wins / v.total) * 100) : 0,
+      }))
+      .filter((c) => c.total >= 2) // Only show combos that appeared in 2+ games
+      .sort((a, b) => b.total - a.total);
+  }, [games, teamSize]);
 
   const sizes = [2, 3, 4, 5];
 
@@ -108,7 +116,7 @@ export default function CompsPage() {
                 <th className="text-left px-4 py-3 font-medium text-neutral-500">#</th>
                 {Array.from({ length: teamSize }).map((_, i) => (
                   <th key={i} className="text-left px-4 py-3 font-medium text-neutral-500">
-                    Slot {i + 1}
+                    Hero {i + 1}
                   </th>
                 ))}
                 <th className="text-left px-4 py-3 font-medium text-neutral-500">Games</th>
@@ -129,13 +137,13 @@ export default function CompsPage() {
                     <div className="flex flex-col items-center gap-2">
                       <span className="text-4xl">🎮</span>
                       <span>No {teamSize}-man compositions found.</span>
-                      <span className="text-xs">Games need at least {teamSize} players to show here.</span>
+                      <span className="text-xs">Need at least 2 games with the same {teamSize}-hero combo.</span>
                     </div>
                   </td>
                 </tr>
               ) : (
                 comps.map((comp, i) => (
-                  <tr key={i} className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors">
+                  <tr key={comp.key} className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors">
                     <td className="px-4 py-3 text-neutral-400 font-mono">{i + 1}</td>
                     {comp.heroes.map((hero, j) => (
                       <td key={j} className="px-4 py-3">
