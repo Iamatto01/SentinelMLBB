@@ -389,6 +389,7 @@ function EditorModal({
   heroes,
   customTags,
   onCreateTag,
+  onDeleteTag,
   onUpdateHero,
   onResetAll,
   allTagsByCategory,
@@ -398,6 +399,7 @@ function EditorModal({
   heroes: ExtendedHeroData[];
   customTags: CustomTag[];
   onCreateTag: (category: "playstyle" | "strategy", label: string, emoji: string, colorScheme: string) => void;
+  onDeleteTag: (tagId: string) => void;
   onUpdateHero: (heroId: string, updates: Partial<ExtendedHeroData>) => void;
   onResetAll: () => void;
   allTagsByCategory: (cat: "playstyle" | "strategy") => { id: string; label: string; emoji: string }[];
@@ -569,6 +571,36 @@ function EditorModal({
                 </button>
               </form>
             </div>
+
+            {/* Manage Custom Tags */}
+            {customTags.length > 0 && (
+              <div className="bg-neutral-50 dark:bg-neutral-950/40 p-4 rounded-2xl border border-neutral-100 dark:border-neutral-800/80">
+                <h3 className="text-xs font-bold text-neutral-450 dark:text-neutral-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <Trash2 className="w-4 h-4 text-rose-500" />
+                  Manage Custom Tags
+                </h3>
+                <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1">
+                  {customTags.map(tag => {
+                    const scheme = COLOR_SCHEMES.find(s => s.id === tag.colorScheme) || COLOR_SCHEMES[0];
+                    return (
+                      <div key={tag.id} className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800/60">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${scheme.bg} ${scheme.color}`}>
+                          {tag.emoji} {tag.label}
+                          <span className="text-[9px] opacity-60 font-normal ml-1">({tag.category})</span>
+                        </span>
+                        <button
+                          onClick={() => onDeleteTag(tag.id)}
+                          className="p-1 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-650 dark:text-red-400 transition-colors"
+                          title={`Delete tag "${tag.label}"`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Quick Stats & Exporter */}
             <div className="bg-neutral-50 dark:bg-neutral-950/40 p-4 rounded-2xl border border-neutral-100 dark:border-neutral-800/80 space-y-3">
@@ -828,10 +860,65 @@ export default function HeroesPage() {
   // 3. Create a Custom Tag Handler
   const handleCreateTag = (category: "playstyle" | "strategy", label: string, emoji: string, colorScheme: string) => {
     const newTagId = label.toLowerCase().replace(/\s+/g, "-");
+    
+    // Check if tag already exists (either custom or static default)
+    const isDuplicate = customTags.some(t => t.id === newTagId) || 
+      (category === "playstyle" && newTagId in PLAYSTYLE_CONFIG) || 
+      (category === "strategy" && newTagId in STRATEGY_CONFIG);
+      
+    if (isDuplicate) {
+      alert("A tag with this name already exists!");
+      return;
+    }
+
     const newTag: CustomTag = { id: newTagId, category, label, emoji, colorScheme };
     const updatedTags = [...customTags, newTag];
     setCustomTags(updatedTags);
     localStorage.setItem("sentinel_custom_tags", JSON.stringify(updatedTags));
+  };
+
+  // 3b. Delete Custom Tag Handler
+  const handleDeleteTag = (tagId: string) => {
+    if (!confirm("Are you sure you want to delete this custom tag? It will be removed from all heroes using it.")) return;
+
+    // Reset active page filters if they filter by this deleted tag
+    if (selectedPlaystyle === tagId) setSelectedPlaystyle(null);
+    if (selectedStrategy === tagId) setSelectedStrategy(null);
+
+    // Remove from customTags array
+    const updatedTags = customTags.filter(t => t.id !== tagId);
+    setCustomTags(updatedTags);
+    localStorage.setItem("sentinel_custom_tags", JSON.stringify(updatedTags));
+
+    // Remove from heroes' lists
+    const updatedHeroes = heroes.map(h => {
+      const hasPlaystyleTag = h.tags.includes(tagId);
+      const hasStrategyTag = h.strategy.includes(tagId);
+      
+      if (hasPlaystyleTag || hasStrategyTag) {
+        const newTags = h.tags.filter(t => t !== tagId);
+        const newStrategy = h.strategy.filter(s => s !== tagId);
+        
+        // Save in LocalStorage hero overrides
+        const savedHeroes = localStorage.getItem("sentinel_custom_heroes");
+        const parsed = savedHeroes ? JSON.parse(savedHeroes) : {};
+        parsed[h.id] = {
+          ...parsed[h.id],
+          tags: newTags,
+          strategy: newStrategy,
+        };
+        localStorage.setItem("sentinel_custom_heroes", JSON.stringify(parsed));
+
+        return {
+          ...h,
+          tags: newTags,
+          strategy: newStrategy,
+        };
+      }
+      return h;
+    });
+
+    setHeroes(updatedHeroes);
   };
 
   // 4. Update Hero Properties Handler
@@ -1086,6 +1173,7 @@ export default function HeroesPage() {
             heroes={heroes}
             customTags={customTags}
             onCreateTag={handleCreateTag}
+            onDeleteTag={handleDeleteTag}
             onUpdateHero={handleUpdateHero}
             onResetAll={handleResetAll}
             allTagsByCategory={allTagsByCategory}
