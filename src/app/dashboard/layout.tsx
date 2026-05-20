@@ -13,16 +13,12 @@ import {
   Settings,
   LogOut,
   Sparkles,
+  Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Navbar,
   NavBody,
-  NavbarLogo,
-  MobileNav,
-  MobileNavHeader,
-  MobileNavToggle,
-  MobileNavMenu,
 } from "@/components/ui/resizable-navbar";
 
 export default function DashboardLayout({
@@ -60,6 +56,11 @@ export default function DashboardLayout({
       label: "Player Stats",
       href: "/dashboard/players",
       icon: <Users className="text-neutral-700 dark:text-neutral-200 h-5 w-5 shrink-0" />,
+    },
+    {
+      label: "Rankings",
+      href: "/dashboard/ranking",
+      icon: <Crown className="text-amber-500 dark:text-amber-400 h-5 w-5 shrink-0" />,
     },
     {
       label: "Hero Pool",
@@ -161,19 +162,13 @@ export default function DashboardLayout({
         </SidebarBody>
       </Sidebar>
       <main className="flex flex-col flex-1 overflow-hidden bg-white dark:bg-black rounded-tl-2xl border border-neutral-200 dark:border-neutral-700">
-        <div className="relative w-full border-b border-neutral-200 dark:border-neutral-800">
+        <div className="relative w-full border-b border-neutral-200 dark:border-neutral-800 hidden md:block">
           <Navbar>
             <NavBody>
               <div className="flex items-center w-full justify-between px-4">
                 <span className="font-bold text-lg hidden md:block bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-indigo-500">SentinelMLBB</span>
               </div>
             </NavBody>
-            <MobileNav>
-              <MobileNavHeader>
-                <span className="font-bold bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-indigo-500">SentinelMLBB</span>
-                <MobileNavToggle isOpen={false} onClick={() => {}} />
-              </MobileNavHeader>
-            </MobileNav>
           </Navbar>
         </div>
         <div className="flex-1 overflow-y-auto p-4 md:p-10 w-full h-full">
