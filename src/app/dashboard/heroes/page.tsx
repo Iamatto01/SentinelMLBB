@@ -99,6 +99,7 @@ function HeroCard({ hero, onClick }: { hero: HeroData; onClick: () => void }) {
             src={hero.image}
             alt={hero.name}
             className="w-full h-full object-cover object-top"
+            referrerPolicy="no-referrer"
             onError={() => setImgErr(true)}
           />
         ) : (
@@ -166,7 +167,7 @@ function HeroModal({ hero, onClose }: { hero: HeroData; onClose: () => void }) {
           {/* Hero banner image */}
           <div className="relative h-56 bg-gradient-to-br from-indigo-900 to-neutral-900 overflow-hidden">
             {!imgErr ? (
-              <img src={hero.image} alt={hero.name} className="w-full h-full object-cover object-top" onError={() => setImgErr(true)} />
+              <img src={hero.image} alt={hero.name} className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" onError={() => setImgErr(true)} />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-8xl font-black text-neutral-700">{hero.name.charAt(0)}</div>
             )}

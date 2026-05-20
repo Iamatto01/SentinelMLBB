@@ -23,6 +23,7 @@ function HeroWithPlayer({ heroName, playerName }: { heroName: string; playerName
             src={hero.image}
             alt={heroName}
             className="w-full h-full object-cover object-top"
+            referrerPolicy="no-referrer"
             onError={() => setImgErr(true)}
           />
         ) : (
