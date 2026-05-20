@@ -1,10 +1,50 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+} from "recharts";
 import { Swords, Trophy, Target, Search } from "lucide-react";
+import { getHeroByName } from "@/data/heroes-data";
 
 const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
+
+function HeroWithPlayer({ heroName, playerName }: { heroName: string; playerName?: string }) {
+  const hero = getHeroByName(heroName);
+  const [imgErr, setImgErr] = useState(false);
+
+  return (
+    <div className="flex items-center gap-2 py-0.5">
+      {/* Hero image thumbnail */}
+      <div className="w-7 h-7 rounded-lg overflow-hidden bg-neutral-200 dark:bg-neutral-700 flex-shrink-0">
+        {hero?.image && !imgErr ? (
+          <img
+            src={hero.image}
+            alt={heroName}
+            className="w-full h-full object-cover object-top"
+            onError={() => setImgErr(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-[10px] font-black text-neutral-500">
+            {heroName.charAt(0)}
+          </div>
+        )}
+      </div>
+      {/* Hero name + player name */}
+      <div className="min-w-0">
+        <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-100 truncate leading-tight">
+          {heroName}
+        </p>
+        {playerName && (
+          <p className="text-[10px] text-neutral-400 dark:text-neutral-500 truncate leading-tight">
+            {playerName}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function GamesPage() {
   const [mounted, setMounted] = useState(false);
@@ -39,14 +79,17 @@ export default function GamesPage() {
     (g) =>
       (g.result || "").toLowerCase().includes(search.toLowerCase()) ||
       (g.mode || "").toLowerCase().includes(search.toLowerCase()) ||
-      (g.players || []).some((p: any) => (p.hero_name || "").toLowerCase().includes(search.toLowerCase()))
+      (g.players || []).some(
+        (p: any) =>
+          (p.hero_name || "").toLowerCase().includes(search.toLowerCase()) ||
+          (p.player_name || "").toLowerCase().includes(search.toLowerCase())
+      )
   );
 
   const totalGames = games.length;
   const wins = games.filter((g) => g.result?.toLowerCase() === "win").length;
   const winRate = totalGames > 0 ? ((wins / totalGames) * 100).toFixed(1) : "0";
 
-  // Hero stats from game_players
   const heroStats: Record<string, { wins: number; total: number }> = {};
   games.forEach((g) => {
     (g.players || []).forEach((p: any) => {
@@ -73,15 +116,22 @@ export default function GamesPage() {
     <div className="w-full h-full flex flex-col gap-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-indigo-500">Game Log</h1>
+          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-indigo-500">
+            Game Log
+          </h1>
           <p className="text-neutral-500 dark:text-neutral-400">
             {loading ? "Loading..." : `${totalGames} games recorded · ${winRate}% win rate`}
           </p>
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-          <input type="text" placeholder="Search by hero, result..." value={search} onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 pr-4 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 w-64" />
+          <input
+            type="text"
+            placeholder="Search hero, player, result..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 pr-4 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 w-64"
+          />
         </div>
       </div>
 
@@ -101,12 +151,14 @@ export default function GamesPage() {
                   <Pie data={roleData} cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={5} dataKey="value">
                     {roleData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                  <Tooltip contentStyle={{ borderRadius: "8px", border: "none" }} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-neutral-400 text-sm">{loading ? "Loading..." : "No data yet"}</div>
+              <div className="h-full flex items-center justify-center text-neutral-400 text-sm">
+                {loading ? "Loading..." : "No data yet"}
+              </div>
             )}
           </div>
         </div>
@@ -117,14 +169,16 @@ export default function GamesPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={heroWinData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.2} />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 11 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 11 }} />
-                  <Tooltip contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#6B7280", fontSize: 11 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: "#6B7280", fontSize: 11 }} />
+                  <Tooltip contentStyle={{ borderRadius: "8px", border: "none" }} />
                   <Bar dataKey="winRate" fill="#8B5CF6" radius={[4, 4, 0, 0]} barSize={28} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-neutral-400 text-sm">{loading ? "Loading..." : "No data yet"}</div>
+              <div className="h-full flex items-center justify-center text-neutral-400 text-sm">
+                {loading ? "Loading..." : "No data yet"}
+              </div>
             )}
           </div>
         </div>
@@ -138,7 +192,7 @@ export default function GamesPage() {
               <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
                 <th className="text-left px-4 py-3 font-medium text-neutral-500">#</th>
                 <th className="text-left px-4 py-3 font-medium text-neutral-500">Date</th>
-                <th className="text-left px-4 py-3 font-medium text-neutral-500">Heroes</th>
+                <th className="text-left px-4 py-3 font-medium text-neutral-500 min-w-[320px]">Heroes & Players</th>
                 <th className="text-left px-4 py-3 font-medium text-neutral-500">Result</th>
                 <th className="text-left px-4 py-3 font-medium text-neutral-500">Mode</th>
                 <th className="text-left px-4 py-3 font-medium text-neutral-500">Duration</th>
@@ -151,21 +205,43 @@ export default function GamesPage() {
                 <tr><td colSpan={6} className="px-4 py-12 text-center text-neutral-400">No games found</td></tr>
               ) : (
                 filteredGames.map((game, i) => (
-                  <tr key={game.id || i} className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors">
+                  <tr
+                    key={game.id || i}
+                    className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors"
+                  >
                     <td className="px-4 py-3 text-neutral-400">{game.game_num || i + 1}</td>
-                    <td className="px-4 py-3">{game.date || "-"}</td>
-                    <td className="px-4 py-3 font-medium">
-                      {(game.players || []).map((p: any) => p.hero_name).filter(Boolean).join(", ") || "-"}
+                    <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 text-xs">{game.date || "-"}</td>
+
+                    {/* Heroes & Players column */}
+                    <td className="px-4 py-2">
+                      {(game.players || []).filter((p: any) => p.hero_name).length === 0 ? (
+                        <span className="text-neutral-400">-</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                          {(game.players || [])
+                            .filter((p: any) => p.hero_name)
+                            .map((p: any, j: number) => (
+                              <HeroWithPlayer
+                                key={j}
+                                heroName={p.hero_name}
+                                playerName={p.player_name}
+                              />
+                            ))}
+                        </div>
+                      )}
                     </td>
+
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                         game.result?.toLowerCase() === "win"
                           ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
                           : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
-                      }`}>{game.result || "-"}</span>
+                      }`}>
+                        {game.result || "-"}
+                      </span>
                     </td>
-                    <td className="px-4 py-3 text-neutral-500">{game.mode || "-"}</td>
-                    <td className="px-4 py-3 text-neutral-500">{game.duration ? `${game.duration}m` : "-"}</td>
+                    <td className="px-4 py-3 text-neutral-500 text-xs">{game.mode || "-"}</td>
+                    <td className="px-4 py-3 text-neutral-500 text-xs">{game.duration ? `${game.duration}m` : "-"}</td>
                   </tr>
                 ))
               )}

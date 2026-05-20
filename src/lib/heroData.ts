@@ -1,3 +1,5 @@
+import { getHeroByName as getHeroData } from "@/data/heroes-data";
+
 export type Role = "Assassin" | "Fighter" | "Mage" | "Marksman" | "Support" | "Tank";
 
 export interface HeroInfo {
@@ -5,6 +7,7 @@ export interface HeroInfo {
   roles: Role[];
   strongAgainst: string[];
   weakAgainst: string[];
+  image?: string;
 }
 
 export const HEROES: HeroInfo[] = [
@@ -68,8 +71,10 @@ export const HEROES: HeroInfo[] = [
 ];
 
 // Helper functions for the draft engine
-export function getHeroByName(name: string): HeroInfo | undefined {
-  return HEROES.find(h => h.name.toLowerCase() === name.toLowerCase());
+export function getHeroByName(name: string): (HeroInfo & { image: string }) | undefined {
+  const hero = HEROES.find(h => h.name.toLowerCase() === name.toLowerCase());
+  if (!hero) return undefined;
+  return { ...hero, image: getHeroData(name)?.image ?? "" };
 }
 
 export function evaluateCounters(alliedPicks: string[], enemyPicks: string[]) {
