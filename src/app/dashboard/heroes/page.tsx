@@ -573,12 +573,12 @@ function EditorModal({
             </div>
 
             {/* Manage Custom Tags */}
-            {customTags.length > 0 && (
-              <div className="bg-neutral-50 dark:bg-neutral-950/40 p-4 rounded-2xl border border-neutral-100 dark:border-neutral-800/80">
-                <h3 className="text-xs font-bold text-neutral-450 dark:text-neutral-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                  <Trash2 className="w-4 h-4 text-rose-500" />
-                  Manage Custom Tags
-                </h3>
+            <div className="bg-neutral-50 dark:bg-neutral-950/40 p-4 rounded-2xl border border-neutral-100 dark:border-neutral-800/80">
+              <h3 className="text-xs font-bold text-neutral-450 dark:text-neutral-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                <Trash2 className="w-4 h-4 text-rose-500" />
+                Manage Custom Tags
+              </h3>
+              {customTags.length > 0 ? (
                 <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1">
                   {customTags.map(tag => {
                     const scheme = COLOR_SCHEMES.find(s => s.id === tag.colorScheme) || COLOR_SCHEMES[0];
@@ -599,8 +599,12 @@ function EditorModal({
                     );
                   })}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-xs text-neutral-400 dark:text-neutral-500 italic">No custom tags yet. Create one above!</p>
+                </div>
+              )}
+            </div>
 
             {/* Quick Stats & Exporter */}
             <div className="bg-neutral-50 dark:bg-neutral-950/40 p-4 rounded-2xl border border-neutral-100 dark:border-neutral-800/80 space-y-3">
@@ -674,7 +678,7 @@ function EditorModal({
                           key={tag.id}
                           onClick={() => toggleHeroTag("tags", tag.id)}
                           className={`text-xs px-2.5 py-1.5 rounded-xl border font-medium flex items-center gap-1 transition-all
-                            ${isActive ? "bg-indigo-550 text-white border-indigo-600 dark:bg-indigo-600 dark:border-indigo-700 shadow-sm" : "bg-neutral-50 dark:bg-neutral-800/40 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700"}`}
+                            ${isActive ? "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-400 dark:border-indigo-500/50 shadow-sm scale-110 ring-2 ring-indigo-400/50 dark:ring-indigo-500/40 ring-offset-1 dark:ring-offset-neutral-900" : "bg-neutral-50 dark:bg-neutral-800/40 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700"}`}
                         >
                           {tag.emoji} {tag.label}
                         </button>
@@ -694,7 +698,7 @@ function EditorModal({
                           key={tag.id}
                           onClick={() => toggleHeroTag("strategy", tag.id)}
                           className={`text-xs px-2.5 py-1.5 rounded-xl border font-medium flex items-center gap-1 transition-all
-                            ${isActive ? "bg-indigo-555 text-white border-indigo-650 dark:bg-indigo-600 dark:border-indigo-700 shadow-sm" : "bg-neutral-50 dark:bg-neutral-800/40 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700"}`}
+                            ${isActive ? "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-400 dark:border-indigo-500/50 shadow-sm scale-110 ring-2 ring-indigo-400/50 dark:ring-indigo-500/40 ring-offset-1 dark:ring-offset-neutral-900" : "bg-neutral-50 dark:bg-neutral-800/40 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700"}`}
                         >
                           {tag.emoji} {tag.label}
                         </button>

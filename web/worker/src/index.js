@@ -330,6 +330,83 @@ app.delete('/api/admin/users/:id', authMiddleware, async (c) => {
 });
 
 // ═══════════════════════════════════════════
+//  SCREENSHOT OCR (Gemini Vision)
+// ═══════════════════════════════════════════
+app.post('/api/games/parse-screenshot', authMiddleware, async (c) => {
+  try {
+    const { image, mimeType } = await c.req.json();
+    if (!image) return c.json({ error: 'No image provided' }, 400);
+
+    const apiKey = c.env.GEMINI_API_KEY;
+    if (!apiKey) return c.json({ error: 'Gemini API key not configured' }, 500);
+
+    const prompt = `You are analyzing a Mobile Legends: Bang Bang (MLBB) post-game results screenshot.
+
+Extract the following data from the screenshot and return it as a JSON object:
+
+{
+  "result": "Win" or "Lose" (the match result for the team shown),
+  "mode": "Ranked" or "Classic" or "Tour" (game mode),
+  "duration": number (game duration in minutes, just the number),
+  "players": [
+    { "player_name": "player IGN", "hero_name": "exact hero name" }
+  ]
+}
+
+IMPORTANT RULES:
+- "players" should contain up to 5 players from the SAME team (the user's team)
+- Use exact official MLBB hero names (e.g. "Popol and Kupa" not "Popol", "Lapu-Lapu" not "Lapu Lapu", "X.Borg" not "XBorg", "Yi Sun-shin" not "Yi Sun Shin", "Yu Zhong" not "YuZhong", "Luo Yi" not "LuoYi")
+- For player names, use exactly what is shown in the screenshot
+- Duration should be just the number of minutes (round down)
+- If you cannot determine a field, use null
+- Return ONLY the JSON object, no markdown, no explanation, no code fences`;
+
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType || 'image/png', data: image } }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 1024,
+          }
+        })
+      }
+    );
+
+    if (!geminiRes.ok) {
+      const errText = await geminiRes.text();
+      return c.json({ error: 'Gemini API error', details: errText }, 500);
+    }
+
+    const geminiData = await geminiRes.json();
+    const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    // Clean up the response - remove code fences if present
+    let cleanText = text.trim();
+    if (cleanText.startsWith('```')) {
+      cleanText = cleanText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+    }
+
+    try {
+      const parsed = JSON.parse(cleanText);
+      return c.json({ ok: true, data: parsed });
+    } catch {
+      return c.json({ ok: true, data: null, raw: cleanText, error: 'Could not parse Gemini response as JSON' });
+    }
+  } catch (err) {
+    return c.json({ error: 'Screenshot parsing failed', details: String(err) }, 500);
+  }
+});
+
+// ═══════════════════════════════════════════
 //  HEALTH CHECK
 // ═══════════════════════════════════════════
 app.get('/api/health', (c) => c.json({ ok: true, ts: new Date().toISOString() }));

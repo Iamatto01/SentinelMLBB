@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mail } from "lucide-react";
+import { Mail, Check } from "lucide-react";
 
 const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
 
@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -93,8 +94,9 @@ export default function LoginPage() {
           </div>
 
           <div className="flex items-center justify-between px-2">
-            <label className="flex items-center space-x-2 text-xs text-slate-500 cursor-pointer">
+            <label className="flex items-center space-x-2 text-xs text-slate-500 cursor-pointer" onClick={() => setRememberMe(!rememberMe)}>
               <div className="w-5 h-5 bg-[#e0e5ec] rounded shadow-[inset_2px_2px_5px_0_rgba(163,177,198,0.6),inset_-2px_-2px_5px_0_rgba(255,255,255,0.5)] flex items-center justify-center">
+                {rememberMe && <Check className="w-3.5 h-3.5 text-slate-500" />}
               </div>
               <span>Remember me</span>
             </label>

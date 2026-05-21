@@ -1,0 +1,1077 @@
+[
+  {
+    "slug": "akai",
+    "name": "Akai",
+    "roles": [
+      "Tank"
+    ],
+    "winRate": "50.7",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Alucard",
+      "Argus",
+      "Harith",
+      "Nana",
+      "Ixia"
+    ],
+    "weakAgainst": [
+      "Marcel",
+      "Alice",
+      "Cici",
+      "Hanabi",
+      "Chip"
+    ]
+  },
+  {
+    "slug": "aldous",
+    "name": "Aldous",
+    "roles": [
+      "Fighter"
+    ],
+    "winRate": "49.9",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Sun",
+      "Hanzo",
+      "Helcurt",
+      "Novaria",
+      "Xavier"
+    ],
+    "weakAgainst": [
+      "Esmeralda",
+      "Melissa",
+      "Karina",
+      "Chip",
+      "Cici"
+    ]
+  },
+  {
+    "slug": "atlas",
+    "name": "Atlas",
+    "roles": [
+      "Tank"
+    ],
+    "winRate": "51.8",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Popol and Kupa",
+      "Layla",
+      "Eudora",
+      "Estes",
+      "Lolita"
+    ],
+    "weakAgainst": [
+      "Marcel",
+      "Wanwan",
+      "Alice",
+      "Fanny",
+      "Valentina"
+    ]
+  },
+  {
+    "slug": "baxia",
+    "name": "Baxia",
+    "roles": [
+      "Tank"
+    ],
+    "winRate": "50.8",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Obsidia",
+      "Lukas",
+      "Minsitthar",
+      "Claude",
+      "Zhask"
+    ],
+    "weakAgainst": [
+      "X.Borg",
+      "Beatrix",
+      "Marcel",
+      "Fanny",
+      "Masha"
+    ]
+  },
+  {
+    "slug": "beatrix",
+    "name": "Beatrix",
+    "roles": [
+      "Marksman"
+    ],
+    "winRate": "49.8",
+    "difficulty": 3,
+    "strongAgainst": [
+      "Estes",
+      "Baxia",
+      "Hanabi",
+      "Barats",
+      "Belerick"
+    ],
+    "weakAgainst": [
+      "Moskov",
+      "Granger",
+      "Joy",
+      "Khufra",
+      "Irithel"
+    ]
+  },
+  {
+    "slug": "belerick",
+    "name": "Belerick",
+    "roles": [
+      "Tank"
+    ],
+    "winRate": "52.9",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Miya",
+      "Obsidia",
+      "Zhask",
+      "Johnson",
+      "Melissa"
+    ],
+    "weakAgainst": [
+      "Yve",
+      "Brody",
+      "Lesley",
+      "Beatrix",
+      "Xavier"
+    ]
+  },
+  {
+    "slug": "carmilla",
+    "name": "Carmilla",
+    "roles": [
+      "Support",
+      "Tank"
+    ],
+    "winRate": "51.4",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Popol and Kupa",
+      "Johnson",
+      "Chip",
+      "Gloo",
+      "Silvanna"
+    ],
+    "weakAgainst": [
+      "Valentina",
+      "Diggie",
+      "Faramis",
+      "Fanny",
+      "Benedetta"
+    ]
+  },
+  {
+    "slug": "chip",
+    "name": "Chip",
+    "roles": [
+      "Support",
+      "Tank"
+    ],
+    "winRate": "48.3",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Lolita",
+      "Masha",
+      "Khufra",
+      "Kaja",
+      "Diggie"
+    ],
+    "weakAgainst": [
+      "Marcel",
+      "Alice",
+      "Barats",
+      "Faramis",
+      "Balmond"
+    ]
+  },
+  {
+    "slug": "chou",
+    "name": "Chou",
+    "roles": [
+      "Fighter"
+    ],
+    "winRate": "46.8",
+    "difficulty": 3,
+    "strongAgainst": [
+      "X.Borg",
+      "Fanny",
+      "Beatrix",
+      "Hanzo",
+      "Ixia"
+    ],
+    "weakAgainst": [
+      "Lukas",
+      "Kalea"
+    ]
+  },
+  {
+    "slug": "claude",
+    "name": "Claude",
+    "roles": [
+      "Marksman"
+    ],
+    "winRate": "49.6",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Lolita",
+      "Balmond",
+      "Chang'e",
+      "Ixia",
+      "Gord"
+    ],
+    "weakAgainst": [
+      "Lesley",
+      "Aamon",
+      "Baxia",
+      "Edith",
+      "Natan"
+    ]
+  },
+  {
+    "slug": "diggie",
+    "name": "Diggie",
+    "roles": [
+      "Support"
+    ],
+    "winRate": "54.0",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Zhuxin",
+      "Alice",
+      "Karrie",
+      "Balmond",
+      "Atlas"
+    ],
+    "weakAgainst": [
+      "Sun",
+      "Yin",
+      "Estes",
+      "Zhask",
+      "Hanzo"
+    ]
+  },
+  {
+    "slug": "dyrroth",
+    "name": "Dyrroth",
+    "roles": [
+      "Fighter"
+    ],
+    "winRate": "48.4",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Uranus",
+      "Esmeralda",
+      "Aulus",
+      "Karrie",
+      "Alice"
+    ],
+    "weakAgainst": [
+      "Bane",
+      "Lylia",
+      "Luo Yi",
+      "Chang'e",
+      "Nana"
+    ]
+  },
+  {
+    "slug": "edith",
+    "name": "Edith",
+    "roles": [
+      "Tank",
+      "Marksman"
+    ],
+    "winRate": "51.1",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Harith",
+      "Faramis",
+      "Odette",
+      "Silvanna",
+      "Claude"
+    ],
+    "weakAgainst": [
+      "Lolita",
+      "Beatrix",
+      "Layla",
+      "Luo Yi",
+      "Hylos"
+    ]
+  },
+  {
+    "slug": "esmeralda",
+    "name": "Esmeralda",
+    "roles": [
+      "Tank",
+      "Mage"
+    ],
+    "winRate": "43.1",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Lolita",
+      "Argus",
+      "Marcel",
+      "Mathilda",
+      "Lapu-Lapu"
+    ],
+    "weakAgainst": [
+      "Karrie",
+      "Lunox",
+      "Dyrroth",
+      "Natan",
+      "Fredrinn"
+    ]
+  },
+  {
+    "slug": "estes",
+    "name": "Estes",
+    "roles": [
+      "Support"
+    ],
+    "winRate": "52.6",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Faramis",
+      "Cyclops",
+      "Masha",
+      "Diggie",
+      "Alice"
+    ],
+    "weakAgainst": [
+      "Ixia",
+      "Beatrix",
+      "Nolan",
+      "Yin",
+      "Atlas"
+    ]
+  },
+  {
+    "slug": "fanny",
+    "name": "Fanny",
+    "roles": [
+      "Assassin"
+    ],
+    "winRate": "42.9",
+    "difficulty": 3,
+    "strongAgainst": [
+      "Gloo",
+      "Granger",
+      "Atlas",
+      "Lolita",
+      "Baxia"
+    ],
+    "weakAgainst": [
+      "Bruno",
+      "Moskov",
+      "Franco",
+      "Saber",
+      "Masha"
+    ]
+  },
+  {
+    "slug": "franco",
+    "name": "Franco",
+    "roles": [
+      "Tank"
+    ],
+    "winRate": "44.6",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Diggie",
+      "Angela",
+      "Fanny",
+      "Floryn",
+      "Estes"
+    ],
+    "weakAgainst": [
+      "Hanzo",
+      "Johnson",
+      "Tigreal",
+      "Chip"
+    ]
+  },
+  {
+    "slug": "fredrinn",
+    "name": "Fredrinn",
+    "roles": [
+      "Fighter",
+      "Tank"
+    ],
+    "winRate": "51.3",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Gloo",
+      "Argus",
+      "Alucard",
+      "Joy",
+      "Esmeralda"
+    ],
+    "weakAgainst": [
+      "Valir",
+      "Gord",
+      "Cici",
+      "Balmond",
+      "Thamuz"
+    ]
+  },
+  {
+    "slug": "gatotkaca",
+    "name": "Gatotkaca",
+    "roles": [
+      "Tank",
+      "Fighter"
+    ],
+    "winRate": "46.9",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Miya",
+      "Odette",
+      "Zilong",
+      "Argus",
+      "Chip"
+    ],
+    "weakAgainst": [
+      "Lesley",
+      "Uranus",
+      "Mathilda",
+      "Baxia",
+      "Luo Yi"
+    ]
+  },
+  {
+    "slug": "gloo",
+    "name": "Gloo",
+    "roles": [
+      "Tank"
+    ],
+    "winRate": "55.4",
+    "difficulty": 3,
+    "strongAgainst": [
+      "Aamon",
+      "Jawhead",
+      "Johnson",
+      "Karina",
+      "Lesley"
+    ],
+    "weakAgainst": [
+      "Faramis",
+      "Moskov",
+      "Alice",
+      "Natan",
+      "Ruby"
+    ]
+  },
+  {
+    "slug": "grock",
+    "name": "Grock",
+    "roles": [
+      "Tank",
+      "Fighter"
+    ],
+    "winRate": "48.0",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Lolita",
+      "Popol and Kupa",
+      "Khufra",
+      "Yin",
+      "Diggie"
+    ],
+    "weakAgainst": []
+  },
+  {
+    "slug": "gusion",
+    "name": "Gusion",
+    "roles": [
+      "Assassin"
+    ],
+    "winRate": "49.6",
+    "difficulty": 3,
+    "strongAgainst": [
+      "Suyou",
+      "Valir",
+      "Yve",
+      "X.Borg",
+      "Aamon"
+    ],
+    "weakAgainst": [
+      "Chip",
+      "Alucard",
+      "Roger"
+    ]
+  },
+  {
+    "slug": "hayabusa",
+    "name": "Hayabusa",
+    "roles": [
+      "Assassin"
+    ],
+    "winRate": "48.4",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Zhuxin",
+      "Aamon",
+      "Yve",
+      "Novaria",
+      "Nolan"
+    ],
+    "weakAgainst": [
+      "Saber",
+      "Eudora",
+      "Obsidia",
+      "Popol and Kupa",
+      "Zhask"
+    ]
+  },
+  {
+    "slug": "hylos",
+    "name": "Hylos",
+    "roles": [
+      "Tank"
+    ],
+    "winRate": "48.5",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Eudora",
+      "Barats",
+      "Vale",
+      "Yin",
+      "Zilong"
+    ],
+    "weakAgainst": [
+      "Yve",
+      "Zhuxin",
+      "Valir",
+      "Karrie",
+      "Kimmy"
+    ]
+  },
+  {
+    "slug": "johnson",
+    "name": "Johnson",
+    "roles": [
+      "Tank",
+      "Support"
+    ],
+    "winRate": "50.4",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Layla",
+      "Zilong",
+      "Valentina",
+      "Eudora",
+      "Yin"
+    ],
+    "weakAgainst": [
+      "Gloo",
+      "Alice",
+      "Atlas",
+      "Belerick",
+      "Carmilla"
+    ]
+  },
+  {
+    "slug": "kagura",
+    "name": "Kagura",
+    "roles": [
+      "Mage"
+    ],
+    "winRate": "50.1",
+    "difficulty": 3,
+    "strongAgainst": [
+      "Lolita",
+      "Hanzo",
+      "Valir",
+      "Belerick",
+      "Yin"
+    ],
+    "weakAgainst": [
+      "Harith",
+      "Kaja",
+      "Freya",
+      "Chip",
+      "Lukas"
+    ]
+  },
+  {
+    "slug": "karrie",
+    "name": "Karrie",
+    "roles": [
+      "Marksman"
+    ],
+    "winRate": "50.1",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Alice",
+      "Esmeralda",
+      "Uranus",
+      "Leomord",
+      "Balmond"
+    ],
+    "weakAgainst": [
+      "Sun",
+      "Argus",
+      "Diggie",
+      "Saber",
+      "Zilong"
+    ]
+  },
+  {
+    "slug": "khufra",
+    "name": "Khufra",
+    "roles": [
+      "Tank"
+    ],
+    "winRate": "53.6",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Wanwan",
+      "Alucard",
+      "Eudora",
+      "Silvanna",
+      "Natalia"
+    ],
+    "weakAgainst": [
+      "Marcel",
+      "Alice",
+      "Zhuxin",
+      "Barats",
+      "Chip"
+    ]
+  },
+  {
+    "slug": "lancelot",
+    "name": "Lancelot",
+    "roles": [
+      "Assassin"
+    ],
+    "winRate": "43.5",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Atlas",
+      "Alpha",
+      "Baxia",
+      "X.Borg",
+      "Aurora"
+    ],
+    "weakAgainst": [
+      "Angela",
+      "Floryn",
+      "Mathilda",
+      "Faramis",
+      "Bruno"
+    ]
+  },
+  {
+    "slug": "ling",
+    "name": "Ling",
+    "roles": [
+      "Assassin"
+    ],
+    "winRate": "45.4",
+    "difficulty": 3,
+    "strongAgainst": [
+      "Balmond",
+      "Hanzo",
+      "Gloo",
+      "Atlas",
+      "X.Borg"
+    ],
+    "weakAgainst": [
+      "Natalia",
+      "Cyclops",
+      "Lukas",
+      "Saber",
+      "Masha"
+    ]
+  },
+  {
+    "slug": "lolita",
+    "name": "Lolita",
+    "roles": [
+      "Support",
+      "Tank"
+    ],
+    "winRate": "55.3",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Cyclops",
+      "Bane",
+      "Chang'e",
+      "Edith",
+      "Bruno"
+    ],
+    "weakAgainst": [
+      "Yve",
+      "Zhuxin",
+      "Aurora",
+      "Esmeralda",
+      "Kadita"
+    ]
+  },
+  {
+    "slug": "marcel",
+    "name": "Marcel",
+    "roles": [
+      "Support"
+    ],
+    "winRate": "54.1",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Atlas",
+      "Akai",
+      "Khufra",
+      "Chip",
+      "Baxia"
+    ],
+    "weakAgainst": [
+      "Angela",
+      "Cyclops",
+      "Odette",
+      "Lesley",
+      "Rafaela"
+    ]
+  },
+  {
+    "slug": "masha",
+    "name": "Masha",
+    "roles": [
+      "Fighter",
+      "Tank"
+    ],
+    "winRate": "56.2",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Yu Zhong",
+      "Guinevere",
+      "Cici",
+      "Baxia",
+      "Wanwan"
+    ],
+    "weakAgainst": [
+      "Argus",
+      "Sun",
+      "Estes",
+      "Chip",
+      "Ruby"
+    ]
+  },
+  {
+    "slug": "minotaur",
+    "name": "Minotaur",
+    "roles": [
+      "Tank",
+      "Support"
+    ],
+    "winRate": "52.7",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Lolita",
+      "Johnson",
+      "Cyclops",
+      "Khufra",
+      "Masha"
+    ],
+    "weakAgainst": [
+      "Yve",
+      "Ixia",
+      "Beatrix",
+      "Kimmy",
+      "Luo Yi"
+    ]
+  },
+  {
+    "slug": "nana",
+    "name": "Nana",
+    "roles": [
+      "Mage"
+    ],
+    "winRate": "48.2",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Odette",
+      "Lolita",
+      "Melissa",
+      "Silvanna",
+      "Estes"
+    ],
+    "weakAgainst": [
+      "Hylos",
+      "Yi Sun-shin",
+      "Akai",
+      "Khaleed",
+      "Selena"
+    ]
+  },
+  {
+    "slug": "obsidia",
+    "name": "Obsidia",
+    "roles": [
+      "Marksman"
+    ],
+    "winRate": "50.2",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Benedetta",
+      "Helcurt",
+      "Natalia",
+      "Novaria",
+      "Hanzo"
+    ],
+    "weakAgainst": [
+      "Baxia",
+      "Belerick",
+      "Miya",
+      "Uranus",
+      "Chip"
+    ]
+  },
+  {
+    "slug": "paquito",
+    "name": "Paquito",
+    "roles": [
+      "Fighter",
+      "Assassin"
+    ],
+    "winRate": "51.0",
+    "difficulty": 3,
+    "strongAgainst": [
+      "Natalia",
+      "X.Borg",
+      "Karina",
+      "Nolan",
+      "Yve"
+    ],
+    "weakAgainst": [
+      "Khufra",
+      "Melissa",
+      "Chip",
+      "Jawhead",
+      "Kalea"
+    ]
+  },
+  {
+    "slug": "pharsa",
+    "name": "Pharsa",
+    "roles": [
+      "Mage"
+    ],
+    "winRate": "47.7",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Lolita",
+      "Valir",
+      "Hanabi",
+      "Melissa",
+      "Luo Yi"
+    ],
+    "weakAgainst": []
+  },
+  {
+    "slug": "ruby",
+    "name": "Ruby",
+    "roles": [
+      "Fighter"
+    ],
+    "winRate": "50.8",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Sun",
+      "Gloo",
+      "Argus",
+      "Masha",
+      "Karina"
+    ],
+    "weakAgainst": [
+      "X.Borg",
+      "Phoveus",
+      "Gord",
+      "Terizla",
+      "Arlott"
+    ]
+  },
+  {
+    "slug": "saber",
+    "name": "Saber",
+    "roles": [
+      "Assassin"
+    ],
+    "winRate": "49.9",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Natalia",
+      "Nolan",
+      "Hayabusa",
+      "Ling",
+      "Benedetta"
+    ],
+    "weakAgainst": [
+      "Barats",
+      "Sun",
+      "Argus",
+      "Masha",
+      "Leomord"
+    ]
+  },
+  {
+    "slug": "terizla",
+    "name": "Terizla",
+    "roles": [
+      "Fighter",
+      "Tank"
+    ],
+    "winRate": "52.8",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Argus",
+      "Lolita",
+      "Popol and Kupa",
+      "Phoveus",
+      "Chip"
+    ],
+    "weakAgainst": [
+      "X.Borg",
+      "Gord",
+      "Yve",
+      "Mathilda",
+      "Alpha"
+    ]
+  },
+  {
+    "slug": "tigreal",
+    "name": "Tigreal",
+    "roles": [
+      "Tank"
+    ],
+    "winRate": "47.3",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Estes",
+      "Zilong",
+      "Eudora",
+      "Layla",
+      "Franco"
+    ],
+    "weakAgainst": [
+      "Alice",
+      "Valir",
+      "Diggie",
+      "Faramis",
+      "Zetian"
+    ]
+  },
+  {
+    "slug": "uranus",
+    "name": "Uranus",
+    "roles": [
+      "Tank"
+    ],
+    "winRate": "51.7",
+    "difficulty": 1,
+    "strongAgainst": [
+      "Argus",
+      "Layla",
+      "Irithel",
+      "Yi Sun-shin",
+      "Gatotkaca"
+    ],
+    "weakAgainst": [
+      "Estes",
+      "Dyrroth",
+      "Angela",
+      "Karrie",
+      "Joy"
+    ]
+  },
+  {
+    "slug": "valir",
+    "name": "Valir",
+    "roles": [
+      "Mage"
+    ],
+    "winRate": "52.8",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Fredrinn",
+      "Barats",
+      "Alice",
+      "Valentina",
+      "Leomord"
+    ],
+    "weakAgainst": [
+      "Helcurt",
+      "Rafaela",
+      "Masha",
+      "Ling",
+      "Benedetta"
+    ]
+  },
+  {
+    "slug": "wanwan",
+    "name": "Wanwan",
+    "roles": [
+      "Marksman"
+    ],
+    "winRate": "48.1",
+    "difficulty": 2,
+    "strongAgainst": [
+      "Atlas",
+      "Yin",
+      "Ixia",
+      "Guinevere",
+      "Gloo"
+    ],
+    "weakAgainst": [
+      "Phoveus",
+      "Bruno",
+      "Irithel",
+      "Lunox",
+      "Cyclops"
+    ]
+  },
+  {
+    "slug": "yu-zhong",
+    "name": "Yu Zhong",
+    "roles": [
+      "Fighter"
+    ],
+    "winRate": "47.9",
+    "difficulty": 3,
+    "strongAgainst": [
+      "Gloo",
+      "Atlas",
+      "Minsitthar",
+      "Carmilla",
+      "Esmeralda"
+    ],
+    "weakAgainst": [
+      "Masha",
+      "Wanwan",
+      "Paquito"
+    ]
+  },
+  {
+    "slug": "zilong",
+    "name": "Zilong",
+    "roles": [
+      "Fighter",
+      "Assassin"
+    ],
+    "winRate": "47.1",
+    "difficulty": 1,
+    "strongAgainst": [
+      "X.Borg",
+      "Diggie",
+      "Angela",
+      "Karrie",
+      "Joy"
+    ],
+    "weakAgainst": [
+      "Johnson",
+      "Eudora",
+      "Popol and Kupa",
+      "Karina",
+      "Tigreal"
+    ]
+  }
+]

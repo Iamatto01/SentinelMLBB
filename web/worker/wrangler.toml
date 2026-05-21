@@ -9,3 +9,4 @@ CORS_ORIGIN = "*"
 # Secrets (set via: npx wrangler secret put <NAME>)
 # TURSO_TOKEN
 # JWT_SECRET
+# GEMINI_API_KEY

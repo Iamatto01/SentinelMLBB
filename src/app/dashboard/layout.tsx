@@ -96,14 +96,14 @@ export default function DashboardLayout({
   return (
     <div
       className={cn(
-        "rounded-md flex flex-col md:flex-row bg-gray-100 dark:bg-neutral-900 w-full flex-1 max-w-full mx-auto border border-neutral-200 dark:border-neutral-700 overflow-hidden",
+        "rounded-md flex flex-col md:flex-row-reverse bg-gray-100 dark:bg-neutral-900 w-full flex-1 max-w-full mx-auto border border-neutral-200 dark:border-neutral-700 overflow-hidden",
         "h-screen"
       )}
     >
       <Sidebar open={open} setOpen={setOpen}>
         <SidebarBody className="justify-between gap-10">
           <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
-            <div className="flex items-center gap-2 px-2 py-4">
+            <div className="flex items-center gap-2 py-4">
               <motion.div
                 animate={{ rotate: open ? 360 : 0 }}
                 transition={{ duration: 0.5, ease: "easeInOut" }}

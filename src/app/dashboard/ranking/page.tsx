@@ -16,6 +16,7 @@ import {
   ChevronUp,
   ChevronDown,
 } from "lucide-react";
+import { getHeroByName } from "@/data/heroes-data";
 
 const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
 
@@ -610,14 +611,29 @@ export default function RankingsPage() {
                           </td>
 
                           {/* Unique Heroes count */}
-                          <td className="px-4 py-4 text-center">
-                            <button
-                              onClick={() => setSelectedPlayerForHeroes(player)}
-                              className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-                              title="Click to view heroes"
-                            >
+                          <td className="px-4 py-4 text-center group/hero-tooltip relative">
+                            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-help border-b border-indigo-600/30 dark:border-indigo-400/30 border-dashed pb-0.5">
                               {player.uniqueHeroesCount} heroes
-                            </button>
+                            </span>
+                            {/* Hover Tooltip with Images */}
+                            <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/hero-tooltip:flex flex-wrap gap-1.5 bg-white dark:bg-neutral-800 p-3 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-700 w-64 justify-center pointer-events-none">
+                              {player.uniqueHeroes.map((hName: string, i: number) => {
+                                const hero = getHeroByName(hName);
+                                return (
+                                  <div key={i} className="w-8 h-8 rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-700 relative group/hero-img border border-neutral-200 dark:border-neutral-600 flex-shrink-0">
+                                    {hero?.image ? (
+                                      <img src={hero.image} alt={hName} className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-neutral-500">{hName.charAt(0)}</div>
+                                    )}
+                                    {/* Inner Tooltip for name */}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 opacity-0 group-hover/hero-img:opacity-100 transition-opacity text-[10px] bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 font-bold px-2 py-0.5 rounded shadow-md whitespace-nowrap z-50">
+                                      {hName}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </td>
 
                         </tr>
