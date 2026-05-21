@@ -97,7 +97,7 @@ export default function CompsPage() {
     return resultList;
   }, [games, teamSize, sortConfig]);
 
-  const sizes = [2, 3, 4, 5];
+  const sizes = [1, 2, 3, 4, 5];
 
   const SortableHeader = ({ label, sortKey }: { label: string; sortKey: string }) => (
     <th
