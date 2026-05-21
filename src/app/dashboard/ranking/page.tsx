@@ -13,6 +13,8 @@ import {
   ChevronRight,
   TrendingUp,
   X,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 
 const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
@@ -51,6 +53,14 @@ export default function RankingsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"players" | "heroes">("players");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "winRate", direction: "desc" });
+
+  const handleSort = (key: string) => {
+    setSortConfig(current => ({
+      key,
+      direction: current.key === key && current.direction === "desc" ? "asc" : "desc"
+    }));
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -219,18 +229,71 @@ export default function RankingsPage() {
 
   // ─── Filtered Lists ────────────────────────────────────────────────────────
   const filteredPlayers = useMemo(() => {
-    return playersData
-      .filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
-      .sort((a, b) => b.winRate - a.winRate || b.games - a.games);
-  }, [playersData, searchQuery]);
+    let result = playersData.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    result.sort((a: any, b: any) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+      
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortConfig.direction === "asc" ? aVal - bVal : bVal - aVal;
+      }
+      
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        const aNum = parseFloat(aVal);
+        const bNum = parseFloat(bVal);
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return sortConfig.direction === "asc" ? aNum - bNum : bNum - aNum;
+        }
+        return sortConfig.direction === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      return 0;
+    });
+    
+    return result;
+  }, [playersData, searchQuery, sortConfig]);
 
   const filteredHeroes = useMemo(() => {
-    return heroesData
-      .filter((h) => h.name.toLowerCase().includes(searchQuery.toLowerCase()))
-      .sort((a, b) => b.winRate - a.winRate || b.games - a.games);
-  }, [heroesData, searchQuery]);
+    let result = heroesData.filter((h) => h.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    result.sort((a: any, b: any) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+      
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortConfig.direction === "asc" ? aVal - bVal : bVal - aVal;
+      }
+      
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        const aNum = parseFloat(aVal);
+        const bNum = parseFloat(bVal);
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return sortConfig.direction === "asc" ? aNum - bNum : bNum - aNum;
+        }
+        return sortConfig.direction === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      return 0;
+    });
+    
+    return result;
+  }, [heroesData, searchQuery, sortConfig]);
 
   if (!mounted) return null;
+
+  const SortableHeader = ({ label, sortKey, className }: { label: string; sortKey: string, className?: string }) => (
+    <th
+      className={`px-4 py-3.5 font-bold cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors select-none ${className || ""}`}
+      onClick={() => handleSort(sortKey)}
+    >
+      <div className={`flex items-center gap-1 ${className?.includes("text-center") ? "justify-center" : "justify-start"}`}>
+        {label}
+        <span className="text-neutral-300 dark:text-neutral-600 flex flex-col -space-y-[0.35rem]">
+          <ChevronUp className={`w-3 h-3 ${sortConfig.key === sortKey && sortConfig.direction === "asc" ? "text-indigo-500" : ""}`} />
+          <ChevronDown className={`w-3 h-3 ${sortConfig.key === sortKey && sortConfig.direction === "desc" ? "text-indigo-500" : ""}`} />
+        </span>
+      </div>
+    </th>
+  );
 
   return (
     <div className="w-full flex flex-col gap-6 animate-in fade-in duration-300">
@@ -415,13 +478,13 @@ export default function RankingsPage() {
                 <thead>
                   <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/40 text-neutral-500">
                     <th className="text-center px-4 py-3.5 font-bold w-16">Rank</th>
-                    <th className="text-left px-4 py-3.5 font-bold">Player</th>
-                    <th className="text-center px-4 py-3.5 font-bold w-24">Played</th>
-                    <th className="text-center px-4 py-3.5 font-bold w-24">Wins</th>
-                    <th className="text-center px-4 py-3.5 font-bold w-24">Losses</th>
-                    <th className="text-left px-4 py-3.5 font-bold w-48">Win Rate</th>
-                    <th className="text-center px-4 py-3.5 font-bold w-24">Avg KDA</th>
-                    <th className="text-center px-4 py-3.5 font-bold w-28">Unique Heroes</th>
+                    <SortableHeader label="Player" sortKey="name" className="text-left" />
+                    <SortableHeader label="Played" sortKey="games" className="text-center w-24" />
+                    <SortableHeader label="Wins" sortKey="wins" className="text-center w-24" />
+                    <SortableHeader label="Losses" sortKey="losses" className="text-center w-24" />
+                    <SortableHeader label="Win Rate" sortKey="winRate" className="text-left w-48" />
+                    <SortableHeader label="Avg KDA" sortKey="avgKda" className="text-center w-24" />
+                    <SortableHeader label="Unique Heroes" sortKey="uniqueHeroesCount" className="text-center w-28" />
                   </tr>
                 </thead>
                 <tbody>
@@ -570,13 +633,13 @@ export default function RankingsPage() {
                 <thead>
                   <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/40 text-neutral-500">
                     <th className="text-center px-4 py-3.5 font-bold w-16">Rank</th>
-                    <th className="text-left px-4 py-3.5 font-bold">Hero</th>
-                    <th className="text-center px-4 py-3.5 font-bold w-24">Games</th>
-                    <th className="text-center px-4 py-3.5 font-bold w-24">Wins</th>
-                    <th className="text-center px-4 py-3.5 font-bold w-24">Losses</th>
-                    <th className="text-left px-4 py-3.5 font-bold w-48">Win Rate</th>
-                    <th className="text-center px-4 py-3.5 font-bold w-24">Avg KDA</th>
-                    <th className="text-center px-4 py-3.5 font-bold w-28">Unique Contenders</th>
+                    <SortableHeader label="Hero" sortKey="name" className="text-left" />
+                    <SortableHeader label="Games" sortKey="games" className="text-center w-24" />
+                    <SortableHeader label="Wins" sortKey="wins" className="text-center w-24" />
+                    <SortableHeader label="Losses" sortKey="losses" className="text-center w-24" />
+                    <SortableHeader label="Win Rate" sortKey="winRate" className="text-left w-48" />
+                    <SortableHeader label="Avg KDA" sortKey="avgKda" className="text-center w-24" />
+                    <SortableHeader label="Unique Contenders" sortKey="uniquePlayersCount" className="text-center w-28" />
                   </tr>
                 </thead>
                 <tbody>

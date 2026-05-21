@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { ChevronUp, ChevronDown } from "lucide-react";
 
 const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
 
@@ -27,6 +28,14 @@ export default function CompsPage() {
   const [games, setGames] = useState<GameData[]>([]);
   const [loading, setLoading] = useState(true);
   const [teamSize, setTeamSize] = useState(5);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "total", direction: "desc" });
+
+  const handleSort = (key: string) => {
+    setSortConfig(current => ({
+      key,
+      direction: current.key === key && current.direction === "desc" ? "asc" : "desc"
+    }));
+  };
 
   useEffect(() => {
     (async () => {
@@ -67,17 +76,43 @@ export default function CompsPage() {
       });
     });
 
-    return Object.entries(compMap)
+    const resultList = Object.entries(compMap)
       .map(([key, v]) => ({
         key,
         ...v,
         winRate: v.total > 0 ? Math.round((v.wins / v.total) * 100) : 0,
       }))
-      .filter((c) => c.total >= 2) // Only show combos that appeared in 2+ games
-      .sort((a, b) => b.total - a.total);
-  }, [games, teamSize]);
+      .filter((c) => c.total >= 2); // Only show combos that appeared in 2+ games
+
+    // Apply sorting
+    resultList.sort((a: any, b: any) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortConfig.direction === "asc" ? aVal - bVal : bVal - aVal;
+      }
+      return 0;
+    });
+
+    return resultList;
+  }, [games, teamSize, sortConfig]);
 
   const sizes = [2, 3, 4, 5];
+
+  const SortableHeader = ({ label, sortKey }: { label: string; sortKey: string }) => (
+    <th
+      className="text-left px-4 py-3 font-medium text-neutral-500 cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors select-none"
+      onClick={() => handleSort(sortKey)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        <span className="text-neutral-300 dark:text-neutral-600 flex flex-col -space-y-[0.35rem]">
+          <ChevronUp className={`w-3 h-3 ${sortConfig.key === sortKey && sortConfig.direction === "asc" ? "text-indigo-500" : ""}`} />
+          <ChevronDown className={`w-3 h-3 ${sortConfig.key === sortKey && sortConfig.direction === "desc" ? "text-indigo-500" : ""}`} />
+        </span>
+      </div>
+    </th>
+  );
 
   return (
     <div className="w-full h-full flex flex-col gap-6">
@@ -119,9 +154,9 @@ export default function CompsPage() {
                     Hero {i + 1}
                   </th>
                 ))}
-                <th className="text-left px-4 py-3 font-medium text-neutral-500">Games</th>
-                <th className="text-left px-4 py-3 font-medium text-neutral-500">Win Rate</th>
-                <th className="text-left px-4 py-3 font-medium text-neutral-500">W/L</th>
+                <SortableHeader label="Games" sortKey="total" />
+                <SortableHeader label="Win Rate" sortKey="winRate" />
+                <SortableHeader label="Wins" sortKey="wins" />
               </tr>
             </thead>
             <tbody>
