@@ -41,6 +41,7 @@ interface HeroRankData {
   losses: number;
   winRate: number;
   uniquePlayersCount: number;
+  uniquePlayers: string[];
   avgKda: string;
   totalKills: number;
   totalDeaths: number;
@@ -54,6 +55,8 @@ export default function RankingsPage() {
   const [activeTab, setActiveTab] = useState<"players" | "heroes">("players");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "winRate", direction: "desc" });
+  const [selectedPlayerForHeroes, setSelectedPlayerForHeroes] = useState<PlayerRankData | null>(null);
+  const [selectedHeroForPlayers, setSelectedHeroForPlayers] = useState<HeroRankData | null>(null);
 
   const handleSort = (key: string) => {
     setSortConfig(current => ({
@@ -187,6 +190,7 @@ export default function RankingsPage() {
         losses,
         winRate,
         uniquePlayersCount: s.players.size,
+        uniquePlayers: Array.from(s.players),
         avgKda: kda,
         totalKills: s.kills,
         totalDeaths: s.deaths,
@@ -607,12 +611,13 @@ export default function RankingsPage() {
 
                           {/* Unique Heroes count */}
                           <td className="px-4 py-4 text-center">
-                            <span
-                              className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-help"
-                              title={player.uniqueHeroes.join(", ")}
+                            <button
+                              onClick={() => setSelectedPlayerForHeroes(player)}
+                              className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                              title="Click to view heroes"
                             >
                               {player.uniqueHeroesCount} heroes
-                            </span>
+                            </button>
                           </td>
 
                         </tr>
@@ -756,7 +761,13 @@ export default function RankingsPage() {
 
                           {/* Unique contenders */}
                           <td className="px-4 py-4 text-center text-neutral-500 font-medium">
-                            {hero.uniquePlayersCount} players
+                            <button
+                              onClick={() => setSelectedHeroForPlayers(hero)}
+                              className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                              title="Click to view players"
+                            >
+                              {hero.uniquePlayersCount} players
+                            </button>
                           </td>
 
                         </tr>
@@ -770,6 +781,108 @@ export default function RankingsPage() {
         </div>
       </div>
 
+      {/* Player Heroes Modal */}
+      <AnimatePresence>
+        {selectedPlayerForHeroes && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedPlayerForHeroes(null)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden z-10"
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-xl font-black text-neutral-800 dark:text-white">
+                      {selectedPlayerForHeroes.name}&apos;s Heroes
+                    </h3>
+                    <p className="text-sm text-neutral-500">
+                      Played {selectedPlayerForHeroes.uniqueHeroesCount} unique heroes
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedPlayerForHeroes(null)}
+                    className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPlayerForHeroes.uniqueHeroes.map((hero) => (
+                      <div
+                        key={hero}
+                        className="px-3 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm font-semibold text-neutral-700 dark:text-neutral-300"
+                      >
+                        {hero}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {selectedHeroForPlayers && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedHeroForPlayers(null)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden z-10"
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-xl font-black text-neutral-800 dark:text-white">
+                      Players of {selectedHeroForPlayers.name}
+                    </h3>
+                    <p className="text-sm text-neutral-500">
+                      Played by {selectedHeroForPlayers.uniquePlayersCount} unique players
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedHeroForPlayers(null)}
+                    className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                  <div className="flex flex-wrap gap-2">
+                    {selectedHeroForPlayers.uniquePlayers.map((player) => (
+                      <div
+                        key={player}
+                        className="px-3 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm font-semibold text-neutral-700 dark:text-neutral-300"
+                      >
+                        {player}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
