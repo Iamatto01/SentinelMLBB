@@ -5,10 +5,231 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
-import { Swords, Trophy, Target, Search, Camera, Upload, Loader2, Check, X, ImagePlus, Sparkles } from "lucide-react";
+import { Swords, Trophy, Target, Search, Camera, Loader2, Check, X, ImagePlus, Sparkles, Pencil } from "lucide-react";
 import { getHeroByName } from "@/data/heroes-data";
 
 const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
+
+type SaveCallback = () => Promise<void> | void;
+
+// ─── Manual Create/Update Modal ───────────────────────────────────────────
+function ManualGameModal({
+  isOpen,
+  onClose,
+  onGameSaved,
+  gameToEdit,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onGameSaved: SaveCallback;
+  gameToEdit: any | null;
+}) {
+  const isEdit = Boolean(gameToEdit?.id);
+  const [gameNum, setGameNum] = useState("");
+  const [date, setDate] = useState("");
+  const [mode, setMode] = useState("Ranked");
+  const [duration, setDuration] = useState("");
+  const [result, setResult] = useState("Win");
+  const [notes, setNotes] = useState("");
+  const [players, setPlayers] = useState<Array<{ player_name: string; hero_name: string }>>(
+    Array.from({ length: 5 }, () => ({ player_name: "", hero_name: "" }))
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (gameToEdit) {
+      const nextPlayers = Array.from({ length: 5 }, (_, i) => ({
+        player_name: gameToEdit.players?.[i]?.player_name || "",
+        hero_name: gameToEdit.players?.[i]?.hero_name || "",
+      }));
+      setGameNum(gameToEdit.game_num?.toString() || "");
+      setDate(gameToEdit.date || "");
+      setMode(gameToEdit.mode || "Ranked");
+      setDuration(gameToEdit.duration?.toString() || "");
+      setResult(gameToEdit.result || "Win");
+      setNotes(gameToEdit.notes || "");
+      setPlayers(nextPlayers);
+    } else {
+      setGameNum("");
+      setDate(new Date().toISOString().split("T")[0]);
+      setMode("Ranked");
+      setDuration("");
+      setResult("Win");
+      setNotes("");
+      setPlayers(Array.from({ length: 5 }, () => ({ player_name: "", hero_name: "" })));
+    }
+    setSaving(false);
+    setError(null);
+  }, [isOpen, gameToEdit]);
+
+  const updatePlayer = (idx: number, key: "player_name" | "hero_name", value: string) => {
+    setPlayers((prev) => prev.map((p, i) => (i === idx ? { ...p, [key]: value } : p)));
+  };
+
+  const handleSubmit = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem("token");
+      const payload = {
+        game_num: gameNum.trim() ? Number(gameNum) : null,
+        date: date || null,
+        mode: mode || "Ranked",
+        duration: duration.trim() ? Number(duration) : 0,
+        result: result || "Win",
+        notes: notes || "",
+        players: players
+          .filter((p) => p.player_name.trim() || p.hero_name.trim())
+          .map((p) => ({
+            player_name: p.player_name.trim(),
+            hero_name: p.hero_name.trim(),
+          })),
+      };
+
+      const endpoint = isEdit ? `${API_URL}/api/games/${gameToEdit.id}` : `${API_URL}/api/games`;
+      const method = isEdit ? "PUT" : "POST";
+      const res = await fetch(endpoint, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || data?.ok === false) {
+        setError(data?.error || `Failed to ${isEdit ? "update" : "save"} game.`);
+        return;
+      }
+
+      await onGameSaved();
+      onClose();
+    } catch (err) {
+      setError("Network error while saving game.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-sm">
+      <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+        <div className="p-5 border-b border-neutral-100 dark:border-neutral-800 flex justify-between items-center">
+          <div>
+            <h2 className="text-lg font-bold text-neutral-800 dark:text-white">
+              {isEdit ? "Update Game Log" : "Add Manual Game"}
+            </h2>
+            <p className="text-xs text-neutral-500 mt-0.5">Manual input for game log entry</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-500 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input
+              type="number"
+              placeholder="Game # (optional)"
+              value={gameNum}
+              onChange={(e) => setGameNum(e.target.value)}
+              className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            />
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            />
+            <input
+              type="text"
+              placeholder="Mode (Ranked/Classic/Tour)"
+              value={mode}
+              onChange={(e) => setMode(e.target.value)}
+              className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            />
+            <input
+              type="number"
+              placeholder="Duration (minutes)"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            />
+            <select
+              value={result}
+              onChange={(e) => setResult(e.target.value)}
+              className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            >
+              <option value="Win">Win</option>
+              <option value="Lose">Lose</option>
+            </select>
+            <input
+              type="text"
+              placeholder="Notes (optional)"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-[11px] text-neutral-400 uppercase font-bold">Players & Heroes</p>
+            {players.map((p, i) => (
+              <div key={i} className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder={`Player ${i + 1}`}
+                  value={p.player_name}
+                  onChange={(e) => updatePlayer(i, "player_name", e.target.value)}
+                  className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                />
+                <input
+                  type="text"
+                  placeholder={`Hero ${i + 1}`}
+                  value={p.hero_name}
+                  onChange={(e) => updatePlayer(i, "hero_name", e.target.value)}
+                  className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                />
+              </div>
+            ))}
+          </div>
+
+          {error && (
+            <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl p-3 text-sm text-red-600 dark:text-red-400">
+              {error}
+            </div>
+          )}
+
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold text-sm transition-all shadow-md shadow-emerald-500/25 disabled:opacity-60"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                {isEdit ? "Update Game Log" : "Save to Game Log"}
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function HeroWithPlayer({ heroName, playerName }: { heroName: string; playerName?: string }) {
   const hero = getHeroByName(heroName);
@@ -55,7 +276,7 @@ function ScreenshotUploadModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onGameCreated: () => void;
+  onGameCreated: SaveCallback;
 }) {
   const [dragOver, setDragOver] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -165,11 +386,12 @@ function ScreenshotUploadModal({
         },
         body: JSON.stringify(payload),
       });
-      if (res.ok) {
-        onGameCreated();
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok !== false) {
+        await onGameCreated();
         handleClose();
       } else {
-        setError("Failed to save game. Please try again.");
+        setError(data?.error || "Failed to save game. Please try again.");
       }
     } catch (err) {
       setError("Network error while saving.");
@@ -386,6 +608,8 @@ export default function GamesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showUpload, setShowUpload] = useState(false);
+  const [showManual, setShowManual] = useState(false);
+  const [editingGame, setEditingGame] = useState<any | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -459,6 +683,13 @@ export default function GamesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setEditingGame(null); setShowManual(true); }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-900 dark:bg-neutral-100 hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-neutral-900 text-sm font-semibold transition-all shadow-md"
+          >
+            <Pencil className="w-4 h-4" />
+            Manual Update
+          </button>
           <button
             onClick={() => setShowUpload(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-600 hover:to-indigo-700 text-white text-sm font-semibold transition-all shadow-md shadow-teal-500/25 hover:shadow-lg hover:shadow-teal-500/35 hover:-translate-y-0.5 active:translate-y-0"
@@ -540,13 +771,14 @@ export default function GamesPage() {
                 <th className="text-left px-4 py-3 font-medium text-neutral-500">Result</th>
                 <th className="text-left px-4 py-3 font-medium text-neutral-500">Mode</th>
                 <th className="text-left px-4 py-3 font-medium text-neutral-500">Duration</th>
+                <th className="text-left px-4 py-3 font-medium text-neutral-500">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-neutral-400">Loading games...</td></tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-neutral-400">Loading games...</td></tr>
               ) : filteredGames.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-neutral-400">No games found</td></tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-neutral-400">No games found</td></tr>
               ) : (
                 filteredGames.map((game, i) => (
                   <tr
@@ -586,6 +818,15 @@ export default function GamesPage() {
                     </td>
                     <td className="px-4 py-3 text-neutral-500 text-xs">{game.mode || "-"}</td>
                     <td className="px-4 py-3 text-neutral-500 text-xs">{game.duration ? `${game.duration}m` : "-"}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => { setEditingGame(game); setShowManual(true); }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        Edit
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -598,9 +839,17 @@ export default function GamesPage() {
       <ScreenshotUploadModal
         isOpen={showUpload}
         onClose={() => setShowUpload(false)}
-        onGameCreated={() => {
-          fetchGames();
+        onGameCreated={fetchGames}
+      />
+
+      <ManualGameModal
+        isOpen={showManual}
+        gameToEdit={editingGame}
+        onClose={() => {
+          setShowManual(false);
+          setEditingGame(null);
         }}
+        onGameSaved={fetchGames}
       />
     </div>
   );
