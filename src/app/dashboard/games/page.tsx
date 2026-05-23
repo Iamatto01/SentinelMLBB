@@ -99,7 +99,7 @@ function ManualGameModal({
           })),
       };
 
-      const endpoint = isEdit ? `${API_URL}/api/games/${gameToEdit.id}` : `${API_URL}/api/games`;
+      const endpoint = isEdit ? `${API_URL}/api/games/${gameToEdit?.id}` : `${API_URL}/api/games`;
       const method = isEdit ? "PUT" : "POST";
       const res = await fetch(endpoint, {
         method,
