@@ -11,6 +11,17 @@ import { getHeroByName } from "@/data/heroes-data";
 const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
 
 type SaveCallback = () => Promise<void> | void;
+type GamePlayer = { player_name?: string; hero_name?: string };
+type GameEntry = {
+  id?: number | string;
+  game_num?: number | null;
+  date?: string | null;
+  mode?: string | null;
+  duration?: number | null;
+  result?: string | null;
+  notes?: string | null;
+  players?: GamePlayer[];
+};
 
 // ─── Manual Create/Update Modal ───────────────────────────────────────────
 function ManualGameModal({
@@ -22,7 +33,7 @@ function ManualGameModal({
   isOpen: boolean;
   onClose: () => void;
   onGameSaved: SaveCallback;
-  gameToEdit: any | null;
+  gameToEdit: GameEntry | null;
 }) {
   const isEdit = Boolean(gameToEdit?.id);
   const [gameNum, setGameNum] = useState("");
@@ -604,12 +615,12 @@ function ScreenshotUploadModal({
 
 export default function GamesPage() {
   const [mounted, setMounted] = useState(false);
-  const [games, setGames] = useState<any[]>([]);
+  const [games, setGames] = useState<GameEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showUpload, setShowUpload] = useState(false);
   const [showManual, setShowManual] = useState(false);
-  const [editingGame, setEditingGame] = useState<any | null>(null);
+  const [editingGame, setEditingGame] = useState<GameEntry | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -688,7 +699,7 @@ export default function GamesPage() {
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-900 dark:bg-neutral-100 hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-neutral-900 text-sm font-semibold transition-all shadow-md"
           >
             <Pencil className="w-4 h-4" />
-            Manual Update
+            Manual Entry
           </button>
           <button
             onClick={() => setShowUpload(true)}
