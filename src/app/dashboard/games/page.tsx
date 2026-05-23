@@ -10,10 +10,10 @@ import { getHeroByName } from "@/data/heroes-data";
 
 const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
 
-type SaveCallback = () => Promise<void> | void;
+type GameSaveCallback = () => Promise<void> | void;
 type GamePlayer = { player_name?: string; hero_name?: string };
 type GameEntry = {
-  id?: number | string;
+  id?: number;
   game_num?: number | null;
   date?: string | null;
   mode?: string | null;
@@ -32,7 +32,7 @@ function ManualGameModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onGameSaved: SaveCallback;
+  onGameSaved: GameSaveCallback;
   gameToEdit: GameEntry | null;
 }) {
   const isEdit = Boolean(gameToEdit?.id);
@@ -88,7 +88,7 @@ function ManualGameModal({
         game_num: gameNum.trim() ? Number(gameNum) : null,
         date: date || null,
         mode: mode || "Ranked",
-        duration: duration.trim() ? Number(duration) : 0,
+        duration: duration.trim() ? Number(duration) : null,
         result: result || "Win",
         notes: notes || "",
         players: players
@@ -99,7 +99,7 @@ function ManualGameModal({
           })),
       };
 
-      const endpoint = isEdit ? `${API_URL}/api/games/${gameToEdit?.id}` : `${API_URL}/api/games`;
+      const endpoint = isEdit ? `${API_URL}/api/games/${gameToEdit!.id}` : `${API_URL}/api/games`;
       const method = isEdit ? "PUT" : "POST";
       const res = await fetch(endpoint, {
         method,
@@ -287,7 +287,7 @@ function ScreenshotUploadModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onGameCreated: SaveCallback;
+  onGameCreated: GameSaveCallback;
 }) {
   const [dragOver, setDragOver] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
