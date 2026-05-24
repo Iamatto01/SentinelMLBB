@@ -349,7 +349,11 @@ function ScreenshotUploadModal({
       });
       const data = await res.json();
       if (data.ok && data.data) {
-        updateFileState(file.id, { parsedData: data.data, parsing: false });
+        const parsed = {
+          ...data.data,
+          mode: data.data.mode || "Ranked"
+        };
+        updateFileState(file.id, { parsedData: parsed, parsing: false });
       } else {
         updateFileState(file.id, { error: data.error || "Failed to parse. Try a clearer image.", parsing: false });
       }
@@ -633,12 +637,17 @@ function ScreenshotUploadModal({
                           </div>
                           <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-2 border border-neutral-100 dark:border-neutral-800/80">
                             <p className="text-[9px] text-neutral-400 uppercase font-bold">Mode</p>
-                            <input
-                              type="text"
-                              value={file.parsedData.mode || ""}
+                            <select
+                              value={file.parsedData.mode || "Ranked"}
                               onChange={(e) => updateParsedData(file.id, { ...file.parsedData, mode: e.target.value })}
-                              className="text-xs font-bold text-neutral-800 dark:text-neutral-100 mt-0.5 bg-transparent focus:outline-none w-full"
-                            />
+                              className="text-xs font-bold text-neutral-800 dark:text-neutral-100 mt-0.5 bg-transparent focus:outline-none w-full cursor-pointer"
+                            >
+                              <option value="Ranked">Ranked</option>
+                              <option value="Classic">Classic</option>
+                              <option value="Brawl">Brawl</option>
+                              <option value="Custom">Custom</option>
+                              <option value="Tour">Tour</option>
+                            </select>
                           </div>
                         </div>
 

@@ -342,29 +342,39 @@ app.post('/api/games/parse-screenshot', authMiddleware, async (c) => {
 
     const heroListStr = (validHeroes && validHeroes.length > 0)
       ? validHeroes.join(', ')
-      : 'Tigreal, Khufra, Franco, Johnson, Grock, Atlas, Uranus, Hylos, Akai, Belerick, Minotaur, Edith, Baxia, Carmilla, Gloo, Chip, Chou, Paquito, Yu Zhong, Dyrroth, Terizla, Zilong, Aldous, Esmeralda, Masha, Badang, Guinevere, Ruby, Phoveus, Sun, Thamuz, Hilda, Alucard, Silvanna, Freya, Jawhead, Bane, X.Borg, Lapu-Lapu, Khaleed, Barats, Leomord, Martis, Arlott, Fanny, Ling, Lancelot, Hayabusa, Gusion, Saber, Joy, Nolan, Helcurt, Natalia, Karina, Aamon, Benedetta, Yi Sun-shin, Pharsa, Yve, Kagura, Lylia, Valir, Nana, Vexana, Novaria, Chang\'e, Cecilion, Alice, Odette, Harley, Aurora, Gord, Xavier, Lunox, Valentina, Luo Yi, Julian, Beatrix, Claude, Karrie, Brody, Clint, Moskov, Melissa, Wanwan, Miya, Layla, Hanabi, Irithel, Lesley, Natan, Popol and Kupa, Estes, Diggie, Mathilda, Angela, Faramis, Floryn, Rafaela, Kaja, Minsitthar, Selena, Cyclops, Vale, Suyou, Zhuxin, Ixia, Gatotkaca, Fredrinn, Harith, Roger, Alpha, Sora, Zetian, Marcel, Obsidia, Lolita';
+      : 'Tigreal, Khufra, Franco, Johnson, Grock, Atlas, Uranus, Hylos, Akai, Belerick, Minotaur, Edith, Baxia, Carmilla, Gloo, Chip, Chou, Paquito, Yu Zhong, Dyrroth, Terizla, Zilong, Aldous, Esmeralda, Masha, Badang, Guinevere, Ruby, Phoveus, Sun, Thamuz, Hilda, Alucard, Silvanna, Freya, Jawhead, Bane, X.Borg, Lapu-Lapu, Khaleed, Barats, Leomord, Martis, Arlott, Fanny, Ling, Lancelot, Hayabusa, Gusion, Saber, Joy, Nolan, Helcurt, Natalia, Karina, Aamon, Benedetta, Yi Sun-shin, Pharsa, Yve, Kagura, Lylia, Valir, Nana, Vexana, Novaria, Chang\'e, Cecilion, Alice, Odette, Harley, Aurora, Gord, Xavier, Lunox, Valentina, Luo Yi, Julian, Beatrix, Claude, Karrie, Brody, Clint, Moskov, Melissa, Wanwan, Miya, Layla, Hanabi, Irithel, Lesley, Natan, Popol and Kupa, Estes, Diggie, Mathilda, Angela, Faramis, Floryn, Rafaela, Kaja, Minsitthar, Selena, Cyclops, Vale, Suyou, Zhuxin, Ixia, Gatotkaca, Fredrinn, Harith, Roger, Alpha, Sora, Zetian, Marcel, Obsidia, Lolita, Balmond, Bruno, Eudora, Argus, Zhask, Hanzo, Kimmy, Kadita, Granger, Aulus, Yin, Cici, Lukas, Kalea';
 
     const prompt = `You are analyzing a Mobile Legends: Bang Bang (MLBB) post-game results screenshot.
 
-Extract the following data from the screenshot and return it as a JSON object:
+The post-game screen has two columns/sections representing the two teams:
+- The Allied Team (always listed on the left, usually under the 'VICTORY' or 'DEFEAT' banner, with a blue accent or header).
+- The Enemy Team (listed on the right, with a red accent or header).
 
+The Allied Team has exactly 5 players listed in 5 rows.
+For each of these 5 rows:
+1. On the left side of the row, there is a circular or rounded square hero portrait avatar.
+2. Directly next to the hero avatar, the player's nickname (IGN) is written in text.
+3. Further to the right are KDA statistics and items.
+
+Your task is to identify and match the exact player names and the exact hero names for all 5 players on the Allied Team.
+
+Analyze the screenshot step-by-step and return a JSON object with this exact structure:
 {
-  "result": "Win" or "Lose" (the match result for the team shown),
-  "mode": "Ranked" or "Classic" or "Brawl" or "Custom" (game mode),
-  "duration": number (game duration in minutes, just the number),
+  "reasoning": "Step-by-step analysis. First, I identify which side is the Allied team. Then, for each of the 5 rows from top to bottom: Row 1 player name and their hero. Row 2 player name and their hero. Row 3 player name and their hero. Row 4 player name and their hero. Row 5 player name and their hero.",
+  "result": "Win" or "Lose" (the match result for the Allied team),
+  "mode": "Ranked" or "Classic" or "Brawl" or "Custom" or "Tour",
+  "duration": number (game duration in minutes),
   "players": [
     { "player_name": "player IGN", "hero_name": "exact hero name" }
   ]
 }
 
 IMPORTANT RULES:
-- "players" should contain up to 5 players from the SAME team (the user's team)
-- Use exact official MLBB hero names ONLY. The valid hero names are: ${heroListStr}
-- Fix any typos or OCR mistakes to match the closest hero in the list above.
-- For player names, use exactly what is shown in the screenshot. If no name is visible, use "".
-- Duration should be just the number of minutes (round down).
-- If you cannot determine a field, use null.
-- Return ONLY the valid JSON object, no markdown, no explanation, no code fences.`;
+- The "players" array MUST contain exactly 5 players from the Allied team, ordered from top to bottom.
+- Match player names carefully. Use the exact text shown in the screenshot for the player name. If empty, use "".
+- Match hero names by looking closely at the hero portrait avatar. The hero name MUST be one of the following valid MLBB heroes: ${heroListStr}
+- Ensure that the player name is paired with the correct hero portrait from the same row. Do not mismatch them.
+- Return ONLY the raw JSON object. Do not wrap it in markdown code fences (like \`\`\`json) and do not write any text outside of the JSON.`;
 
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
