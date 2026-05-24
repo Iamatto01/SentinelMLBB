@@ -519,25 +519,39 @@ function ScreenshotUploadModal({
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-white dark:bg-neutral-900 rounded-xl p-3 border border-neutral-100 dark:border-neutral-800">
                       <p className="text-[10px] text-neutral-400 uppercase font-bold">Result</p>
-                      <p className={`text-sm font-bold mt-0.5 ${
-                        parsedData.result?.toLowerCase() === "win"
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-red-600 dark:text-red-400"
-                      }`}>
-                        {parsedData.result || "-"}
-                      </p>
+                      <select
+                        value={parsedData.result || "Win"}
+                        onChange={(e) => setParsedData({ ...parsedData, result: e.target.value })}
+                        className={`text-sm font-bold mt-0.5 bg-transparent focus:outline-none cursor-pointer w-full ${
+                          parsedData.result?.toLowerCase() === "win"
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-red-600 dark:text-red-400"
+                        }`}
+                      >
+                        <option value="Win" className="text-emerald-600">Win</option>
+                        <option value="Lose" className="text-red-600">Lose</option>
+                      </select>
                     </div>
                     <div className="bg-white dark:bg-neutral-900 rounded-xl p-3 border border-neutral-100 dark:border-neutral-800">
                       <p className="text-[10px] text-neutral-400 uppercase font-bold">Mode</p>
-                      <p className="text-sm font-bold text-neutral-800 dark:text-neutral-100 mt-0.5">
-                        {parsedData.mode || "-"}
-                      </p>
+                      <input
+                        type="text"
+                        value={parsedData.mode || ""}
+                        onChange={(e) => setParsedData({ ...parsedData, mode: e.target.value })}
+                        className="text-sm font-bold text-neutral-800 dark:text-neutral-100 mt-0.5 bg-transparent border-b border-transparent focus:border-indigo-500 focus:outline-none w-full"
+                      />
                     </div>
                     <div className="bg-white dark:bg-neutral-900 rounded-xl p-3 border border-neutral-100 dark:border-neutral-800">
                       <p className="text-[10px] text-neutral-400 uppercase font-bold">Duration</p>
-                      <p className="text-sm font-bold text-neutral-800 dark:text-neutral-100 mt-0.5">
-                        {parsedData.duration ? `${parsedData.duration}m` : "-"}
-                      </p>
+                      <div className="flex items-center text-sm font-bold text-neutral-800 dark:text-neutral-100 mt-0.5">
+                        <input
+                          type="number"
+                          value={parsedData.duration || ""}
+                          onChange={(e) => setParsedData({ ...parsedData, duration: Number(e.target.value) })}
+                          className="bg-transparent border-b border-transparent focus:border-indigo-500 focus:outline-none w-10 text-right"
+                        />
+                        <span>m</span>
+                      </div>
                     </div>
                   </div>
 
@@ -549,9 +563,9 @@ function ScreenshotUploadModal({
                       return (
                         <div
                           key={i}
-                          className="flex items-center gap-2 bg-white dark:bg-neutral-900 rounded-xl px-3 py-2 border border-neutral-100 dark:border-neutral-800"
+                          className="flex items-center gap-2 bg-white dark:bg-neutral-900 rounded-xl px-3 py-2 border border-neutral-100 dark:border-neutral-800 group"
                         >
-                          <div className="w-7 h-7 rounded-lg overflow-hidden bg-neutral-200 dark:bg-neutral-700 flex-shrink-0">
+                          <div className="w-8 h-8 rounded-lg overflow-hidden bg-neutral-200 dark:bg-neutral-700 flex-shrink-0">
                             {hero?.image ? (
                               <img
                                 src={hero.image}
@@ -560,18 +574,34 @@ function ScreenshotUploadModal({
                                 referrerPolicy="no-referrer"
                               />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-[10px] font-black text-neutral-500">
+                              <div className="w-full h-full flex items-center justify-center text-xs font-black text-neutral-500">
                                 {(p.hero_name || "?").charAt(0)}
                               </div>
                             )}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-neutral-800 dark:text-neutral-100 truncate">
-                              {p.hero_name || "Unknown"}
-                            </p>
-                            <p className="text-[10px] text-neutral-400 truncate">
-                              {p.player_name || "Unknown"}
-                            </p>
+                          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                            <input
+                              type="text"
+                              value={p.hero_name || ""}
+                              placeholder="Hero Name"
+                              onChange={(e) => {
+                                const newPlayers = [...parsedData.players];
+                                newPlayers[i].hero_name = e.target.value;
+                                setParsedData({ ...parsedData, players: newPlayers });
+                              }}
+                              className="text-xs font-bold text-neutral-800 dark:text-neutral-100 bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-indigo-500 focus:outline-none w-full"
+                            />
+                            <input
+                              type="text"
+                              value={p.player_name || ""}
+                              placeholder="Player Name"
+                              onChange={(e) => {
+                                const newPlayers = [...parsedData.players];
+                                newPlayers[i].player_name = e.target.value;
+                                setParsedData({ ...parsedData, players: newPlayers });
+                              }}
+                              className="text-[10px] text-neutral-500 bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-indigo-500 focus:outline-none w-full"
+                            />
                           </div>
                         </div>
                       );
