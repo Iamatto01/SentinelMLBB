@@ -280,6 +280,17 @@ function HeroWithPlayer({ heroName, playerName }: { heroName: string; playerName
 }
 
 // ─── Screenshot Upload & Parse Modal ─────────────────────────────────────
+type UploadedFile = {
+  id: string;
+  preview: string;
+  base64: string;
+  mimeType: string;
+  parsing: boolean;
+  parsedData: any | null;
+  error: string | null;
+  saved: boolean;
+};
+
 function ScreenshotUploadModal({
   isOpen,
   onClose,
@@ -290,65 +301,67 @@ function ScreenshotUploadModal({
   onGameCreated: GameSaveCallback;
 }) {
   const [dragOver, setDragOver] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageBase64, setImageBase64] = useState<string | null>(null);
-  const [imageMimeType, setImageMimeType] = useState<string>("image/png");
-  const [parsing, setParsing] = useState(false);
-  const [parsedData, setParsedData] = useState<any>(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [savingAll, setSavingAll] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const resetState = () => {
-    setImagePreview(null);
-    setImageBase64(null);
-    setParsedData(null);
-    setError(null);
-    setParsing(false);
-    setSaving(false);
-  };
-
   const handleClose = () => {
-    resetState();
+    setFiles([]);
+    setSavingAll(false);
     onClose();
   };
 
-  const processFile = (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      setError("Please upload an image file.");
-      return;
+  const processFiles = (fileList: FileList | File[]) => {
+    const newUploads: UploadedFile[] = [];
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      if (!file.type.startsWith("image/")) continue;
+      
+      const id = Math.random().toString(36).substring(7);
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        const base64 = dataUrl.split(",")[1];
+        setFiles((prev) => [
+          ...prev,
+          {
+            id,
+            preview: dataUrl,
+            base64,
+            mimeType: file.type,
+            parsing: false,
+            parsedData: null,
+            error: null,
+            saved: false,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
     }
-    setError(null);
-    setParsedData(null);
-    setImageMimeType(file.type);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      setImagePreview(dataUrl);
-      // Extract base64 from data URL
-      const base64 = dataUrl.split(",")[1];
-      setImageBase64(base64);
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processFile(file);
+    if (e.target.files) processFiles(e.target.files);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) processFile(file);
+    if (e.dataTransfer.files) processFiles(e.dataTransfer.files);
   };
 
-  const handleParse = async () => {
-    if (!imageBase64) return;
-    setParsing(true);
-    setError(null);
+  const updateFileState = (id: string, updates: Partial<UploadedFile>) => {
+    setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, ...updates } : f)));
+  };
+
+  const updateParsedData = (id: string, newParsedData: any) => {
+    updateFileState(id, { parsedData: newParsedData });
+  };
+
+  const handleParse = async (file: UploadedFile) => {
+    if (!file.base64 || file.saved) return;
+    updateFileState(file.id, { parsing: true, error: null });
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/games/parse-screenshot`, {
@@ -357,34 +370,41 @@ function ScreenshotUploadModal({
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ image: imageBase64, mimeType: imageMimeType }),
+        body: JSON.stringify({ image: file.base64, mimeType: file.mimeType }),
       });
       const data = await res.json();
       if (data.ok && data.data) {
-        setParsedData(data.data);
+        updateFileState(file.id, { parsedData: data.data, parsing: false });
       } else {
-        setError(data.error || "Failed to parse screenshot. Try a clearer image.");
+        updateFileState(file.id, { error: data.error || "Failed to parse. Try a clearer image.", parsing: false });
       }
     } catch (err) {
-      setError("Network error. Please try again.");
-    } finally {
-      setParsing(false);
+      updateFileState(file.id, { error: "Network error. Please try again.", parsing: false });
     }
   };
 
-  const handleSaveGame = async () => {
-    if (!parsedData) return;
-    setSaving(true);
-    setError(null);
+  const handleParseAll = () => {
+    files.forEach((file) => {
+      if (!file.parsedData && !file.parsing && !file.saved) {
+        handleParse(file);
+      }
+    });
+  };
+
+  const handleSaveGame = async (file: UploadedFile) => {
+    if (!file.parsedData || file.saved) return;
+    
+    // Set global loading if only one is saving? Actually, just mark it saving locally.
+    // For simplicity, we use savingAll for global and individual just await.
     try {
       const token = localStorage.getItem("token");
       const payload = {
         date: new Date().toISOString().split("T")[0],
-        mode: parsedData.mode || "Ranked",
-        duration: parsedData.duration || 0,
-        result: parsedData.result || "Win",
+        mode: file.parsedData.mode || "Ranked",
+        duration: file.parsedData.duration || 0,
+        result: file.parsedData.result || "Win",
         notes: "📸 Auto-parsed from screenshot",
-        players: (parsedData.players || []).map((p: any) => ({
+        players: (file.parsedData.players || []).map((p: any) => ({
           player_name: p.player_name || "",
           hero_name: p.hero_name || "",
         })),
@@ -399,35 +419,55 @@ function ScreenshotUploadModal({
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.ok !== false) {
+        updateFileState(file.id, { saved: true, error: null });
         await onGameCreated();
-        handleClose();
       } else {
-        setError(data?.error || "Failed to save game. Please try again.");
+        updateFileState(file.id, { error: data?.error || "Failed to save game." });
       }
     } catch (err) {
-      setError("Network error while saving.");
-    } finally {
-      setSaving(false);
+      updateFileState(file.id, { error: "Network error while saving." });
     }
+  };
+
+  const handleSaveAll = async () => {
+    setSavingAll(true);
+    for (const file of files) {
+      if (file.parsedData && !file.saved) {
+        await handleSaveGame(file);
+      }
+    }
+    setSavingAll(false);
+    
+    // Auto close if all are saved
+    setFiles((current) => {
+      if (current.every((f) => f.saved)) {
+        setTimeout(handleClose, 500);
+      }
+      return current;
+    });
   };
 
   if (!isOpen) return null;
 
+  const allSaved = files.length > 0 && files.every(f => f.saved);
+  const anyToParse = files.some(f => !f.parsedData && !f.parsing && !f.saved);
+  const anyToSave = files.some(f => f.parsedData && !f.saved);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-sm">
       <div
-        className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden"
+        className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-5 border-b border-neutral-100 dark:border-neutral-800 flex justify-between items-center bg-gradient-to-r from-teal-50 to-indigo-50 dark:from-neutral-900 dark:to-neutral-900">
+        <div className="p-5 border-b border-neutral-100 dark:border-neutral-800 flex justify-between items-center bg-gradient-to-r from-teal-50 to-indigo-50 dark:from-neutral-900 dark:to-neutral-900 shrink-0">
           <div>
             <h2 className="text-lg font-bold text-neutral-800 dark:text-white flex items-center gap-2">
               <Camera className="w-5 h-5 text-teal-500" />
-              Upload Screenshot
+              Upload Screenshots
             </h2>
             <p className="text-xs text-neutral-500 mt-0.5">
-              Upload MLBB post-game screenshot untuk auto-parse ke Game Log
+              Upload multiple MLBB post-game screenshots for batch processing
             </p>
           </div>
           <button
@@ -438,16 +478,51 @@ function ScreenshotUploadModal({
           </button>
         </div>
 
+        {/* Action Bar (if files exist) */}
+        {files.length > 0 && !allSaved && (
+          <div className="p-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 shrink-0">
+            <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+              {files.length} file(s) selected
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+              >
+                Add More
+              </button>
+              {anyToParse && (
+                <button
+                  onClick={handleParseAll}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-200 dark:hover:bg-indigo-500/30 transition-colors flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Parse All
+                </button>
+              )}
+              {anyToSave && (
+                <button
+                  onClick={handleSaveAll}
+                  disabled={savingAll}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-500 hover:bg-teal-600 text-white transition-colors flex items-center gap-1.5 disabled:opacity-60"
+                >
+                  {savingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  Save All Parsed
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* Drop Zone / Preview */}
-          {!imagePreview ? (
+          {!files.length ? (
             <div
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
+              className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all h-full min-h-[300px] flex flex-col items-center justify-center ${
                 dragOver
                   ? "border-teal-500 bg-teal-50 dark:bg-teal-500/10"
                   : "border-neutral-300 dark:border-neutral-700 hover:border-teal-400 dark:hover:border-teal-600 bg-neutral-50 dark:bg-neutral-800/30"
@@ -457,186 +532,174 @@ function ScreenshotUploadModal({
                 dragOver ? "text-teal-500" : "text-neutral-400"
               }`} />
               <p className="text-sm font-semibold text-neutral-600 dark:text-neutral-300">
-                Drop screenshot here or click to browse
+                Drop screenshots here or click to browse
               </p>
               <p className="text-xs text-neutral-400 mt-1">
-                Supports PNG, JPG, WEBP
+                Supports multiple PNG, JPG, WEBP files
               </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
-              />
             </div>
+          ) : allSaved ? (
+             <div className="py-20 text-center">
+               <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                 <Check className="w-8 h-8" />
+               </div>
+               <h3 className="text-xl font-bold text-neutral-800 dark:text-neutral-100 mb-2">All Games Saved!</h3>
+               <p className="text-neutral-500 text-sm mb-6">Successfully processed and saved {files.length} games to your log.</p>
+               <button
+                  onClick={handleClose}
+                  className="px-6 py-2.5 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 font-semibold rounded-xl text-sm"
+               >
+                 Close
+               </button>
+             </div>
           ) : (
-            <div className="space-y-4">
-              {/* Image Preview */}
-              <div className="relative rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800">
-                <img
-                  src={imagePreview}
-                  alt="Screenshot preview"
-                  className="w-full max-h-[280px] object-contain bg-neutral-100 dark:bg-neutral-800"
-                />
-                <button
-                  onClick={() => { resetState(); }}
-                  className="absolute top-2 right-2 p-1.5 bg-red-500/80 hover:bg-red-600 text-white rounded-lg transition-colors shadow-lg"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Parse Button */}
-              {!parsedData && (
-                <button
-                  onClick={handleParse}
-                  disabled={parsing}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-600 hover:to-indigo-700 text-white font-semibold text-sm transition-all shadow-md shadow-teal-500/25 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {parsing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Parsing with AI...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      Parse Screenshot
-                    </>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {files.map((file) => (
+                <div key={file.id} className={`relative rounded-2xl border ${file.saved ? 'border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-500/5' : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900'} overflow-hidden flex flex-col`}>
+                  {/* Remove Button */}
+                  {!file.saved && (
+                    <button
+                      onClick={() => setFiles(f => f.filter(x => x.id !== file.id))}
+                      className="absolute top-2 right-2 p-1.5 bg-neutral-900/50 hover:bg-red-600 text-white rounded-lg transition-colors shadow-sm z-10"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   )}
-                </button>
-              )}
-
-              {/* Parsed Results Preview */}
-              {parsedData && (
-                <div className="bg-neutral-50 dark:bg-neutral-800/40 border border-neutral-200 dark:border-neutral-700 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="w-4 h-4 text-teal-500" />
-                    <h3 className="text-sm font-bold text-neutral-800 dark:text-neutral-100">Parsed Result</h3>
+                  
+                  {/* Image Thumbnail */}
+                  <div className="h-32 bg-neutral-100 dark:bg-neutral-800 relative group overflow-hidden shrink-0">
+                    <img
+                      src={file.preview}
+                      alt="Screenshot"
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                    />
+                    {file.saved && (
+                       <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center backdrop-blur-[2px]">
+                         <div className="bg-emerald-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
+                           <Check className="w-3.5 h-3.5" /> Saved
+                         </div>
+                       </div>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-white dark:bg-neutral-900 rounded-xl p-3 border border-neutral-100 dark:border-neutral-800">
-                      <p className="text-[10px] text-neutral-400 uppercase font-bold">Result</p>
-                      <select
-                        value={parsedData.result || "Win"}
-                        onChange={(e) => setParsedData({ ...parsedData, result: e.target.value })}
-                        className={`text-sm font-bold mt-0.5 bg-transparent focus:outline-none cursor-pointer w-full ${
-                          parsedData.result?.toLowerCase() === "win"
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-red-600 dark:text-red-400"
-                        }`}
-                      >
-                        <option value="Win" className="text-emerald-600">Win</option>
-                        <option value="Lose" className="text-red-600">Lose</option>
-                      </select>
-                    </div>
-                    <div className="bg-white dark:bg-neutral-900 rounded-xl p-3 border border-neutral-100 dark:border-neutral-800">
-                      <p className="text-[10px] text-neutral-400 uppercase font-bold">Mode</p>
-                      <input
-                        type="text"
-                        value={parsedData.mode || ""}
-                        onChange={(e) => setParsedData({ ...parsedData, mode: e.target.value })}
-                        className="text-sm font-bold text-neutral-800 dark:text-neutral-100 mt-0.5 bg-transparent border-b border-transparent focus:border-indigo-500 focus:outline-none w-full"
-                      />
-                    </div>
-                    <div className="bg-white dark:bg-neutral-900 rounded-xl p-3 border border-neutral-100 dark:border-neutral-800">
-                      <p className="text-[10px] text-neutral-400 uppercase font-bold">Duration</p>
-                      <div className="flex items-center text-sm font-bold text-neutral-800 dark:text-neutral-100 mt-0.5">
-                        <input
-                          type="number"
-                          value={parsedData.duration || ""}
-                          onChange={(e) => setParsedData({ ...parsedData, duration: Number(e.target.value) })}
-                          className="bg-transparent border-b border-transparent focus:border-indigo-500 focus:outline-none w-10 text-right"
-                        />
-                        <span>m</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Players */}
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] text-neutral-400 uppercase font-bold">Players & Heroes</p>
-                    {(parsedData.players || []).map((p: any, i: number) => {
-                      const hero = getHeroByName(p.hero_name);
-                      return (
-                        <div
-                          key={i}
-                          className="flex items-center gap-2 bg-white dark:bg-neutral-900 rounded-xl px-3 py-2 border border-neutral-100 dark:border-neutral-800 group"
+                  <div className="p-4 flex-1 flex flex-col gap-4">
+                    {/* Status / Parse Action */}
+                    {!file.parsedData && !file.saved && (
+                      <div className="mt-auto">
+                        <button
+                          onClick={() => handleParse(file)}
+                          disabled={file.parsing}
+                          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 font-semibold text-xs transition-colors disabled:opacity-60"
                         >
-                          <div className="w-8 h-8 rounded-lg overflow-hidden bg-neutral-200 dark:bg-neutral-700 flex-shrink-0">
-                            {hero?.image ? (
-                              <img
-                                src={hero.image}
-                                alt={p.hero_name}
-                                className="w-full h-full object-cover object-top"
-                                referrerPolicy="no-referrer"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-xs font-black text-neutral-500">
-                                {(p.hero_name || "?").charAt(0)}
-                              </div>
-                            )}
+                          {file.parsing ? (
+                            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Parsing...</>
+                          ) : (
+                            <><Sparkles className="w-3.5 h-3.5" /> Parse AI</>
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Parsed Form */}
+                    {file.parsedData && !file.saved && (
+                      <div className="flex-1 flex flex-col gap-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-2 border border-neutral-100 dark:border-neutral-800/80">
+                            <p className="text-[9px] text-neutral-400 uppercase font-bold">Result</p>
+                            <select
+                              value={file.parsedData.result || "Win"}
+                              onChange={(e) => updateParsedData(file.id, { ...file.parsedData, result: e.target.value })}
+                              className={`text-xs font-bold mt-0.5 bg-transparent focus:outline-none cursor-pointer w-full ${
+                                file.parsedData.result?.toLowerCase() === "win" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                              }`}
+                            >
+                              <option value="Win" className="text-emerald-600">Win</option>
+                              <option value="Lose" className="text-red-600">Lose</option>
+                            </select>
                           </div>
-                          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                          <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-2 border border-neutral-100 dark:border-neutral-800/80">
+                            <p className="text-[9px] text-neutral-400 uppercase font-bold">Mode</p>
                             <input
                               type="text"
-                              value={p.hero_name || ""}
-                              placeholder="Hero Name"
-                              onChange={(e) => {
-                                const newPlayers = [...parsedData.players];
-                                newPlayers[i].hero_name = e.target.value;
-                                setParsedData({ ...parsedData, players: newPlayers });
-                              }}
-                              className="text-xs font-bold text-neutral-800 dark:text-neutral-100 bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-indigo-500 focus:outline-none w-full"
-                            />
-                            <input
-                              type="text"
-                              value={p.player_name || ""}
-                              placeholder="Player Name"
-                              onChange={(e) => {
-                                const newPlayers = [...parsedData.players];
-                                newPlayers[i].player_name = e.target.value;
-                                setParsedData({ ...parsedData, players: newPlayers });
-                              }}
-                              className="text-[10px] text-neutral-500 bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-indigo-500 focus:outline-none w-full"
+                              value={file.parsedData.mode || ""}
+                              onChange={(e) => updateParsedData(file.id, { ...file.parsedData, mode: e.target.value })}
+                              className="text-xs font-bold text-neutral-800 dark:text-neutral-100 mt-0.5 bg-transparent focus:outline-none w-full"
                             />
                           </div>
                         </div>
-                      );
-                    })}
+
+                        <div className="space-y-1">
+                          <p className="text-[9px] text-neutral-400 uppercase font-bold">Players & Heroes</p>
+                          <div className="max-h-[140px] overflow-y-auto pr-1 space-y-1.5 custom-scrollbar">
+                            {(file.parsedData.players || []).map((p: any, i: number) => {
+                              const hero = getHeroByName(p.hero_name);
+                              return (
+                                <div key={i} className="flex items-center gap-1.5 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg px-2 py-1.5 border border-neutral-100 dark:border-neutral-800/80 group">
+                                  <div className="w-6 h-6 rounded flex-shrink-0 overflow-hidden bg-neutral-200 dark:bg-neutral-700">
+                                    {hero?.image ? <img src={hero.image} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[9px] font-black text-neutral-500">{(p.hero_name || "?").charAt(0)}</div>}
+                                  </div>
+                                  <div className="flex-1 min-w-0 flex flex-col">
+                                    <input
+                                      type="text"
+                                      value={p.hero_name || ""}
+                                      placeholder="Hero"
+                                      onChange={(e) => {
+                                        const newPlayers = [...file.parsedData.players];
+                                        newPlayers[i].hero_name = e.target.value;
+                                        updateParsedData(file.id, { ...file.parsedData, players: newPlayers });
+                                      }}
+                                      className="text-[11px] font-bold text-neutral-800 dark:text-neutral-100 bg-transparent focus:outline-none w-full leading-tight"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={p.player_name || ""}
+                                      placeholder="Player"
+                                      onChange={(e) => {
+                                        const newPlayers = [...file.parsedData.players];
+                                        newPlayers[i].player_name = e.target.value;
+                                        updateParsedData(file.id, { ...file.parsedData, players: newPlayers });
+                                      }}
+                                      className="text-[9px] text-neutral-500 bg-transparent focus:outline-none w-full leading-tight"
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="mt-auto pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                           <button
+                             onClick={() => handleSaveGame(file)}
+                             disabled={savingAll}
+                             className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-teal-50 hover:bg-teal-100 dark:bg-teal-500/10 dark:hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-semibold text-xs transition-colors disabled:opacity-60"
+                           >
+                             <Check className="w-3.5 h-3.5" /> Save
+                           </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Save Button */}
-                  <button
-                    onClick={handleSaveGame}
-                    disabled={saving}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold text-sm transition-all shadow-md shadow-emerald-500/25 disabled:opacity-60"
-                  >
-                    {saving ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-4 h-4" />
-                        Save to Game Log
-                      </>
-                    )}
-                  </button>
+                  {/* Error Overlay / Message */}
+                  {file.error && (
+                    <div className="mx-4 mb-4 mt-auto bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg p-2 text-[10px] text-red-600 dark:text-red-400 leading-tight">
+                      {file.error}
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
           )}
-
-          {/* Error */}
-          {error && (
-            <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl p-3 text-sm text-red-600 dark:text-red-400">
-              {error}
-            </div>
-          )}
+          
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileChange}
+            className="hidden"
+          />
         </div>
       </div>
     </div>
