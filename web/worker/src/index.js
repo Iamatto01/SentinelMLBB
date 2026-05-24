@@ -202,10 +202,10 @@ app.post('/api/games', authMiddleware, async (c) => {
   if (players && players.length > 0) {
     for (let i = 0; i < players.length; i++) {
       const p = players[i];
-      if (p.player_name) {
+      if (p.player_name || p.hero_name) {
         await db.execute({
           sql: 'INSERT INTO game_players (game_id, slot, player_name, hero_name) VALUES (?, ?, ?, ?)',
-          args: [gameId, i + 1, p.player_name, p.hero_name || '']
+          args: [gameId, i + 1, p.player_name || '', p.hero_name || '']
         });
       }
     }
@@ -230,10 +230,10 @@ app.post('/api/games/bulk', authMiddleware, async (c) => {
     if (g.players && g.players.length > 0) {
       for (let i = 0; i < g.players.length; i++) {
         const p = g.players[i];
-        if (p.player_name) {
+        if (p.player_name || p.hero_name) {
           await db.execute({
             sql: 'INSERT INTO game_players (game_id, slot, player_name, hero_name) VALUES (?, ?, ?, ?)',
-            args: [gameId, i + 1, p.player_name, p.hero_name || '']
+            args: [gameId, i + 1, p.player_name || '', p.hero_name || '']
           });
         }
       }
@@ -263,10 +263,10 @@ app.put('/api/games/:id', authMiddleware, async (c) => {
   if (players && players.length > 0) {
     for (let i = 0; i < players.length; i++) {
       const p = players[i];
-      if (p.player_name) {
+      if (p.player_name || p.hero_name) {
         await db.execute({
           sql: 'INSERT INTO game_players (game_id, slot, player_name, hero_name) VALUES (?, ?, ?, ?)',
-          args: [gameId, i + 1, p.player_name, p.hero_name || '']
+          args: [gameId, i + 1, p.player_name || '', p.hero_name || '']
         });
       }
     }
@@ -355,11 +355,12 @@ Extract the following data from the screenshot and return it as a JSON object:
 
 IMPORTANT RULES:
 - "players" should contain up to 5 players from the SAME team (the user's team)
-- Use exact official MLBB hero names (e.g. "Popol and Kupa" not "Popol", "Lapu-Lapu" not "Lapu Lapu", "X.Borg" not "XBorg", "Yi Sun-shin" not "Yi Sun Shin", "Yu Zhong" not "YuZhong", "Luo Yi" not "LuoYi")
-- For player names, use exactly what is shown in the screenshot
-- Duration should be just the number of minutes (round down)
-- If you cannot determine a field, use null
-- Return ONLY the JSON object, no markdown, no explanation, no code fences`;
+- Use exact official MLBB hero names ONLY. The valid hero names are: Tigreal, Khufra, Franco, Johnson, Grock, Atlas, Uranus, Hylos, Akai, Belerick, Minotaur, Edith, Baxia, Carmilla, Gloo, Chip, Chou, Paquito, Yu Zhong, Dyrroth, Terizla, Zilong, Aldous, Esmeralda, Masha, Badang, Guinevere, Ruby, Phoveus, Sun, Thamuz, Hilda, Alucard, Silvanna, Freya, Jawhead, Bane, X.Borg, Lapu-Lapu, Khaleed, Barats, Leomord, Martis, Arlott, Fanny, Ling, Lancelot, Hayabusa, Gusion, Saber, Joy, Nolan, Helcurt, Natalia, Karina, Aamon, Benedetta, Yi Sun-shin, Pharsa, Yve, Kagura, Lylia, Valir, Nana, Vexana, Novaria, Chang'e, Cecilion, Alice, Odette, Harley, Aurora, Gord, Xavier, Lunox, Valentina, Luo Yi, Julian, Beatrix, Claude, Karrie, Brody, Clint, Moskov, Melissa, Wanwan, Miya, Layla, Hanabi, Irithel, Lesley, Natan, Popol and Kupa, Estes, Diggie, Mathilda, Angela, Faramis, Floryn, Rafaela, Kaja, Minsitthar, Selena, Cyclops, Vale, Suyou, Zhuxin, Ixia, Gatotkaca, Fredrinn, Harith, Roger, Alpha, Sora, Zetian, Marcel, Obsidia, Lolita.
+- Fix any typos or OCR mistakes to match the closest hero in the list above.
+- For player names, use exactly what is shown in the screenshot. If no name is visible, use "".
+- Duration should be just the number of minutes (round down).
+- If you cannot determine a field, use null.
+- Return ONLY the valid JSON object, no markdown, no explanation, no code fences.`;
 
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
