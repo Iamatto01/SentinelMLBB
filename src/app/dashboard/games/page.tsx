@@ -255,7 +255,7 @@ function ManualGameModal({
 function HeroWithPlayer({ heroName, playerName }: { heroName: string; playerName?: string }) {
   const hero = getHeroByName(heroName);
   const [imgErr, setImgErr] = useState(false);
-  const heroImageSrc = hero?.mlbbId ? `https://api.mobilelegends.com/m/hero/image/${hero.mlbbId}-head.png` : hero?.image;
+  const heroImageSrc = hero?.image;
 
   return (
     <div className="flex items-center gap-2 p-1.5 rounded-lg bg-neutral-100/50 dark:bg-neutral-800/50 border border-neutral-200/50 dark:border-neutral-700/50 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">

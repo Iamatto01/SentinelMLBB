@@ -82,7 +82,21 @@ export const HEROES: HeroInfo[] = [
   { name: "Zetian", roles: ["Fighter", "Mage"], strongAgainst: ["Support", "Fighter"], weakAgainst: ["Lancelot", "Hayabusa", "Fanny"] },
   { name: "Marcel", roles: ["Tank", "Fighter"], strongAgainst: ["Assassin", "Fighter"], weakAgainst: ["Karrie", "Baxia", "Valir"] },
   { name: "Obsidia", roles: ["Tank"], strongAgainst: ["Marksman", "Mage"], weakAgainst: ["Karrie", "Valir", "Baxia"] },
-  { name: "Lolita", roles: ["Tank", "Support"], strongAgainst: ["Beatrix", "Chang'e", "Cyclops"], weakAgainst: ["Diggie", "Akai", "Valir"] }
+  { name: "Lolita", roles: ["Tank", "Support"], strongAgainst: ["Beatrix", "Chang'e", "Cyclops"], weakAgainst: ["Diggie", "Akai", "Valir"] },
+  { name: "Balmond", roles: ["Fighter"], strongAgainst: ["Layla", "Hanabi", "Miya"], weakAgainst: ["Lesley", "Irithel"] },
+  { name: "Bruno", roles: ["Marksman"], strongAgainst: ["Layla", "Hanabi"], weakAgainst: ["Fanny", "Lancelot"] },
+  { name: "Eudora", roles: ["Mage"], strongAgainst: ["Marksman", "Assassin"], weakAgainst: ["Tigreal", "Chou"] },
+  { name: "Argus", roles: ["Fighter"], strongAgainst: ["Tank", "Fighter"], weakAgainst: ["Valir", "Valir"] },
+  { name: "Zhask", roles: ["Mage"], strongAgainst: ["Tank", "Fighter"], weakAgainst: ["Fanny", "Ling"] },
+  { name: "Hanzo", roles: ["Assassin"], strongAgainst: ["Marksman", "Mage"], weakAgainst: ["Natalia", "Helcurt"] },
+  { name: "Kimmy", roles: ["Marksman", "Mage"], strongAgainst: ["Tank", "Fighter"], weakAgainst: ["Lancelot", "Gusion"] },
+  { name: "Kadita", roles: ["Mage", "Assassin"], strongAgainst: ["Marksman", "Mage"], weakAgainst: ["Chou", "Kaja"] },
+  { name: "Granger", roles: ["Marksman"], strongAgainst: ["Marksman", "Mage"], weakAgainst: ["Fanny", "Khufra"] },
+  { name: "Aulus", roles: ["Fighter"], strongAgainst: ["Tank", "Fighter"], weakAgainst: ["Valir", "Karrie"] },
+  { name: "Yin", roles: ["Fighter", "Assassin"], strongAgainst: ["Marksman", "Mage"], weakAgainst: ["Chou", "Paquito"] },
+  { name: "Cici", roles: ["Fighter"], strongAgainst: ["Tank", "Fighter"], weakAgainst: ["Karrie", "Valir"] },
+  { name: "Lukas", roles: ["Fighter"], strongAgainst: ["Fighter"], weakAgainst: ["Chou", "Valir"] },
+  { name: "Kalea", roles: ["Support", "Fighter"], strongAgainst: ["Fighter"], weakAgainst: ["Valir", "Akai"] }
 ];
 
 // Helper functions for the draft engine
