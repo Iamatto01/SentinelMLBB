@@ -362,13 +362,22 @@ For each of these 5 rows:
 
 Your task is to identify and match the exact player names and the exact hero names for all 5 players on the Allied Team.
 
-Analyze the screenshot step-by-step and return a JSON object with this exact structure:
+STEP-BY-STEP PROCESS:
+1. Write down a plain text explanation where you trace each of the 5 rows from top to bottom (Row 1 to Row 5).
+2. For each row, note the player name text and identify which hero is in the avatar portrait next to it. Confirm that you are pairing the player name and the hero avatar from the same horizontal line.
+3. Finally, output a JSON block inside a \`\`\`json code block.
+
+The JSON block must have this exact structure:
 {
-  "reasoning": "Step-by-step analysis. First, I identify which side is the Allied team. Then, for each of the 5 rows from top to bottom: Row 1 player name and their hero. Row 2 player name and their hero. Row 3 player name and their hero. Row 4 player name and their hero. Row 5 player name and their hero.",
+  "reasoning": "Step-by-step horizontal row analysis summarized here.",
   "result": "Win" or "Lose" (the match result for the Allied team),
   "mode": "Ranked" or "Classic" or "Brawl" or "Custom" or "Tour",
   "duration": number (game duration in minutes),
   "players": [
+    { "player_name": "player IGN", "hero_name": "exact hero name" },
+    { "player_name": "player IGN", "hero_name": "exact hero name" },
+    { "player_name": "player IGN", "hero_name": "exact hero name" },
+    { "player_name": "player IGN", "hero_name": "exact hero name" },
     { "player_name": "player IGN", "hero_name": "exact hero name" }
   ]
 }
@@ -378,8 +387,7 @@ IMPORTANT RULES:
 - Match player names carefully. Use the exact text shown in the screenshot for the player name. If empty, use "".
 - If a parsed player name contains, is similar to, or is a prefix/suffix of any name in this known players list: [ ${playerListStr} ], you MUST map it or match it to the closest known name! Otherwise, transcribe it exactly as shown.
 - Match hero names by looking closely at the hero portrait avatar. The hero name MUST be one of the following valid MLBB heroes: ${heroListStr}
-- CRITICAL: Ensure that the player name is paired with the correct hero portrait from the exact same row. Do not mix up the pairing of players and heroes from different rows (e.g. do not pair a player name from Row 5 with a hero portrait from Row 3).
-- Return ONLY the raw JSON object. Do not wrap it in markdown code fences (like \`\`\`json) and do not write any text outside of the JSON.`;
+- CRITICAL: Ensure that the player name is paired with the correct hero portrait from the exact same row. Do not mix up the pairing of players and heroes from different rows (e.g. do not pair a player name from Row 5 with a hero portrait from Row 3).`;
 
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -416,17 +424,18 @@ IMPORTANT RULES:
     const groqData = await groqRes.json();
     const text = groqData?.choices?.[0]?.message?.content || '';
     
-    // Clean up the response - remove code fences if present
-    let cleanText = text.trim();
-    if (cleanText.startsWith('```')) {
-      cleanText = cleanText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+    // Extract JSON block from response
+    let jsonText = text.trim();
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonText = jsonMatch[1] || jsonMatch[0];
     }
 
     try {
-      const parsed = JSON.parse(cleanText);
+      const parsed = JSON.parse(jsonText.trim());
       return c.json({ ok: true, data: parsed });
     } catch {
-      return c.json({ ok: true, data: null, raw: cleanText, error: 'Could not parse AI response as JSON' });
+      return c.json({ ok: true, data: null, raw: text, error: 'Could not parse AI response as JSON' });
     }
   } catch (err) {
     return c.json({ error: 'Screenshot parsing failed', details: String(err) }, 500);
