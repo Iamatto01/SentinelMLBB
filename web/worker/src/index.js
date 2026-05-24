@@ -415,8 +415,144 @@ IMPORTANT RULES:
 });
 
 // ═══════════════════════════════════════════
+//  MLBB PUBLIC API PROXY (mlbb.rone.dev)
+// ═══════════════════════════════════════════
+const MLBB_API = 'https://mlbb.rone.dev/api';
+const mlbbCache = new Map(); // { key: { data, ts } }
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+function getCached(key) {
+  const entry = mlbbCache.get(key);
+  if (entry && Date.now() - entry.ts < CACHE_TTL) return entry.data;
+  return null;
+}
+
+function setCache(key, data) {
+  mlbbCache.set(key, { data, ts: Date.now() });
+  // Evict old entries if cache grows too large
+  if (mlbbCache.size > 200) {
+    const oldest = [...mlbbCache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0];
+    if (oldest) mlbbCache.delete(oldest[0]);
+  }
+}
+
+// List all heroes (with images, relations)
+app.get('/api/mlbb/heroes', async (c) => {
+  const cacheKey = 'heroes-list';
+  const cached = getCached(cacheKey);
+  if (cached) return c.json(cached);
+
+  try {
+    const res = await fetch(`${MLBB_API}/heroes?size=200&order=asc`);
+    if (!res.ok) return c.json({ error: 'MLBB API error' }, 502);
+    const data = await res.json();
+    setCache(cacheKey, data);
+    return c.json(data);
+  } catch (err) {
+    return c.json({ error: 'Failed to fetch MLBB heroes', details: String(err) }, 502);
+  }
+});
+
+// Hero rank statistics (win/pick/ban rates)
+app.get('/api/mlbb/heroes/rank', async (c) => {
+  const days = c.req.query('days') || '7';
+  const rank = c.req.query('rank') || 'all';
+  const sortField = c.req.query('sort_field') || 'win_rate';
+  const sortOrder = c.req.query('sort_order') || 'desc';
+  const cacheKey = `rank-${days}-${rank}-${sortField}-${sortOrder}`;
+  const cached = getCached(cacheKey);
+  if (cached) return c.json(cached);
+
+  try {
+    const res = await fetch(`${MLBB_API}/heroes/rank?days=${days}&rank=${rank}&sort_field=${sortField}&sort_order=${sortOrder}&size=200`);
+    if (!res.ok) return c.json({ error: 'MLBB API error' }, 502);
+    const data = await res.json();
+    setCache(cacheKey, data);
+    return c.json(data);
+  } catch (err) {
+    return c.json({ error: 'Failed to fetch hero rank stats', details: String(err) }, 502);
+  }
+});
+
+// Hero detail (full info, skills, lore)
+app.get('/api/mlbb/heroes/:id', async (c) => {
+  const heroId = c.req.param('id');
+  const cacheKey = `hero-detail-${heroId}`;
+  const cached = getCached(cacheKey);
+  if (cached) return c.json(cached);
+
+  try {
+    const res = await fetch(`${MLBB_API}/heroes/${encodeURIComponent(heroId)}`);
+    if (!res.ok) return c.json({ error: 'MLBB API error' }, 502);
+    const data = await res.json();
+    setCache(cacheKey, data);
+    return c.json(data);
+  } catch (err) {
+    return c.json({ error: 'Failed to fetch hero detail', details: String(err) }, 502);
+  }
+});
+
+// Hero counters
+app.get('/api/mlbb/heroes/:id/counters', async (c) => {
+  const heroId = c.req.param('id');
+  const days = c.req.query('days') || '7';
+  const rank = c.req.query('rank') || 'all';
+  const cacheKey = `counters-${heroId}-${days}-${rank}`;
+  const cached = getCached(cacheKey);
+  if (cached) return c.json(cached);
+
+  try {
+    const res = await fetch(`${MLBB_API}/heroes/${encodeURIComponent(heroId)}/counters?days=${days}&rank=${rank}&size=20`);
+    if (!res.ok) return c.json({ error: 'MLBB API error' }, 502);
+    const data = await res.json();
+    setCache(cacheKey, data);
+    return c.json(data);
+  } catch (err) {
+    return c.json({ error: 'Failed to fetch hero counters', details: String(err) }, 502);
+  }
+});
+
+// Hero stats (synergies, win rate by duration)
+app.get('/api/mlbb/heroes/:id/stats', async (c) => {
+  const heroId = c.req.param('id');
+  const rank = c.req.query('rank') || 'all';
+  const cacheKey = `stats-${heroId}-${rank}`;
+  const cached = getCached(cacheKey);
+  if (cached) return c.json(cached);
+
+  try {
+    const res = await fetch(`${MLBB_API}/heroes/${encodeURIComponent(heroId)}/stats?rank=${rank}`);
+    if (!res.ok) return c.json({ error: 'MLBB API error' }, 502);
+    const data = await res.json();
+    setCache(cacheKey, data);
+    return c.json(data);
+  } catch (err) {
+    return c.json({ error: 'Failed to fetch hero stats', details: String(err) }, 502);
+  }
+});
+
+// Hero relations (assist, strong, weak)
+app.get('/api/mlbb/heroes/:id/relations', async (c) => {
+  const heroId = c.req.param('id');
+  const cacheKey = `relations-${heroId}`;
+  const cached = getCached(cacheKey);
+  if (cached) return c.json(cached);
+
+  try {
+    const res = await fetch(`${MLBB_API}/heroes/${encodeURIComponent(heroId)}/relations`);
+    if (!res.ok) return c.json({ error: 'MLBB API error' }, 502);
+    const data = await res.json();
+    setCache(cacheKey, data);
+    return c.json(data);
+  } catch (err) {
+    return c.json({ error: 'Failed to fetch hero relations', details: String(err) }, 502);
+  }
+});
+
+// ═══════════════════════════════════════════
 //  HEALTH CHECK
 // ═══════════════════════════════════════════
 app.get('/api/health', (c) => c.json({ ok: true, ts: new Date().toISOString() }));
 
 export default app;
+

@@ -7,6 +7,7 @@ export type TimingTag = "early" | "mid" | "late";
 export interface HeroData {
   id: string;
   name: string;
+  mlbbId?: number; // Official MLBB hero_id from API
   role: HeroRole[];
   tags: PlaystyleTag[];
   strategy: StrategyTag[];

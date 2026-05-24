@@ -16,7 +16,8 @@ import {
   Sun,
   User,
   Menu,
-  X
+  X,
+  TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -71,6 +72,7 @@ export default function DashboardLayout({
     { label: "Rankings", href: "/dashboard/ranking", icon: <Crown className="text-amber-500 h-4 w-4" /> },
     { label: "Team Comps", href: "/dashboard/comps", icon: <Swords className="h-4 w-4" /> },
     { label: "Draft Simulator", href: "/dashboard/draft", icon: <Sparkles className="h-4 w-4" /> },
+    { label: "Meta", href: "/dashboard/meta", icon: <TrendingUp className="h-4 w-4" /> },
   ];
 
   if (user.role === "admin") {
