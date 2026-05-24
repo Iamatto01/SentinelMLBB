@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -306,10 +306,12 @@ function ScreenshotUploadModal({
   isOpen,
   onClose,
   onGameCreated,
+  knownPlayers,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onGameCreated: GameSaveCallback;
+  knownPlayers: string[];
 }) {
   const [dragOver, setDragOver] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -330,6 +332,19 @@ function ScreenshotUploadModal({
     updateFileState(id, { parsedData: newParsedData });
   };
 
+  const getCleanPlayerName = (parsedName: string) => {
+    if (!parsedName) return "";
+    const normalizedParsed = parsedName.toLowerCase().replace(/[^a-z0-9]/g, "");
+    
+    for (const known of knownPlayers) {
+      const normalizedKnown = known.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (normalizedKnown && (normalizedParsed.includes(normalizedKnown) || normalizedKnown.includes(normalizedParsed))) {
+        return known;
+      }
+    }
+    return parsedName;
+  };
+
   const handleParse = async (file: UploadedFile) => {
     if (!file.base64 || file.saved) return;
     updateFileState(file.id, { parsing: true, error: null });
@@ -344,14 +359,20 @@ function ScreenshotUploadModal({
         body: JSON.stringify({ 
           image: file.base64, 
           mimeType: file.mimeType,
-          validHeroes: ALL_HEROES.map(h => h.name)
+          validHeroes: ALL_HEROES.map(h => h.name),
+          knownPlayers: knownPlayers
         }),
       });
       const data = await res.json();
       if (data.ok && data.data) {
+        const parsedPlayers = (data.data.players || []).map((p: any) => ({
+          ...p,
+          player_name: getCleanPlayerName(p.player_name)
+        }));
         const parsed = {
           ...data.data,
-          mode: data.data.mode || "Ranked"
+          mode: data.data.mode || "Ranked",
+          players: parsedPlayers
         };
         updateFileState(file.id, { parsedData: parsed, parsing: false });
       } else {
@@ -732,6 +753,15 @@ function ScreenshotUploadModal({
 export default function GamesPage() {
   const [mounted, setMounted] = useState(false);
   const [games, setGames] = useState<GameEntry[]>([]);
+  const knownPlayers = useMemo(() => {
+    const playersSet = new Set<string>();
+    games.forEach((g) => {
+      (g.players || []).forEach((p: any) => {
+        if (p.player_name) playersSet.add(p.player_name.trim());
+      });
+    });
+    return Array.from(playersSet);
+  }, [games]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showUpload, setShowUpload] = useState(false);
@@ -1013,6 +1043,7 @@ export default function GamesPage() {
         isOpen={showUpload}
         onClose={() => setShowUpload(false)}
         onGameCreated={fetchGames}
+        knownPlayers={knownPlayers}
       />
 
       <ManualGameModal

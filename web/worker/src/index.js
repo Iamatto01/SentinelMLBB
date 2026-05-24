@@ -334,7 +334,7 @@ app.delete('/api/admin/users/:id', authMiddleware, async (c) => {
 // ═══════════════════════════════════════════
 app.post('/api/games/parse-screenshot', authMiddleware, async (c) => {
   try {
-    const { image, mimeType, validHeroes } = await c.req.json();
+    const { image, mimeType, validHeroes, knownPlayers } = await c.req.json();
     if (!image) return c.json({ error: 'No image provided' }, 400);
 
     const apiKey = c.env.GROQ_API_KEY;
@@ -344,6 +344,10 @@ app.post('/api/games/parse-screenshot', authMiddleware, async (c) => {
       ? validHeroes.join(', ')
       : 'Tigreal, Khufra, Franco, Johnson, Grock, Atlas, Uranus, Hylos, Akai, Belerick, Minotaur, Edith, Baxia, Carmilla, Gloo, Chip, Chou, Paquito, Yu Zhong, Dyrroth, Terizla, Zilong, Aldous, Esmeralda, Masha, Badang, Guinevere, Ruby, Phoveus, Sun, Thamuz, Hilda, Alucard, Silvanna, Freya, Jawhead, Bane, X.Borg, Lapu-Lapu, Khaleed, Barats, Leomord, Martis, Arlott, Fanny, Ling, Lancelot, Hayabusa, Gusion, Saber, Joy, Nolan, Helcurt, Natalia, Karina, Aamon, Benedetta, Yi Sun-shin, Pharsa, Yve, Kagura, Lylia, Valir, Nana, Vexana, Novaria, Chang\'e, Cecilion, Alice, Odette, Harley, Aurora, Gord, Xavier, Lunox, Valentina, Luo Yi, Julian, Beatrix, Claude, Karrie, Brody, Clint, Moskov, Melissa, Wanwan, Miya, Layla, Hanabi, Irithel, Lesley, Natan, Popol and Kupa, Estes, Diggie, Mathilda, Angela, Faramis, Floryn, Rafaela, Kaja, Minsitthar, Selena, Cyclops, Vale, Suyou, Zhuxin, Ixia, Gatotkaca, Fredrinn, Harith, Roger, Alpha, Sora, Zetian, Marcel, Obsidia, Lolita, Balmond, Bruno, Eudora, Argus, Zhask, Hanzo, Kimmy, Kadita, Granger, Aulus, Yin, Cici, Lukas, Kalea';
 
+    const playerListStr = (knownPlayers && knownPlayers.length > 0)
+      ? knownPlayers.join(', ')
+      : '';
+
     const prompt = `You are analyzing a Mobile Legends: Bang Bang (MLBB) post-game results screenshot.
 
 The post-game screen has two columns/sections representing the two teams:
@@ -352,8 +356,8 @@ The post-game screen has two columns/sections representing the two teams:
 
 The Allied Team has exactly 5 players listed in 5 rows.
 For each of these 5 rows:
-1. On the left side of the row, there is a circular or rounded square hero portrait avatar.
-2. Directly next to the hero avatar, the player's nickname (IGN) is written in text.
+1. On the far left of the row, there is a circular or rounded square hero portrait avatar.
+2. Directly next to the hero avatar (horizontally aligned on the same row), the player's nickname (IGN) is written in text.
 3. Further to the right are KDA statistics and items.
 
 Your task is to identify and match the exact player names and the exact hero names for all 5 players on the Allied Team.
@@ -372,8 +376,9 @@ Analyze the screenshot step-by-step and return a JSON object with this exact str
 IMPORTANT RULES:
 - The "players" array MUST contain exactly 5 players from the Allied team, ordered from top to bottom.
 - Match player names carefully. Use the exact text shown in the screenshot for the player name. If empty, use "".
+- If a parsed player name contains, is similar to, or is a prefix/suffix of any name in this known players list: [ ${playerListStr} ], you MUST map it or match it to the closest known name! Otherwise, transcribe it exactly as shown.
 - Match hero names by looking closely at the hero portrait avatar. The hero name MUST be one of the following valid MLBB heroes: ${heroListStr}
-- Ensure that the player name is paired with the correct hero portrait from the same row. Do not mismatch them.
+- CRITICAL: Ensure that the player name is paired with the correct hero portrait from the exact same row. Do not mix up the pairing of players and heroes from different rows (e.g. do not pair a player name from Row 5 with a hero portrait from Row 3).
 - Return ONLY the raw JSON object. Do not wrap it in markdown code fences (like \`\`\`json) and do not write any text outside of the JSON.`;
 
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
