@@ -295,13 +295,13 @@ export default function RankingsPage() {
   );
 
   return (
-    <div className="w-full flex flex-col gap-6 animate-in fade-in duration-300">
+    <div className="w-full flex flex-col gap-6 max-w-7xl mx-auto animate-in fade-in duration-300">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-amber-450 via-teal-400 to-indigo-500 flex items-center gap-2">
-            🏆 Hall of Fame & Rankings
+          <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 flex items-center gap-2">
+            <Crown className="w-8 h-8 text-violet-500" /> Leaderboards
           </h1>
           <p className="text-neutral-500 text-sm mt-0.5">
             Who is the ultimate carry? Real-time rankings computed from match logs.
@@ -352,7 +352,7 @@ export default function RankingsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           
           {/* Highest Win Rate Card */}
-          <div className="relative bg-gradient-to-tr from-amber-500/10 via-amber-400/5 to-transparent dark:from-amber-550/10 border border-amber-250 dark:border-amber-500/30 rounded-2xl p-5 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition-all group">
+          <div className="relative bg-gradient-to-tr from-amber-500/10 via-amber-400/5 to-transparent dark:from-amber-550/10 border border-amber-250 dark:border-amber-500/30 rounded-3xl p-5 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition-all group">
             <div className="absolute -right-8 -top-8 text-amber-500/10 group-hover:scale-110 transition-transform duration-300">
               <Crown className="w-32 h-32" />
             </div>
@@ -383,7 +383,7 @@ export default function RankingsPage() {
           </div>
 
           {/* Grinder / Most Picked Card */}
-          <div className="relative bg-gradient-to-tr from-indigo-500/10 via-indigo-400/5 to-transparent dark:from-indigo-550/10 border border-indigo-250 dark:border-indigo-500/30 rounded-2xl p-5 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition-all group">
+          <div className="relative bg-gradient-to-tr from-indigo-500/10 via-indigo-400/5 to-transparent dark:from-indigo-550/10 border border-indigo-250 dark:border-indigo-500/30 rounded-3xl p-5 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition-all group">
             <div className="absolute -right-8 -top-8 text-indigo-500/10 group-hover:scale-110 transition-transform duration-300">
               <Gamepad2 className="w-32 h-32" />
             </div>
@@ -408,7 +408,7 @@ export default function RankingsPage() {
 
           {/* Versatility Card (Only for Players) */}
           {activeTab === "players" ? (
-            <div className="relative bg-gradient-to-tr from-purple-500/10 via-purple-400/5 to-transparent dark:from-purple-550/10 border border-purple-250 dark:border-purple-500/30 rounded-2xl p-5 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition-all group">
+            <div className="relative bg-gradient-to-tr from-purple-500/10 via-purple-400/5 to-transparent dark:from-purple-550/10 border border-purple-250 dark:border-purple-500/30 rounded-3xl p-5 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition-all group">
               <div className="absolute -right-8 -top-8 text-purple-500/10 group-hover:scale-110 transition-transform duration-300">
                 <Sparkles className="w-32 h-32" />
               </div>
@@ -464,7 +464,7 @@ export default function RankingsPage() {
       </div>
 
       {/* Main Standings Leaderboard Table */}
-      <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <AnimatePresence mode="wait">
             {activeTab === "players" ? (

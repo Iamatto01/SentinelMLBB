@@ -90,9 +90,9 @@ export default function DashboardLayout({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-black w-full mx-auto overflow-hidden">
+    <div className="flex flex-col h-screen bg-neutral-50 dark:bg-neutral-950 w-full mx-auto overflow-hidden">
       {/* Top Navbar */}
-      <header className="flex-none bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 z-40 relative">
+      <header className="flex-none bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-800 z-40 relative">
         <div className="flex items-center justify-between px-4 lg:px-8 h-16 w-full max-w-[1600px] mx-auto">
           {/* Logo & Mobile Menu Toggle */}
           <div className="flex items-center gap-4">

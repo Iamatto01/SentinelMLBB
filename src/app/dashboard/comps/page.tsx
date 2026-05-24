@@ -115,11 +115,11 @@ export default function CompsPage() {
   );
 
   return (
-    <div className="w-full h-full flex flex-col gap-6">
+    <div className="w-full h-full flex flex-col gap-6 max-w-7xl mx-auto animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-indigo-500">Team Compositions</h1>
-          <p className="text-neutral-500 dark:text-neutral-400">
+          <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500">Team Compositions</h1>
+          <p className="text-neutral-500 dark:text-neutral-400 mt-1">
             {loading ? "Loading..." : `${comps.length} unique ${teamSize}-man compositions found`}
           </p>
         </div>
@@ -143,7 +143,7 @@ export default function CompsPage() {
       </div>
 
       {/* Compositions Table */}
-      <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden">
+      <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -217,17 +217,17 @@ export default function CompsPage() {
       {/* Summary Card */}
       {comps.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white dark:bg-neutral-900 p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800">
+          <div className="bg-white dark:bg-neutral-900 p-5 rounded-3xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <p className="text-xs font-medium text-neutral-500 mb-1">Best Composition</p>
             <p className="text-sm font-bold text-emerald-600">{comps.filter(c => c.total >= 2).sort((a, b) => b.winRate - a.winRate)[0]?.heroes.join(" + ") || "N/A"}</p>
             <p className="text-xs text-neutral-400 mt-1">{comps.filter(c => c.total >= 2).sort((a, b) => b.winRate - a.winRate)[0]?.winRate || 0}% win rate</p>
           </div>
-          <div className="bg-white dark:bg-neutral-900 p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800">
+          <div className="bg-white dark:bg-neutral-900 p-5 rounded-3xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <p className="text-xs font-medium text-neutral-500 mb-1">Most Used</p>
             <p className="text-sm font-bold text-indigo-600">{comps[0]?.heroes.join(" + ") || "N/A"}</p>
             <p className="text-xs text-neutral-400 mt-1">{comps[0]?.total || 0} games played</p>
           </div>
-          <div className="bg-white dark:bg-neutral-900 p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800">
+          <div className="bg-white dark:bg-neutral-900 p-5 rounded-3xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <p className="text-xs font-medium text-neutral-500 mb-1">Unique Comps</p>
             <p className="text-sm font-bold text-neutral-800 dark:text-neutral-100">{comps.length}</p>
             <p className="text-xs text-neutral-400 mt-1">{teamSize}-man formations</p>

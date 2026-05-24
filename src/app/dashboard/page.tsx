@@ -77,13 +77,13 @@ export default function DashboardPage() {
   const COLORS = ["#6366f1", "#14b8a6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16", "#9ca3af"];
 
   return (
-    <div className="w-full h-full flex flex-col gap-6 animate-in fade-in duration-500">
+    <div className="w-full h-full flex flex-col gap-6 animate-in fade-in duration-500 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-indigo-500">
+          <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500">
             Overview
           </h1>
-          <p className="text-neutral-500 dark:text-neutral-400">
+          <p className="text-neutral-500 dark:text-neutral-400 mt-1">
             {loading ? "Loading your data..." : `Welcome back to the Sentinel Dashboard. ${totalGames} games recorded.`}
           </p>
         </div>
@@ -97,9 +97,9 @@ export default function DashboardPage() {
       </div>
       
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
-        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 rounded-2xl shadow-sm">
-          <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200 mb-6">Hero Distribution</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 rounded-3xl shadow-sm">
+          <h2 className="text-lg font-black text-neutral-800 dark:text-neutral-200 mb-6">Hero Distribution</h2>
           <div className="h-[300px] w-full">
             {mounted && roleData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -109,37 +109,37 @@ export default function DashboardPage() {
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                  <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                   <Legend verticalAlign="bottom" height={36} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-neutral-400 text-sm">
+              <div className="h-full flex items-center justify-center text-neutral-400 text-sm font-semibold">
                 {loading ? "Loading..." : "No game data yet"}
               </div>
             )}
           </div>
         </div>
 
-        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 rounded-2xl shadow-sm">
-          <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200 mb-4">Win Rate by Hero</h2>
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 rounded-3xl shadow-sm">
+          <h2 className="text-lg font-black text-neutral-800 dark:text-neutral-200 mb-4">Win Rate by Hero</h2>
           <div className="max-h-[340px] overflow-y-auto pr-2 space-y-3">
             {winRateData.length > 0 ? winRateData.map((hero, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300 w-28 truncate shrink-0">{hero.name}</span>
-                <div className="flex-1 h-6 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden relative">
+              <div key={i} className="flex items-center gap-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/40 p-2 rounded-xl transition-colors">
+                <span className="text-sm font-bold text-neutral-800 dark:text-neutral-200 w-28 truncate shrink-0">{hero.name}</span>
+                <div className="flex-1 h-6 bg-neutral-100 dark:bg-neutral-800/80 rounded-full overflow-hidden relative border border-neutral-200/50 dark:border-neutral-700/50">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${hero.winRate >= 60 ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' : hero.winRate >= 50 ? 'bg-gradient-to-r from-blue-400 to-indigo-500' : 'bg-gradient-to-r from-orange-400 to-red-500'}`}
+                    className={`h-full rounded-full transition-all duration-500 ${hero.winRate >= 60 ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' : hero.winRate >= 50 ? 'bg-gradient-to-r from-blue-400 to-indigo-500' : 'bg-gradient-to-r from-orange-400 to-rose-500'}`}
                     style={{ width: `${hero.winRate}%` }}
                   />
-                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-neutral-800 dark:text-white mix-blend-difference">
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-neutral-800 dark:text-white mix-blend-difference">
                     {hero.winRate}%
                   </span>
                 </div>
-                <span className="text-xs text-neutral-400 w-16 text-right shrink-0">{hero.wins}W/{hero.games - hero.wins}L</span>
+                <span className="text-xs text-neutral-400 w-16 text-right shrink-0 font-bold">{hero.wins}W/{hero.games - hero.wins}L</span>
               </div>
             )) : (
-              <div className="h-[200px] flex items-center justify-center text-neutral-400 text-sm">
+              <div className="h-[200px] flex items-center justify-center text-neutral-400 text-sm font-semibold">
                 {loading ? "Loading..." : "No game data yet"}
               </div>
             )}
@@ -152,15 +152,15 @@ export default function DashboardPage() {
 
 function StatCard({ title, value, icon, trend }: { title: string; value: string; icon: React.ReactNode; trend: string }) {
   return (
-    <div className="bg-white dark:bg-neutral-900 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+    <div className="bg-white dark:bg-neutral-900 p-6 rounded-3xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow group">
       <div className="flex justify-between items-start mb-4">
         <div>
-          <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-1">{title}</p>
-          <h3 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{value}</h3>
+          <p className="text-sm font-bold text-neutral-500 dark:text-neutral-400 mb-1">{title}</p>
+          <h3 className="text-3xl font-black text-neutral-800 dark:text-neutral-100">{value}</h3>
         </div>
-        <div className="p-3 bg-neutral-50 dark:bg-neutral-800 rounded-xl">{icon}</div>
+        <div className="p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-2xl border border-neutral-100 dark:border-neutral-800 group-hover:scale-110 transition-transform">{icon}</div>
       </div>
-      <div className="text-xs font-medium text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-500/10 inline-block px-2 py-1 rounded-md self-start">
+      <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 inline-block px-2.5 py-1 rounded-lg self-start border border-indigo-100 dark:border-indigo-500/20">
         {trend}
       </div>
     </div>
