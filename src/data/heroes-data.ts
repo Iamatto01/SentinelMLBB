@@ -25,6 +25,7 @@ export const ALL_HEROES: HeroData[] = [
   // ── TANKS ─────────────────────────────────────────────────────────────────
   {
     id: "tigreal", name: "Tigreal",
+    mlbbId: 6,
     role: ["Tank", "Support"],
     tags: ["barbar"],
     strategy: ["tebal", "counter-split-push"],
@@ -37,6 +38,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "khufra", name: "Khufra",
+    mlbbId: 78,
     role: ["Tank", "Support"],
     tags: ["barbar"],
     strategy: ["tebal", "counter-split-push"],
@@ -49,6 +51,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "franco", name: "Franco",
+    mlbbId: 10,
     role: ["Tank", "Support"],
     tags: ["semi-barbar"],
     strategy: ["tebal", "counter-split-push"],
@@ -61,6 +64,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "johnson", name: "Johnson",
+    mlbbId: 32,
     role: ["Tank", "Support"],
     tags: ["semi-barbar"],
     strategy: ["tebal", "counter-split-push"],
@@ -73,6 +77,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "grock", name: "Grock",
+    mlbbId: 44,
     role: ["Tank", "Fighter"],
     tags: ["barbar"],
     strategy: ["tebal", "split-push"],
@@ -85,6 +90,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "atlas", name: "Atlas",
+    mlbbId: 93,
     role: ["Tank", "Support"],
     tags: ["semi-barbar"],
     strategy: ["tebal", "counter-split-push"],
@@ -97,6 +103,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "uranus", name: "Uranus",
+    mlbbId: 59,
     role: ["Tank"],
     tags: ["playsafe"],
     strategy: ["tebal"],
@@ -109,6 +116,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "hylos", name: "Hylos",
+    mlbbId: 49,
     role: ["Tank", "Support"],
     tags: ["playsafe"],
     strategy: ["tebal", "healer"],
@@ -121,6 +129,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "akai", name: "Akai",
+    mlbbId: 9,
     role: ["Tank", "Support"],
     tags: ["barbar"],
     strategy: ["tebal", "counter-split-push"],
@@ -133,6 +142,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "belerick", name: "Belerick",
+    mlbbId: 70,
     role: ["Tank", "Support"],
     tags: ["playsafe"],
     strategy: ["tebal", "healer"],
@@ -145,6 +155,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "minotaur", name: "Minotaur",
+    mlbbId: 19,
     role: ["Tank", "Support"],
     tags: ["semi-barbar"],
     strategy: ["tebal", "healer"],
@@ -157,6 +168,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "edith", name: "Edith",
+    mlbbId: 111,
     role: ["Tank", "Marksman"],
     tags: ["semi-barbar"],
     strategy: ["tebal", "high-ground"],
@@ -169,6 +181,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "baxia", name: "Baxia",
+    mlbbId: 87,
     role: ["Tank", "Support"],
     tags: ["barbar"],
     strategy: ["tebal", "counter-split-push"],
@@ -181,6 +194,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "carmilla", name: "Carmilla",
+    mlbbId: 92,
     role: ["Tank", "Support"],
     tags: ["semi-barbar"],
     strategy: ["tebal"],
@@ -193,6 +207,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "gloo", name: "Gloo",
+    mlbbId: 104,
     role: ["Tank", "Fighter"],
     tags: ["barbar"],
     strategy: ["tebal", "split-push"],
@@ -205,6 +220,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "chip", name: "Chip",
+    mlbbId: 124,
     role: ["Tank", "Support"],
     tags: ["semi-barbar"],
     strategy: ["tebal", "counter-split-push"],
@@ -219,6 +235,7 @@ export const ALL_HEROES: HeroData[] = [
   // ── FIGHTERS ──────────────────────────────────────────────────────────────
   {
     id: "chou", name: "Chou",
+    mlbbId: 26,
     role: ["Fighter"],
     tags: ["barbar", "semi-barbar"],
     strategy: ["counter-split-push"],
@@ -231,6 +248,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "paquito", name: "Paquito",
+    mlbbId: 103,
     role: ["Fighter", "Assassin"],
     tags: ["barbar"],
     strategy: [],
@@ -243,6 +261,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "yu-zhong", name: "Yu Zhong",
+    mlbbId: 95,
     role: ["Fighter"],
     tags: ["barbar", "situational-barbar"],
     strategy: ["tebal", "split-push"],
@@ -255,6 +274,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "dyrroth", name: "Dyrroth",
+    mlbbId: 85,
     role: ["Fighter"],
     tags: ["barbar"],
     strategy: [],
@@ -267,6 +287,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "terizla", name: "Terizla",
+    mlbbId: 82,
     role: ["Fighter"],
     tags: ["barbar"],
     strategy: ["tebal", "counter-split-push"],
@@ -279,6 +300,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "zilong", name: "Zilong",
+    mlbbId: 16,
     role: ["Fighter", "Assassin"],
     tags: ["barbar"],
     strategy: ["split-push", "counter-split-push"],
@@ -291,6 +313,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "aldous", name: "Aldous",
+    mlbbId: 64,
     role: ["Fighter"],
     tags: ["playsafe"],
     strategy: ["counter-split-push"],
@@ -303,6 +326,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "esmeralda", name: "Esmeralda",
+    mlbbId: 81,
     role: ["Tank", "Mage"],
     tags: ["playsafe"],
     strategy: ["tebal", "healer"],
@@ -315,6 +339,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "masha", name: "Masha",
+    mlbbId: 88,
     role: ["Fighter"],
     tags: ["barbar"],
     strategy: ["split-push", "tebal"],
@@ -327,6 +352,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "badang", name: "Badang",
+    mlbbId: 77,
     role: ["Fighter"],
     tags: ["barbar"],
     strategy: ["counter-split-push"],
@@ -339,6 +365,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "guinevere", name: "Guinevere",
+    mlbbId: 80,
     role: ["Fighter", "Mage"],
     tags: ["barbar"],
     strategy: [],
@@ -351,6 +378,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "ruby", name: "Ruby",
+    mlbbId: 29,
     role: ["Fighter"],
     tags: ["barbar"],
     strategy: ["tebal", "healer"],
@@ -363,6 +391,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "phoveus", name: "Phoveus",
+    mlbbId: 106,
     role: ["Fighter"],
     tags: ["situational-barbar"],
     strategy: ["counter-split-push"],
@@ -375,6 +404,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "sun", name: "Sun",
+    mlbbId: 27,
     role: ["Fighter"],
     tags: ["playsafe"],
     strategy: ["split-push"],
@@ -387,6 +417,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "thamuz", name: "Thamuz",
+    mlbbId: 72,
     role: ["Fighter"],
     tags: ["barbar"],
     strategy: ["tebal"],
@@ -399,6 +430,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "hilda", name: "Hilda",
+    mlbbId: 35,
     role: ["Fighter", "Tank"],
     tags: ["barbar"],
     strategy: ["tebal", "split-push"],
@@ -411,6 +443,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "alucard", name: "Alucard",
+    mlbbId: 7,
     role: ["Fighter", "Assassin"],
     tags: ["barbar"],
     strategy: ["split-push"],
@@ -423,6 +456,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "silvanna", name: "Silvanna",
+    mlbbId: 90,
     role: ["Fighter", "Mage"],
     tags: ["barbar"],
     strategy: [],
@@ -435,6 +469,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "freya", name: "Freya",
+    mlbbId: 22,
     role: ["Fighter"],
     tags: ["barbar"],
     strategy: ["tebal"],
@@ -447,6 +482,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "jawhead", name: "Jawhead",
+    mlbbId: 54,
     role: ["Fighter", "Tank"],
     tags: ["barbar"],
     strategy: ["counter-split-push"],
@@ -459,6 +495,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "bane", name: "Bane",
+    mlbbId: 11,
     role: ["Fighter", "Mage"],
     tags: ["semi-barbar"],
     strategy: ["high-ground", "split-push"],
@@ -471,6 +508,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "x-borg", name: "X.Borg",
+    mlbbId: 83,
     role: ["Fighter"],
     tags: ["barbar"],
     strategy: ["split-push"],
@@ -483,6 +521,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "lapu-lapu", name: "Lapu-Lapu",
+    mlbbId: 37,
     role: ["Fighter"],
     tags: ["barbar"],
     strategy: ["counter-split-push"],
@@ -495,6 +534,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "khaleed", name: "Khaleed",
+    mlbbId: 98,
     role: ["Fighter"],
     tags: ["barbar"],
     strategy: ["split-push"],
@@ -507,6 +547,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "barats", name: "Barats",
+    mlbbId: 99,
     role: ["Fighter", "Tank"],
     tags: ["playsafe"],
     strategy: ["tebal"],
@@ -519,6 +560,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "leomord", name: "Leomord",
+    mlbbId: 67,
     role: ["Fighter"],
     tags: ["barbar"],
     strategy: ["split-push"],
@@ -531,6 +573,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "martis", name: "Martis",
+    mlbbId: 58,
     role: ["Fighter"],
     tags: ["barbar"],
     strategy: [],
@@ -543,6 +586,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "arlott", name: "Arlott",
+    mlbbId: 120,
     role: ["Fighter", "Assassin"],
     tags: ["barbar"],
     strategy: [],
@@ -557,6 +601,7 @@ export const ALL_HEROES: HeroData[] = [
   // ── ASSASSINS ─────────────────────────────────────────────────────────────
   {
     id: "fanny", name: "Fanny",
+    mlbbId: 17,
     role: ["Assassin"],
     tags: ["barbar"],
     strategy: [],
@@ -569,6 +614,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "ling", name: "Ling",
+    mlbbId: 84,
     role: ["Assassin"],
     tags: ["barbar"],
     strategy: ["high-ground"],
@@ -581,6 +627,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "lancelot", name: "Lancelot",
+    mlbbId: 47,
     role: ["Assassin"],
     tags: ["barbar"],
     strategy: [],
@@ -593,6 +640,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "hayabusa", name: "Hayabusa",
+    mlbbId: 21,
     role: ["Assassin"],
     tags: ["barbar"],
     strategy: ["split-push"],
@@ -605,6 +653,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "gusion", name: "Gusion",
+    mlbbId: 56,
     role: ["Assassin", "Mage"],
     tags: ["barbar"],
     strategy: [],
@@ -617,6 +666,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "saber", name: "Saber",
+    mlbbId: 3,
     role: ["Assassin"],
     tags: ["barbar"],
     strategy: ["counter-split-push"],
@@ -629,6 +679,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "joy", name: "Joy",
+    mlbbId: 118,
     role: ["Assassin"],
     tags: ["barbar"],
     strategy: [],
@@ -641,6 +692,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "nolan", name: "Nolan",
+    mlbbId: 122,
     role: ["Assassin"],
     tags: ["barbar"],
     strategy: [],
@@ -653,6 +705,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "helcurt", name: "Helcurt",
+    mlbbId: 51,
     role: ["Assassin"],
     tags: ["barbar"],
     strategy: ["counter-split-push"],
@@ -665,6 +718,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "natalia", name: "Natalia",
+    mlbbId: 24,
     role: ["Assassin", "Support"],
     tags: ["barbar"],
     strategy: ["split-push"],
@@ -677,6 +731,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "karina", name: "Karina",
+    mlbbId: 8,
     role: ["Assassin", "Mage"],
     tags: ["barbar"],
     strategy: [],
@@ -689,6 +744,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "aamon", name: "Aamon",
+    mlbbId: 109,
     role: ["Assassin"],
     tags: ["barbar"],
     strategy: ["split-push"],
@@ -701,6 +757,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "benedetta", name: "Benedetta",
+    mlbbId: 97,
     role: ["Assassin"],
     tags: ["barbar"],
     strategy: ["counter-split-push"],
@@ -713,6 +770,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "yi-sun-shin", name: "Yi Sun-shin",
+    mlbbId: 30,
     role: ["Assassin", "Marksman"],
     tags: ["semi-barbar"],
     strategy: ["split-push", "high-ground"],
@@ -727,6 +785,7 @@ export const ALL_HEROES: HeroData[] = [
   // ── MAGES ─────────────────────────────────────────────────────────────────
   {
     id: "pharsa", name: "Pharsa",
+    mlbbId: 52,
     role: ["Mage"],
     tags: ["playsafe"],
     strategy: ["high-ground"],
@@ -739,6 +798,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "yve", name: "Yve",
+    mlbbId: 101,
     role: ["Mage"],
     tags: ["playsafe"],
     strategy: ["high-ground"],
@@ -751,6 +811,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "kagura", name: "Kagura",
+    mlbbId: 25,
     role: ["Mage"],
     tags: ["barbar", "semi-barbar"],
     strategy: [],
@@ -763,6 +824,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "lylia", name: "Lylia",
+    mlbbId: 86,
     role: ["Mage"],
     tags: ["playsafe"],
     strategy: ["high-ground"],
@@ -775,6 +837,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "valir", name: "Valir",
+    mlbbId: 57,
     role: ["Mage"],
     tags: ["barbar"],
     strategy: ["high-ground"],
@@ -787,6 +850,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "nana", name: "Nana",
+    mlbbId: 5,
     role: ["Mage", "Support"],
     tags: ["situational-barbar"],
     strategy: ["healer", "high-ground"],
@@ -799,6 +863,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "vexana", name: "Vexana",
+    mlbbId: 38,
     role: ["Mage"],
     tags: ["playsafe"],
     strategy: ["high-ground"],
@@ -811,6 +876,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "novaria", name: "Novaria",
+    mlbbId: 119,
     role: ["Mage"],
     tags: ["playsafe"],
     strategy: ["high-ground"],
@@ -823,6 +889,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "chang-e", name: "Chang'e",
+    mlbbId: 61,
     role: ["Mage"],
     tags: ["playsafe"],
     strategy: ["high-ground"],
@@ -835,6 +902,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "cecilion", name: "Cecilion",
+    mlbbId: 91,
     role: ["Mage"],
     tags: ["playsafe"],
     strategy: ["high-ground"],
@@ -847,6 +915,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "alice", name: "Alice",
+    mlbbId: 4,
     role: ["Mage", "Tank"],
     tags: ["playsafe"],
     strategy: ["tebal", "healer"],
@@ -859,6 +928,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "odette", name: "Odette",
+    mlbbId: 46,
     role: ["Mage"],
     tags: ["playsafe"],
     strategy: ["high-ground"],
@@ -871,6 +941,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "harley", name: "Harley",
+    mlbbId: 42,
     role: ["Mage", "Assassin"],
     tags: ["barbar"],
     strategy: [],
@@ -883,6 +954,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "aurora", name: "Aurora",
+    mlbbId: 36,
     role: ["Mage"],
     tags: ["semi-barbar"],
     strategy: ["high-ground"],
@@ -895,6 +967,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "gord", name: "Gord",
+    mlbbId: 23,
     role: ["Mage"],
     tags: ["playsafe"],
     strategy: ["high-ground"],
@@ -907,6 +980,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "xavier", name: "Xavier",
+    mlbbId: 115,
     role: ["Mage"],
     tags: ["playsafe"],
     strategy: ["high-ground"],
@@ -919,6 +993,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "lunox", name: "Lunox",
+    mlbbId: 68,
     role: ["Mage"],
     tags: ["semi-barbar"],
     strategy: [],
@@ -931,6 +1006,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "valentina", name: "Valentina",
+    mlbbId: 110,
     role: ["Mage"],
     tags: ["situational-barbar"],
     strategy: ["high-ground"],
@@ -943,6 +1019,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "luo-yi", name: "Luo Yi",
+    mlbbId: 96,
     role: ["Mage", "Support"],
     tags: ["semi-barbar"],
     strategy: ["high-ground"],
@@ -955,6 +1032,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "julian", name: "Julian",
+    mlbbId: 116,
     role: ["Mage", "Fighter"],
     tags: ["barbar"],
     strategy: [],
@@ -969,6 +1047,7 @@ export const ALL_HEROES: HeroData[] = [
   // ── MARKSMEN ──────────────────────────────────────────────────────────────
   {
     id: "beatrix", name: "Beatrix",
+    mlbbId: 105,
     role: ["Marksman"],
     tags: ["barbar"],
     strategy: ["high-ground"],
@@ -981,6 +1060,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "claude", name: "Claude",
+    mlbbId: 65,
     role: ["Marksman"],
     tags: ["barbar"],
     strategy: [],
@@ -993,6 +1073,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "karrie", name: "Karrie",
+    mlbbId: 40,
     role: ["Marksman"],
     tags: ["playsafe"],
     strategy: [],
@@ -1005,6 +1086,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "brody", name: "Brody",
+    mlbbId: 100,
     role: ["Marksman"],
     tags: ["semi-barbar"],
     strategy: ["high-ground"],
@@ -1017,6 +1099,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "clint", name: "Clint",
+    mlbbId: 13,
     role: ["Marksman"],
     tags: ["semi-barbar"],
     strategy: [],
@@ -1029,6 +1112,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "moskov", name: "Moskov",
+    mlbbId: 31,
     role: ["Marksman"],
     tags: ["semi-barbar"],
     strategy: ["high-ground"],
@@ -1041,6 +1125,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "melissa", name: "Melissa",
+    mlbbId: 114,
     role: ["Marksman"],
     tags: ["situational-barbar"],
     strategy: [],
@@ -1053,6 +1138,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "wanwan", name: "Wanwan",
+    mlbbId: 89,
     role: ["Marksman"],
     tags: ["playsafe"],
     strategy: [],
@@ -1065,6 +1151,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "miya", name: "Miya",
+    mlbbId: 1,
     role: ["Marksman"],
     tags: ["playsafe"],
     strategy: [],
@@ -1077,6 +1164,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "layla", name: "Layla",
+    mlbbId: 18,
     role: ["Marksman"],
     tags: ["playsafe"],
     strategy: ["high-ground"],
@@ -1089,6 +1177,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "hanabi", name: "Hanabi",
+    mlbbId: 60,
     role: ["Marksman"],
     tags: ["playsafe"],
     strategy: [],
@@ -1101,6 +1190,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "irithel", name: "Irithel",
+    mlbbId: 43,
     role: ["Marksman"],
     tags: ["playsafe"],
     strategy: [],
@@ -1113,6 +1203,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "lesley", name: "Lesley",
+    mlbbId: 53,
     role: ["Marksman", "Assassin"],
     tags: ["semi-barbar"],
     strategy: ["high-ground"],
@@ -1125,6 +1216,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "natan", name: "Natan",
+    mlbbId: 107,
     role: ["Marksman"],
     tags: ["playsafe"],
     strategy: [],
@@ -1137,6 +1229,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "popol-kupa", name: "Popol and Kupa",
+    mlbbId: 94,
     role: ["Marksman", "Support"],
     tags: ["semi-barbar"],
     strategy: ["split-push"],
@@ -1151,6 +1244,7 @@ export const ALL_HEROES: HeroData[] = [
   // ── SUPPORT ───────────────────────────────────────────────────────────────
   {
     id: "estes", name: "Estes",
+    mlbbId: 34,
     role: ["Support"],
     tags: ["playsafe"],
     strategy: ["healer"],
@@ -1163,6 +1257,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "diggie", name: "Diggie",
+    mlbbId: 48,
     role: ["Support"],
     tags: ["situational-barbar"],
     strategy: ["healer"],
@@ -1175,6 +1270,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "mathilda", name: "Mathilda",
+    mlbbId: 102,
     role: ["Support", "Assassin"],
     tags: ["barbar"],
     strategy: ["healer"],
@@ -1187,6 +1283,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "angela", name: "Angela",
+    mlbbId: 55,
     role: ["Support"],
     tags: ["playsafe"],
     strategy: ["healer"],
@@ -1199,6 +1296,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "faramis", name: "Faramis",
+    mlbbId: 76,
     role: ["Support", "Mage"],
     tags: ["playsafe"],
     strategy: ["healer", "high-ground"],
@@ -1211,6 +1309,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "floryn", name: "Floryn",
+    mlbbId: 112,
     role: ["Support"],
     tags: ["playsafe"],
     strategy: ["healer"],
@@ -1223,6 +1322,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "rafaela", name: "Rafaela",
+    mlbbId: 14,
     role: ["Support"],
     tags: ["playsafe"],
     strategy: ["healer"],
@@ -1235,6 +1335,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "kaja", name: "Kaja",
+    mlbbId: 62,
     role: ["Support", "Fighter"],
     tags: ["barbar"],
     strategy: ["counter-split-push"],
@@ -1247,6 +1348,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "minsitthar", name: "Minsitthar",
+    mlbbId: 74,
     role: ["Fighter", "Support"],
     tags: ["barbar"],
     strategy: ["counter-split-push"],
@@ -1259,6 +1361,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "selena", name: "Selena",
+    mlbbId: 63,
     role: ["Assassin", "Mage", "Support"],
     tags: ["semi-barbar"],
     strategy: [],
@@ -1271,6 +1374,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "cyclops", name: "Cyclops",
+    mlbbId: 33,
     role: ["Mage"],
     tags: ["barbar"],
     strategy: [],
@@ -1283,6 +1387,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "vale", name: "Vale",
+    mlbbId: 66,
     role: ["Mage"],
     tags: ["barbar"],
     strategy: ["high-ground"],
@@ -1295,6 +1400,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "suyou", name: "Suyou",
+    mlbbId: 126,
     role: ["Assassin", "Fighter"],
     tags: ["barbar", "semi-barbar"],
     strategy: ["split-push"],
@@ -1307,6 +1413,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "zhuxin", name: "Zhuxin",
+    mlbbId: 125,
     role: ["Mage"],
     tags: ["playsafe"],
     strategy: ["high-ground"],
@@ -1319,6 +1426,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "ixia", name: "Ixia",
+    mlbbId: 121,
     role: ["Marksman"],
     tags: ["playsafe"],
     strategy: ["high-ground"],
@@ -1331,6 +1439,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "gatotkaca", name: "Gatotkaca",
+    mlbbId: 41,
     role: ["Tank", "Fighter"],
     tags: ["barbar"],
     strategy: ["tebal", "counter-split-push"],
@@ -1343,6 +1452,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "fredrinn", name: "Fredrinn",
+    mlbbId: 117,
     role: ["Tank", "Fighter"],
     tags: ["barbar", "semi-barbar"],
     strategy: ["tebal"],
@@ -1355,6 +1465,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "harith", name: "Harith",
+    mlbbId: 73,
     role: ["Mage"],
     tags: ["barbar"],
     strategy: [],
@@ -1367,6 +1478,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "roger", name: "Roger",
+    mlbbId: 39,
     role: ["Fighter", "Marksman"],
     tags: ["barbar"],
     strategy: ["split-push"],
@@ -1379,6 +1491,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "alpha", name: "Alpha",
+    mlbbId: 28,
     role: ["Fighter"],
     tags: ["barbar"],
     strategy: [],
@@ -1391,6 +1504,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "sora", name: "Sora",
+    mlbbId: 131,
     role: ["Fighter", "Assassin"],
     tags: ["semi-barbar"],
     strategy: ["split-push"],
@@ -1403,6 +1517,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "zetian", name: "Zetian",
+    mlbbId: 129,
     role: ["Fighter", "Mage"],
     tags: ["playsafe"],
     strategy: ["high-ground"],
@@ -1415,6 +1530,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "marcel", name: "Marcel",
+    mlbbId: 132,
     role: ["Tank", "Fighter"],
     tags: ["barbar"],
     strategy: ["tebal"],
@@ -1427,6 +1543,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "obsidia", name: "Obsidia",
+    mlbbId: 130,
     role: ["Tank"],
     tags: ["playsafe"],
     strategy: ["tebal", "counter-split-push"],
@@ -1439,6 +1556,7 @@ export const ALL_HEROES: HeroData[] = [
   },
   {
     id: "lolita", name: "Lolita",
+    mlbbId: 20,
     role: ["Tank", "Support"],
     tags: ["playsafe"],
     strategy: ["tebal", "healer"],

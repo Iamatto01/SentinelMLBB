@@ -799,28 +799,80 @@ export default function HeroesPage() {
   const [showFilters, setShowFilters] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
 
-  // 1. Initial Load of Custom Tags & Hero Overrides
+  // 1. Initial Load of Custom Tags & Hero Overrides & Live API Enrichment
   useEffect(() => {
-    const savedTags = localStorage.getItem("sentinel_custom_tags");
-    const parsedTags: CustomTag[] = savedTags ? JSON.parse(savedTags) : [];
-    setCustomTags(parsedTags);
+    let cancelled = false;
+    const loadData = async () => {
+      const savedTags = localStorage.getItem("sentinel_custom_tags");
+      const parsedTags: CustomTag[] = savedTags ? JSON.parse(savedTags) : [];
+      if (!cancelled) setCustomTags(parsedTags);
 
-    const savedHeroes = localStorage.getItem("sentinel_custom_heroes");
-    const parsedHeroes = savedHeroes ? JSON.parse(savedHeroes) : {};
+      const savedHeroes = localStorage.getItem("sentinel_custom_heroes");
+      const parsedHeroes = savedHeroes ? JSON.parse(savedHeroes) : {};
 
-    const merged = ALL_HEROES.map(hero => {
-      const custom = parsedHeroes[hero.id] || {};
-      return {
-        ...hero,
-        tags: custom.tags ? custom.tags : hero.tags,
-        strategy: custom.strategy ? custom.strategy : hero.strategy,
-        cc: custom.cc ? custom.cc : hero.cc,
-        timing: custom.timing ? custom.timing : hero.timing,
-        counters: custom.counters || [],
-        counteredBy: custom.counteredBy || [],
-      };
-    });
-    setHeroes(merged);
+      // 1. Base merge of local custom data
+      let merged = ALL_HEROES.map(hero => {
+        const custom = parsedHeroes[hero.id] || {};
+        return {
+          ...hero,
+          tags: custom.tags ? custom.tags : hero.tags,
+          strategy: custom.strategy ? custom.strategy : hero.strategy,
+          cc: custom.cc ? custom.cc : hero.cc,
+          timing: custom.timing ? custom.timing : hero.timing,
+          counters: custom.counters || [],
+          counteredBy: custom.counteredBy || [],
+        };
+      });
+
+      if (!cancelled) setHeroes(merged);
+
+      // 2. Enrich with live MLBB API data
+      try {
+        const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
+        const res = await fetch(`${API_URL}/api/mlbb/heroes`);
+        if (res.ok) {
+          const apiData = await res.json();
+          if (apiData?.data?.records) {
+            // Map mlbbId -> local id
+            const idMap: Record<number, string> = {};
+            ALL_HEROES.forEach(h => { if (h.mlbbId) idMap[h.mlbbId] = h.id; });
+
+            const enriched = merged.map(hero => {
+              if (!hero.mlbbId) return hero;
+              
+              const apiRecord = apiData.data.records.find((r: any) => r.data?.hero_id === hero.mlbbId);
+              if (!apiRecord) return hero;
+
+              // Use official CDN head image
+              const newImage = apiRecord.data?.hero?.data?.head || hero.image;
+
+              const custom = parsedHeroes[hero.id] || {};
+              let counters = hero.counters;
+              let counteredBy = hero.counteredBy;
+
+              // Inherit counters from API if not locally overridden
+              if (!custom.counters || custom.counters.length === 0) {
+                const strongIds = apiRecord.data?.relation?.strong?.target_hero_id || [];
+                counters = strongIds.map((id: number) => idMap[id]).filter(Boolean);
+              }
+              if (!custom.counteredBy || custom.counteredBy.length === 0) {
+                const weakIds = apiRecord.data?.relation?.weak?.target_hero_id || [];
+                counteredBy = weakIds.map((id: number) => idMap[id]).filter(Boolean);
+              }
+
+              return { ...hero, image: newImage, counters, counteredBy };
+            });
+
+            if (!cancelled) setHeroes(enriched);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to enrich heroes from MLBB API", err);
+      }
+    };
+    
+    loadData();
+    return () => { cancelled = true; };
   }, []);
 
   // 2. Dynamic Configurations based on Custom Created Tags

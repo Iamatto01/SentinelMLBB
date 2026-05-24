@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Check, X, Search, Shield, Sword, ShieldAlert, Sparkles, Ban } from "lucide-react";
 import { evaluateCounters, getHeroByName as getHeroInfoByName } from "@/lib/heroData";
@@ -317,11 +317,92 @@ export default function DraftSimulatorPage() {
     setActiveSlot({ phase: "ban", team: "ally", index: 0 });
   };
 
+  const [liveHeroes, setLiveHeroes] = useState<any[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchLive = async () => {
+      try {
+        const res = await fetch("https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev/api/mlbb/heroes");
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.data?.records && !cancelled) {
+            setLiveHeroes(data.data.records);
+          }
+        }
+      } catch (e) {}
+    };
+    fetchLive();
+    return () => { cancelled = true; };
+  }, []);
+
   const suggestions = useMemo(() => {
     const validAllies = alliedTeam.filter(Boolean) as string[];
     const validEnemies = enemyTeam.filter(Boolean) as string[];
-    return evaluateCounters(validAllies, validEnemies);
-  }, [alliedTeam, enemyTeam]);
+
+    if (liveHeroes.length > 0) {
+      // ── LIVE API EVALUATION ──
+      const scores: Record<string, { score: number; reasons: string[] }> = {};
+      
+      ALL_HEROES.forEach(h => {
+        if (validAllies.includes(h.name) || validEnemies.includes(h.name)) return;
+        scores[h.name] = { score: 0, reasons: [] };
+      });
+
+      // 1. Evaluate against Enemy Picks (Counters)
+      validEnemies.forEach(enemyName => {
+        const enemyLocal = ALL_HEROES.find(h => h.name === enemyName);
+        if (!enemyLocal || !enemyLocal.mlbbId) return;
+
+        const enemyRecord = liveHeroes.find(r => r.data.hero_id === enemyLocal.mlbbId);
+        if (!enemyRecord) return;
+
+        const strongAgainstIds = enemyRecord.data.relation?.strong?.target_hero_id || [];
+        const weakAgainstIds = enemyRecord.data.relation?.weak?.target_hero_id || [];
+
+        ALL_HEROES.forEach(h => {
+          if (!scores[h.name] || !h.mlbbId) return;
+          // If enemy is WEAK against H -> H counters enemy (Good)
+          if (weakAgainstIds.includes(h.mlbbId)) {
+            scores[h.name].score += 1.5;
+            scores[h.name].reasons.push(`Counters ${enemyName}`);
+          }
+          // If enemy is STRONG against H -> Enemy counters H (Bad)
+          if (strongAgainstIds.includes(h.mlbbId)) {
+            scores[h.name].score -= 1.5;
+          }
+        });
+      });
+
+      // 2. Evaluate against Allied Picks (Synergy)
+      validAllies.forEach(allyName => {
+        const allyLocal = ALL_HEROES.find(h => h.name === allyName);
+        if (!allyLocal || !allyLocal.mlbbId) return;
+
+        const allyRecord = liveHeroes.find(r => r.data.hero_id === allyLocal.mlbbId);
+        if (!allyRecord) return;
+
+        const assistIds = allyRecord.data.relation?.assist?.target_hero_id || [];
+        ALL_HEROES.forEach(h => {
+          if (!scores[h.name] || !h.mlbbId) return;
+          if (assistIds.includes(h.mlbbId)) {
+            scores[h.name].score += 1.0;
+            if (scores[h.name].reasons.length < 2) {
+              scores[h.name].reasons.push(`Combos with ${allyName}`);
+            }
+          }
+        });
+      });
+
+      return Object.entries(scores)
+        .map(([name, data]) => ({ name, ...data }))
+        .sort((a, b) => b.score - a.score);
+        
+    } else {
+      // ── STATIC FALLBACK ──
+      return evaluateCounters(validAllies, validEnemies);
+    }
+  }, [alliedTeam, enemyTeam, liveHeroes]);
 
   const topSuggestions = suggestions.slice(0, 5).filter(s => !takenNames.has(s.name));
   const badPicks = [...suggestions].reverse().slice(0, 3).filter(s => s.score < 0 && !takenNames.has(s.name));
