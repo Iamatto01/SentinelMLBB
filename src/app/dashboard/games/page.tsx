@@ -6,7 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import { Swords, Trophy, Target, Search, Camera, Upload, Loader2, Check, X, ImagePlus, Sparkles, ChevronUp, ChevronDown, Pencil } from "lucide-react";
-import { getHeroByName } from "@/data/heroes-data";
+import { getHeroByName, ALL_HEROES } from "@/data/heroes-data";
 
 const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
 
@@ -160,13 +160,17 @@ function ManualGameModal({
               onChange={(e) => setDate(e.target.value)}
               className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
             />
-            <input
-              type="text"
-              placeholder="Mode (Ranked/Classic/Tour)"
+            <select
               value={mode}
               onChange={(e) => setMode(e.target.value)}
               className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-            />
+            >
+              <option value="Ranked">Ranked</option>
+              <option value="Classic">Classic</option>
+              <option value="Brawl">Brawl</option>
+              <option value="Custom">Custom</option>
+              <option value="Tour">Tour</option>
+            </select>
             <input
               type="number"
               placeholder="Duration (minutes)"
@@ -193,6 +197,11 @@ function ManualGameModal({
 
           <div className="space-y-2">
             <p className="text-[11px] text-neutral-400 uppercase font-bold">Players & Heroes</p>
+            <datalist id="heroes-list">
+              {ALL_HEROES.map((h) => (
+                <option key={h.id} value={h.name} />
+              ))}
+            </datalist>
             {players.map((p, i) => (
               <div key={i} className="grid grid-cols-2 gap-2">
                 <input
@@ -206,6 +215,7 @@ function ManualGameModal({
                   type="text"
                   placeholder={`Hero ${i + 1}`}
                   value={p.hero_name}
+                  list="heroes-list"
                   onChange={(e) => updatePlayer(i, "hero_name", e.target.value)}
                   className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                 />
@@ -245,14 +255,15 @@ function ManualGameModal({
 function HeroWithPlayer({ heroName, playerName }: { heroName: string; playerName?: string }) {
   const hero = getHeroByName(heroName);
   const [imgErr, setImgErr] = useState(false);
+  const heroImageSrc = hero?.mlbbId ? `https://api.mobilelegends.com/m/hero/image/${hero.mlbbId}-head.png` : hero?.image;
 
   return (
     <div className="flex items-center gap-2 p-1.5 rounded-lg bg-neutral-100/50 dark:bg-neutral-800/50 border border-neutral-200/50 dark:border-neutral-700/50 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
       {/* Hero image thumbnail */}
       <div className="w-7 h-7 rounded-lg overflow-hidden bg-neutral-200 dark:bg-neutral-700 flex-shrink-0">
-        {hero?.image && !imgErr ? (
+        {heroImageSrc && !imgErr ? (
           <img
-            src={hero.image}
+            src={heroImageSrc}
             alt={heroName}
             className="w-full h-full object-cover object-top"
             referrerPolicy="no-referrer"
@@ -311,46 +322,6 @@ function ScreenshotUploadModal({
     onClose();
   };
 
-  const processFiles = (fileList: FileList | File[]) => {
-    const newUploads: UploadedFile[] = [];
-    for (let i = 0; i < fileList.length; i++) {
-      const file = fileList[i];
-      if (!file.type.startsWith("image/")) continue;
-      
-      const id = Math.random().toString(36).substring(7);
-      const reader = new FileReader();
-      
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        const base64 = dataUrl.split(",")[1];
-        setFiles((prev) => [
-          ...prev,
-          {
-            id,
-            preview: dataUrl,
-            base64,
-            mimeType: file.type,
-            parsing: false,
-            parsedData: null,
-            error: null,
-            saved: false,
-          },
-        ]);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) processFiles(e.target.files);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    if (e.dataTransfer.files) processFiles(e.dataTransfer.files);
-  };
-
   const updateFileState = (id: string, updates: Partial<UploadedFile>) => {
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, ...updates } : f)));
   };
@@ -370,7 +341,11 @@ function ScreenshotUploadModal({
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ image: file.base64, mimeType: file.mimeType }),
+        body: JSON.stringify({ 
+          image: file.base64, 
+          mimeType: file.mimeType,
+          validHeroes: ALL_HEROES.map(h => h.name)
+        }),
       });
       const data = await res.json();
       if (data.ok && data.data) {
@@ -381,6 +356,45 @@ function ScreenshotUploadModal({
     } catch (err) {
       updateFileState(file.id, { error: "Network error. Please try again.", parsing: false });
     }
+  };
+
+  const processFiles = (fileList: FileList | File[]) => {
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      if (!file.type.startsWith("image/")) continue;
+      
+      const id = Math.random().toString(36).substring(7);
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        const base64 = dataUrl.split(",")[1];
+        const newFile: UploadedFile = {
+          id,
+          preview: dataUrl,
+          base64,
+          mimeType: file.type,
+          parsing: false,
+          parsedData: null,
+          error: null,
+          saved: false,
+        };
+        setFiles((prev) => [...prev, newFile]);
+        // Auto parse the file immediately
+        handleParse(newFile);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) processFiles(e.target.files);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files) processFiles(e.dataTransfer.files);
   };
 
   const handleParseAll = () => {

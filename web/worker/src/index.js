@@ -334,11 +334,15 @@ app.delete('/api/admin/users/:id', authMiddleware, async (c) => {
 // ═══════════════════════════════════════════
 app.post('/api/games/parse-screenshot', authMiddleware, async (c) => {
   try {
-    const { image, mimeType } = await c.req.json();
+    const { image, mimeType, validHeroes } = await c.req.json();
     if (!image) return c.json({ error: 'No image provided' }, 400);
 
     const apiKey = c.env.GROQ_API_KEY;
     if (!apiKey) return c.json({ error: 'Groq API key not configured' }, 500);
+
+    const heroListStr = (validHeroes && validHeroes.length > 0)
+      ? validHeroes.join(', ')
+      : 'Tigreal, Khufra, Franco, Johnson, Grock, Atlas, Uranus, Hylos, Akai, Belerick, Minotaur, Edith, Baxia, Carmilla, Gloo, Chip, Chou, Paquito, Yu Zhong, Dyrroth, Terizla, Zilong, Aldous, Esmeralda, Masha, Badang, Guinevere, Ruby, Phoveus, Sun, Thamuz, Hilda, Alucard, Silvanna, Freya, Jawhead, Bane, X.Borg, Lapu-Lapu, Khaleed, Barats, Leomord, Martis, Arlott, Fanny, Ling, Lancelot, Hayabusa, Gusion, Saber, Joy, Nolan, Helcurt, Natalia, Karina, Aamon, Benedetta, Yi Sun-shin, Pharsa, Yve, Kagura, Lylia, Valir, Nana, Vexana, Novaria, Chang\'e, Cecilion, Alice, Odette, Harley, Aurora, Gord, Xavier, Lunox, Valentina, Luo Yi, Julian, Beatrix, Claude, Karrie, Brody, Clint, Moskov, Melissa, Wanwan, Miya, Layla, Hanabi, Irithel, Lesley, Natan, Popol and Kupa, Estes, Diggie, Mathilda, Angela, Faramis, Floryn, Rafaela, Kaja, Minsitthar, Selena, Cyclops, Vale, Suyou, Zhuxin, Ixia, Gatotkaca, Fredrinn, Harith, Roger, Alpha, Sora, Zetian, Marcel, Obsidia, Lolita';
 
     const prompt = `You are analyzing a Mobile Legends: Bang Bang (MLBB) post-game results screenshot.
 
@@ -346,7 +350,7 @@ Extract the following data from the screenshot and return it as a JSON object:
 
 {
   "result": "Win" or "Lose" (the match result for the team shown),
-  "mode": "Ranked" or "Classic" or "Tour" (game mode),
+  "mode": "Ranked" or "Classic" or "Brawl" or "Custom" (game mode),
   "duration": number (game duration in minutes, just the number),
   "players": [
     { "player_name": "player IGN", "hero_name": "exact hero name" }
@@ -355,7 +359,7 @@ Extract the following data from the screenshot and return it as a JSON object:
 
 IMPORTANT RULES:
 - "players" should contain up to 5 players from the SAME team (the user's team)
-- Use exact official MLBB hero names ONLY. The valid hero names are: Tigreal, Khufra, Franco, Johnson, Grock, Atlas, Uranus, Hylos, Akai, Belerick, Minotaur, Edith, Baxia, Carmilla, Gloo, Chip, Chou, Paquito, Yu Zhong, Dyrroth, Terizla, Zilong, Aldous, Esmeralda, Masha, Badang, Guinevere, Ruby, Phoveus, Sun, Thamuz, Hilda, Alucard, Silvanna, Freya, Jawhead, Bane, X.Borg, Lapu-Lapu, Khaleed, Barats, Leomord, Martis, Arlott, Fanny, Ling, Lancelot, Hayabusa, Gusion, Saber, Joy, Nolan, Helcurt, Natalia, Karina, Aamon, Benedetta, Yi Sun-shin, Pharsa, Yve, Kagura, Lylia, Valir, Nana, Vexana, Novaria, Chang'e, Cecilion, Alice, Odette, Harley, Aurora, Gord, Xavier, Lunox, Valentina, Luo Yi, Julian, Beatrix, Claude, Karrie, Brody, Clint, Moskov, Melissa, Wanwan, Miya, Layla, Hanabi, Irithel, Lesley, Natan, Popol and Kupa, Estes, Diggie, Mathilda, Angela, Faramis, Floryn, Rafaela, Kaja, Minsitthar, Selena, Cyclops, Vale, Suyou, Zhuxin, Ixia, Gatotkaca, Fredrinn, Harith, Roger, Alpha, Sora, Zetian, Marcel, Obsidia, Lolita.
+- Use exact official MLBB hero names ONLY. The valid hero names are: ${heroListStr}
 - Fix any typos or OCR mistakes to match the closest hero in the list above.
 - For player names, use exactly what is shown in the screenshot. If no name is visible, use "".
 - Duration should be just the number of minutes (round down).
