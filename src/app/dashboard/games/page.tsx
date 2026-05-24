@@ -5,7 +5,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
-import { Swords, Trophy, Target, Search, Camera, Loader2, Check, X, ImagePlus, Sparkles, Pencil } from "lucide-react";
+import { Swords, Trophy, Target, Search, Camera, Upload, Loader2, Check, X, ImagePlus, Sparkles, ChevronUp, ChevronDown, Pencil } from "lucide-react";
 import { getHeroByName } from "@/data/heroes-data";
 
 const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
@@ -247,7 +247,7 @@ function HeroWithPlayer({ heroName, playerName }: { heroName: string; playerName
   const [imgErr, setImgErr] = useState(false);
 
   return (
-    <div className="flex items-center gap-2 py-0.5">
+    <div className="flex items-center gap-2 p-1.5 rounded-lg bg-neutral-100/50 dark:bg-neutral-800/50 border border-neutral-200/50 dark:border-neutral-700/50 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
       {/* Hero image thumbnail */}
       <div className="w-7 h-7 rounded-lg overflow-hidden bg-neutral-200 dark:bg-neutral-700 flex-shrink-0">
         {hero?.image && !imgErr ? (
@@ -619,8 +619,17 @@ export default function GamesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showUpload, setShowUpload] = useState(false);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [showManual, setShowManual] = useState(false);
   const [editingGame, setEditingGame] = useState<GameEntry | null>(null);
+
+  const handleSort = (key: string) => {
+    let direction: "asc" | "desc" = "desc";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "desc") {
+      direction = "asc";
+    }
+    setSortConfig({ key, direction });
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -655,6 +664,21 @@ export default function GamesPage() {
           (p.player_name || "").toLowerCase().includes(search.toLowerCase())
       )
   );
+
+  const sortedGames = [...filteredGames].sort((a, b) => {
+    if (!sortConfig) return 0;
+    if (sortConfig.key === "date") {
+      const dateA = new Date(a.date || 0).getTime();
+      const dateB = new Date(b.date || 0).getTime();
+      return sortConfig.direction === "asc" ? dateA - dateB : dateB - dateA;
+    }
+    if (sortConfig.key === "result") {
+      const resA = (a.result || "").toLowerCase();
+      const resB = (b.result || "").toLowerCase();
+      return sortConfig.direction === "asc" ? resA.localeCompare(resB) : resB.localeCompare(resA);
+    }
+    return 0;
+  });
 
   const totalGames = games.length;
   const wins = games.filter((g) => g.result?.toLowerCase() === "win").length;
@@ -777,9 +801,31 @@ export default function GamesPage() {
             <thead>
               <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
                 <th className="text-left px-4 py-3 font-medium text-neutral-500">#</th>
-                <th className="text-left px-4 py-3 font-medium text-neutral-500">Date</th>
+                <th
+                  className="text-left px-4 py-3 font-medium text-neutral-500 cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors select-none"
+                  onClick={() => handleSort("date")}
+                >
+                  <div className="flex items-center gap-1">
+                    Date
+                    <span className="flex flex-col -space-y-[0.35rem]">
+                      <ChevronUp className={`w-3 h-3 ${sortConfig?.key === "date" && sortConfig.direction === "asc" ? "text-indigo-500" : "text-neutral-300 dark:text-neutral-600"}`} />
+                      <ChevronDown className={`w-3 h-3 ${sortConfig?.key === "date" && sortConfig.direction === "desc" ? "text-indigo-500" : "text-neutral-300 dark:text-neutral-600"}`} />
+                    </span>
+                  </div>
+                </th>
                 <th className="text-left px-4 py-3 font-medium text-neutral-500 min-w-[320px]">Heroes & Players</th>
-                <th className="text-left px-4 py-3 font-medium text-neutral-500">Result</th>
+                <th
+                  className="text-left px-4 py-3 font-medium text-neutral-500 cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors select-none"
+                  onClick={() => handleSort("result")}
+                >
+                  <div className="flex items-center gap-1">
+                    Result
+                    <span className="flex flex-col -space-y-[0.35rem]">
+                      <ChevronUp className={`w-3 h-3 ${sortConfig?.key === "result" && sortConfig.direction === "asc" ? "text-indigo-500" : "text-neutral-300 dark:text-neutral-600"}`} />
+                      <ChevronDown className={`w-3 h-3 ${sortConfig?.key === "result" && sortConfig.direction === "desc" ? "text-indigo-500" : "text-neutral-300 dark:text-neutral-600"}`} />
+                    </span>
+                  </div>
+                </th>
                 <th className="text-left px-4 py-3 font-medium text-neutral-500">Mode</th>
                 <th className="text-left px-4 py-3 font-medium text-neutral-500">Duration</th>
                 <th className="text-left px-4 py-3 font-medium text-neutral-500">Actions</th>
@@ -788,10 +834,10 @@ export default function GamesPage() {
             <tbody>
               {loading ? (
                 <tr><td colSpan={7} className="px-4 py-12 text-center text-neutral-400">Loading games...</td></tr>
-              ) : filteredGames.length === 0 ? (
+              ) : sortedGames.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-12 text-center text-neutral-400">No games found</td></tr>
               ) : (
-                filteredGames.map((game, i) => (
+                sortedGames.map((game, i) => (
                   <tr
                     key={game.id || i}
                     className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors"
@@ -804,7 +850,7 @@ export default function GamesPage() {
                       {(game.players || []).filter((p: any) => p.hero_name).length === 0 ? (
                         <span className="text-neutral-400">-</span>
                       ) : (
-                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                           {(game.players || [])
                             .filter((p: any) => p.hero_name)
                             .map((p: any, j: number) => (

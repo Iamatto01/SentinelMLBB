@@ -330,15 +330,15 @@ app.delete('/api/admin/users/:id', authMiddleware, async (c) => {
 });
 
 // ═══════════════════════════════════════════
-//  SCREENSHOT OCR (Gemini Vision)
+//  SCREENSHOT OCR (Groq Vision)
 // ═══════════════════════════════════════════
 app.post('/api/games/parse-screenshot', authMiddleware, async (c) => {
   try {
     const { image, mimeType } = await c.req.json();
     if (!image) return c.json({ error: 'No image provided' }, 400);
 
-    const apiKey = c.env.GEMINI_API_KEY;
-    if (!apiKey) return c.json({ error: 'Gemini API key not configured' }, 500);
+    const apiKey = c.env.GROQ_API_KEY;
+    if (!apiKey) return c.json({ error: 'Groq API key not configured' }, 500);
 
     const prompt = `You are analyzing a Mobile Legends: Bang Bang (MLBB) post-game results screenshot.
 
@@ -361,33 +361,40 @@ IMPORTANT RULES:
 - If you cannot determine a field, use null
 - Return ONLY the JSON object, no markdown, no explanation, no code fences`;
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: prompt },
-              { inline_data: { mime_type: mimeType || 'image/png', data: image } }
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType || 'image/png'};base64,${image}`
+                }
+              }
             ]
-          }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 1024,
           }
-        })
-      }
-    );
+        ],
+        temperature: 0.1,
+        max_completion_tokens: 1024
+      })
+    });
 
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      return c.json({ error: 'Gemini API error', details: errText }, 500);
+    if (!groqRes.ok) {
+      const errText = await groqRes.text();
+      return c.json({ error: 'Groq API error', details: errText }, 500);
     }
 
-    const geminiData = await geminiRes.json();
-    const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const groqData = await groqRes.json();
+    const text = groqData?.choices?.[0]?.message?.content || '';
     
     // Clean up the response - remove code fences if present
     let cleanText = text.trim();
@@ -399,7 +406,7 @@ IMPORTANT RULES:
       const parsed = JSON.parse(cleanText);
       return c.json({ ok: true, data: parsed });
     } catch {
-      return c.json({ ok: true, data: null, raw: cleanText, error: 'Could not parse Gemini response as JSON' });
+      return c.json({ ok: true, data: null, raw: cleanText, error: 'Could not parse AI response as JSON' });
     }
   } catch (err) {
     return c.json({ error: 'Screenshot parsing failed', details: String(err) }, 500);

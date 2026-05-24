@@ -29,7 +29,6 @@ interface PlayerRankData {
   winRate: number;
   uniqueHeroesCount: number;
   uniqueHeroes: string[];
-  avgKda: string;
   totalKills: number;
   totalDeaths: number;
   totalAssists: number;
@@ -43,7 +42,6 @@ interface HeroRankData {
   winRate: number;
   uniquePlayersCount: number;
   uniquePlayers: string[];
-  avgKda: string;
   totalKills: number;
   totalDeaths: number;
   totalAssists: number;
@@ -127,7 +125,6 @@ export default function RankingsPage() {
     return Object.entries(map).map(([name, s]) => {
       const losses = s.games - s.wins;
       const winRate = s.games > 0 ? Math.round((s.wins / s.games) * 100) : 0;
-      const kda = s.deaths > 0 ? ((s.kills + s.assists) / s.deaths).toFixed(2) : (s.kills + s.assists).toFixed(2);
 
       return {
         name,
@@ -137,7 +134,6 @@ export default function RankingsPage() {
         winRate,
         uniqueHeroesCount: s.heroes.size,
         uniqueHeroes: Array.from(s.heroes),
-        avgKda: kda,
         totalKills: s.kills,
         totalDeaths: s.deaths,
         totalAssists: s.assists,
@@ -182,7 +178,6 @@ export default function RankingsPage() {
     return Object.entries(map).map(([name, s]) => {
       const losses = s.games - s.wins;
       const winRate = s.games > 0 ? Math.round((s.wins / s.games) * 100) : 0;
-      const kda = s.deaths > 0 ? ((s.kills + s.assists) / s.deaths).toFixed(2) : (s.kills + s.assists).toFixed(2);
 
       return {
         name,
@@ -192,7 +187,6 @@ export default function RankingsPage() {
         winRate,
         uniquePlayersCount: s.players.size,
         uniquePlayers: Array.from(s.players),
-        avgKda: kda,
         totalKills: s.kills,
         totalDeaths: s.deaths,
         totalAssists: s.assists,
@@ -412,33 +406,35 @@ export default function RankingsPage() {
             </div>
           </div>
 
-          {/* Versatility / KDA Card */}
-          <div className="relative bg-gradient-to-tr from-purple-500/10 via-purple-400/5 to-transparent dark:from-purple-550/10 border border-purple-250 dark:border-purple-500/30 rounded-2xl p-5 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition-all group">
-            <div className="absolute -right-8 -top-8 text-purple-500/10 group-hover:scale-110 transition-transform duration-300">
-              <Sparkles className="w-32 h-32" />
+          {/* Versatility Card (Only for Players) */}
+          {activeTab === "players" ? (
+            <div className="relative bg-gradient-to-tr from-purple-500/10 via-purple-400/5 to-transparent dark:from-purple-550/10 border border-purple-250 dark:border-purple-500/30 rounded-2xl p-5 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition-all group">
+              <div className="absolute -right-8 -top-8 text-purple-500/10 group-hover:scale-110 transition-transform duration-300">
+                <Sparkles className="w-32 h-32" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  🔮 Master of All
+                </span>
+                <h3 className="text-2xl font-black text-neutral-800 dark:text-white mt-3 truncate">
+                  {awards.topVersatilePlayer?.name}
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                  Most Unique Heroes Played
+                </p>
+              </div>
+              <div className="flex justify-between items-baseline mt-4 border-t border-purple-500/10 pt-3 z-10">
+                <span className="text-2xl font-black text-purple-600 dark:text-purple-400">
+                  {awards.topVersatilePlayer?.uniqueHeroesCount} heroes
+                </span>
+                <span className="text-[10px] font-semibold text-neutral-405">
+                  Diversity Index
+                </span>
+              </div>
             </div>
-            <div>
-              <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                {activeTab === "players" ? "🔮 Master of All" : "🎯 Deadly Striker"}
-              </span>
-              <h3 className="text-2xl font-black text-neutral-800 dark:text-white mt-3 truncate">
-                {activeTab === "players" ? awards.topVersatilePlayer?.name : awards.topPickedHero?.name}
-              </h3>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                {activeTab === "players" ? "Most Unique Heroes Played" : "Highest Hero Avg KDA"}
-              </p>
-            </div>
-            <div className="flex justify-between items-baseline mt-4 border-t border-purple-500/10 pt-3 z-10">
-              <span className="text-2xl font-black text-purple-600 dark:text-purple-400">
-                {activeTab === "players"
-                  ? `${awards.topVersatilePlayer?.uniqueHeroesCount} heroes`
-                  : awards.topPickedHero?.avgKda}
-              </span>
-              <span className="text-[10px] font-semibold text-neutral-405">
-                {activeTab === "players" ? "Diversity Index" : "Average KDA"}
-              </span>
-            </div>
-          </div>
+          ) : (
+            <div className="hidden md:block"></div>
+          )}
 
         </div>
       ) : null}
@@ -488,7 +484,6 @@ export default function RankingsPage() {
                     <SortableHeader label="Wins" sortKey="wins" className="text-center w-24" />
                     <SortableHeader label="Losses" sortKey="losses" className="text-center w-24" />
                     <SortableHeader label="Win Rate" sortKey="winRate" className="text-left w-48" />
-                    <SortableHeader label="Avg KDA" sortKey="avgKda" className="text-center w-24" />
                     <SortableHeader label="Unique Heroes" sortKey="uniqueHeroesCount" className="text-center w-28" />
                   </tr>
                 </thead>
@@ -603,13 +598,6 @@ export default function RankingsPage() {
                             </div>
                           </td>
 
-                          {/* Avg KDA */}
-                          <td className="px-4 py-4 text-center font-semibold">
-                            <span className="px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-750 dark:text-neutral-250 text-xs">
-                              {player.avgKda}
-                            </span>
-                          </td>
-
                           {/* Unique Heroes count */}
                           <td className="px-4 py-4 text-center group/hero-tooltip relative">
                             <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-help border-b border-indigo-600/30 dark:border-indigo-400/30 border-dashed pb-0.5">
@@ -659,7 +647,6 @@ export default function RankingsPage() {
                     <SortableHeader label="Wins" sortKey="wins" className="text-center w-24" />
                     <SortableHeader label="Losses" sortKey="losses" className="text-center w-24" />
                     <SortableHeader label="Win Rate" sortKey="winRate" className="text-left w-48" />
-                    <SortableHeader label="Avg KDA" sortKey="avgKda" className="text-center w-24" />
                     <SortableHeader label="Unique Contenders" sortKey="uniquePlayersCount" className="text-center w-28" />
                   </tr>
                 </thead>
@@ -766,13 +753,6 @@ export default function RankingsPage() {
                                 {hero.winRate}%
                               </span>
                             </div>
-                          </td>
-
-                          {/* Avg KDA */}
-                          <td className="px-4 py-4 text-center font-semibold">
-                            <span className="px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-750 dark:text-neutral-250 text-xs">
-                              {hero.avgKda}
-                            </span>
                           </td>
 
                           {/* Unique contenders */}

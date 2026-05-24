@@ -39,16 +39,6 @@ export default function DashboardPage() {
   const wins = games.filter((g) => g.result?.toLowerCase() === "win").length;
   const winRate = totalGames > 0 ? ((wins / totalGames) * 100).toFixed(1) : "0.0";
 
-  // Average KDA from game_players
-  let totalKills = 0, totalDeaths = 0, totalAssists = 0;
-  games.forEach((g) => {
-    (g.players || []).forEach((p: any) => {
-      totalKills += p.kills || 0;
-      totalDeaths += p.deaths || 0;
-      totalAssists += p.assists || 0;
-    });
-  });
-  const avgKDA = totalDeaths > 0 ? ((totalKills + totalAssists) / totalDeaths).toFixed(1) : "0.0";
 
   // Role/hero distribution from players
   const heroCount: Record<string, number> = {};
@@ -100,10 +90,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Summary Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard title="Total Matches" value={totalGames.toLocaleString()} icon={<Swords className="text-indigo-500" />} trend={`${wins} wins`} />
         <StatCard title="Overall Win Rate" value={`${winRate}%`} icon={<Trophy className="text-yellow-500" />} trend={`${wins}W ${totalGames - wins}L`} />
-        <StatCard title="Average KDA" value={avgKDA} icon={<Target className="text-teal-500" />} trend={`${totalKills}K/${totalDeaths}D/${totalAssists}A`} />
         <StatCard title="Most Played" value={topHero} icon={<Activity className="text-pink-500" />} trend={`${topHeroWR}% win rate`} />
       </div>
       
