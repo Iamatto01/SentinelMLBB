@@ -5,13 +5,14 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
-import { Swords, Trophy, Target, Search, Loader2, Check, X, ChevronUp, ChevronDown, Pencil } from "lucide-react";
+import { Swords, Trophy, Target, Search, Loader2, Check, X, ChevronUp, ChevronDown, Pencil, Camera, Image as ImageIcon } from "lucide-react";
 import { getHeroByName, ALL_HEROES } from "@/data/heroes-data";
+import ScreenshotHeroDetector, { type DetectedHero } from "./ScreenshotHeroDetector";
 
 const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
 
 type GameSaveCallback = () => Promise<void> | void;
-type GamePlayer = { player_name?: string; hero_name?: string };
+type GamePlayer = { player_name?: string; hero_name?: string; team?: "ally" | "enemy" };
 type GameEntry = {
   id?: number;
   game_num?: number | null;
@@ -44,19 +45,36 @@ function ManualGameModal({
   const [duration, setDuration] = useState("");
   const [result, setResult] = useState("Win");
   const [notes, setNotes] = useState("");
-  const [players, setPlayers] = useState<Array<{ player_name: string; hero_name: string }>>(
-    Array.from({ length: 5 }, () => ({ player_name: "", hero_name: "" }))
+  const [players, setPlayers] = useState<Array<{ player_name: string; hero_name: string; team: "ally" | "enemy" }>>(
+    [
+      ...Array.from({ length: 5 }, () => ({ player_name: "", hero_name: "", team: "ally" as const })),
+      ...Array.from({ length: 5 }, () => ({ player_name: "", hero_name: "", team: "enemy" as const })),
+    ]
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showScreenshot, setShowScreenshot] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     if (gameToEdit) {
-      const nextPlayers = Array.from({ length: 5 }, (_, i) => ({
-        player_name: gameToEdit.players?.[i]?.player_name || "",
-        hero_name: gameToEdit.players?.[i]?.hero_name || "",
-      }));
+      // Build 10-slot player array from existing data
+      const existingPlayers = gameToEdit.players || [];
+      const allies = existingPlayers.filter((p) => p.team === "ally" || !p.team).slice(0, 5);
+      const enemies = existingPlayers.filter((p) => p.team === "enemy").slice(0, 5);
+
+      const nextPlayers = [
+        ...Array.from({ length: 5 }, (_, i) => ({
+          player_name: allies[i]?.player_name || "",
+          hero_name: allies[i]?.hero_name || "",
+          team: "ally" as const,
+        })),
+        ...Array.from({ length: 5 }, (_, i) => ({
+          player_name: enemies[i]?.player_name || "",
+          hero_name: enemies[i]?.hero_name || "",
+          team: "enemy" as const,
+        })),
+      ];
       setGameNum(gameToEdit.game_num?.toString() || "");
       setDate(gameToEdit.date || "");
       setMode(gameToEdit.mode || "Ranked");
@@ -71,14 +89,35 @@ function ManualGameModal({
       setDuration("");
       setResult("Win");
       setNotes("");
-      setPlayers(Array.from({ length: 5 }, () => ({ player_name: "", hero_name: "" })));
+      setPlayers([
+        ...Array.from({ length: 5 }, () => ({ player_name: "", hero_name: "", team: "ally" as const })),
+        ...Array.from({ length: 5 }, () => ({ player_name: "", hero_name: "", team: "enemy" as const })),
+      ]);
     }
     setSaving(false);
     setError(null);
+    setShowScreenshot(false);
   }, [isOpen, gameToEdit]);
 
   const updatePlayer = (idx: number, key: "player_name" | "hero_name", value: string) => {
     setPlayers((prev) => prev.map((p, i) => (i === idx ? { ...p, [key]: value } : p)));
+  };
+
+  const handleScreenshotComplete = (heroes: DetectedHero[]) => {
+    setPlayers((prev) => {
+      const next = [...prev];
+      heroes.forEach((h) => {
+        if (h.slotIndex < next.length) {
+          next[h.slotIndex] = {
+            ...next[h.slotIndex],
+            hero_name: h.heroName,
+            team: h.team,
+          };
+        }
+      });
+      return next;
+    });
+    setShowScreenshot(false);
   };
 
   const handleSubmit = async () => {
@@ -98,6 +137,7 @@ function ManualGameModal({
           .map((p) => ({
             player_name: p.player_name.trim(),
             hero_name: p.hero_name.trim(),
+            team: p.team,
           })),
       };
 
@@ -129,15 +169,19 @@ function ManualGameModal({
 
   if (!isOpen) return null;
 
+  const inputClass = "px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-sm">
       <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
         <div className="p-5 border-b border-neutral-100 dark:border-neutral-800 flex justify-between items-center">
           <div>
             <h2 className="text-lg font-bold text-neutral-800 dark:text-white">
-              {isEdit ? "Update Game Log" : "Add Manual Game"}
+              {isEdit ? "Update Game Log" : "Add Game"}
             </h2>
-            <p className="text-xs text-neutral-500 mt-0.5">Manual input for game log entry</p>
+            <p className="text-xs text-neutral-500 mt-0.5">
+              {showScreenshot ? "Detect heroes from screenshot" : "Upload screenshot or enter manually"}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -148,112 +192,172 @@ function ManualGameModal({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input
-              type="number"
-              placeholder="Game # (optional)"
-              value={gameNum}
-              onChange={(e) => setGameNum(e.target.value)}
-              className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+          {/* Screenshot detector overlay */}
+          {showScreenshot ? (
+            <ScreenshotHeroDetector
+              onDetectionComplete={handleScreenshotComplete}
+              onCancel={() => setShowScreenshot(false)}
             />
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-            />
-            <select
-              value={mode}
-              onChange={(e) => setMode(e.target.value)}
-              className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-            >
-              <option value="Ranked">Ranked</option>
-              <option value="Classic">Classic</option>
-              <option value="Brawl">Brawl</option>
-              <option value="Custom">Custom</option>
-              <option value="Tour">Tour</option>
-            </select>
-            <input
-              type="number"
-              placeholder="Duration (minutes)"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-            />
-            <select
-              value={result}
-              onChange={(e) => setResult(e.target.value)}
-              className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-            >
-              <option value="Win">Win</option>
-              <option value="Lose">Lose</option>
-            </select>
-            <input
-              type="text"
-              placeholder="Notes (optional)"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-            />
-          </div>
+          ) : (
+            <>
+              {/* Screenshot upload button */}
+              <button
+                onClick={() => setShowScreenshot(true)}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-indigo-300 dark:border-indigo-500/40 bg-indigo-50/50 dark:bg-indigo-500/5 hover:bg-indigo-100/50 dark:hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold text-sm transition-all group"
+              >
+                <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                Upload Screenshot to Auto-Detect Heroes
+              </button>
 
-          <div className="space-y-2">
-            <p className="text-[11px] text-neutral-400 uppercase font-bold">Players & Heroes</p>
-            <datalist id="heroes-list">
-              {ALL_HEROES.map((h) => (
-                <option key={h.id} value={h.name} />
-              ))}
-            </datalist>
-            <datalist id="players-list">
-              {knownPlayers.map((p) => (
-                <option key={p} value={p} />
-              ))}
-            </datalist>
-            {players.map((p, i) => (
-              <div key={i} className="grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-2 px-2">
+                <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+                <span className="text-xs text-neutral-400 font-semibold">OR ENTER MANUALLY</span>
+                <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+              </div>
+
+              {/* Game metadata fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input
-                  type="text"
-                  placeholder={`Player ${i + 1}`}
-                  value={p.player_name}
-                  list="players-list"
-                  onChange={(e) => updatePlayer(i, "player_name", e.target.value)}
-                  className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  type="number"
+                  placeholder="Game # (optional)"
+                  value={gameNum}
+                  onChange={(e) => setGameNum(e.target.value)}
+                  className={inputClass}
                 />
                 <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className={inputClass}
+                />
+                <select
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="Ranked">Ranked</option>
+                  <option value="Classic">Classic</option>
+                  <option value="Brawl">Brawl</option>
+                  <option value="Custom">Custom</option>
+                  <option value="Tour">Tour</option>
+                </select>
+                <input
+                  type="number"
+                  placeholder="Duration (minutes)"
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                  className={inputClass}
+                />
+                <select
+                  value={result}
+                  onChange={(e) => setResult(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="Win">Win</option>
+                  <option value="Lose">Lose</option>
+                </select>
+                <input
                   type="text"
-                  placeholder={`Hero ${i + 1}`}
-                  value={p.hero_name}
-                  list="heroes-list"
-                  onChange={(e) => updatePlayer(i, "hero_name", e.target.value)}
-                  className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  placeholder="Notes (optional)"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className={inputClass}
                 />
               </div>
-            ))}
-          </div>
 
-          {error && (
-            <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl p-3 text-sm text-red-600 dark:text-red-400">
-              {error}
-            </div>
+              {/* Players — 10 slots, split into Ally and Enemy */}
+              <datalist id="heroes-list">
+                {ALL_HEROES.map((h) => (
+                  <option key={h.id} value={h.name} />
+                ))}
+              </datalist>
+              <datalist id="players-list">
+                {knownPlayers.map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
+
+              {/* Allied Team */}
+              <div className="space-y-2">
+                <p className="text-[11px] uppercase font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
+                  <span className="text-indigo-500">Your Team (Allies)</span>
+                </p>
+                {players.slice(0, 5).map((p, i) => (
+                  <div key={i} className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder={`Player ${i + 1}`}
+                      value={p.player_name}
+                      list="players-list"
+                      onChange={(e) => updatePlayer(i, "player_name", e.target.value)}
+                      className={inputClass}
+                    />
+                    <input
+                      type="text"
+                      placeholder={`Hero ${i + 1}`}
+                      value={p.hero_name}
+                      list="heroes-list"
+                      onChange={(e) => updatePlayer(i, "hero_name", e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Enemy Team */}
+              <div className="space-y-2">
+                <p className="text-[11px] uppercase font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+                  <span className="text-red-500">Enemy Team</span>
+                </p>
+                {players.slice(5, 10).map((p, i) => (
+                  <div key={i + 5} className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder={`Enemy ${i + 1}`}
+                      value={p.player_name}
+                      list="players-list"
+                      onChange={(e) => updatePlayer(i + 5, "player_name", e.target.value)}
+                      className={inputClass}
+                    />
+                    <input
+                      type="text"
+                      placeholder={`Enemy Hero ${i + 1}`}
+                      value={p.hero_name}
+                      list="heroes-list"
+                      onChange={(e) => updatePlayer(i + 5, "hero_name", e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {error && (
+                <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl p-3 text-sm text-red-600 dark:text-red-400">
+                  {error}
+                </div>
+              )}
+
+              <button
+                onClick={handleSubmit}
+                disabled={saving}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold text-sm transition-all shadow-md shadow-emerald-500/25 disabled:opacity-60"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    {isEdit ? "Update Game Log" : "Save to Game Log"}
+                  </>
+                )}
+              </button>
+            </>
           )}
-
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold text-sm transition-all shadow-md shadow-emerald-500/25 disabled:opacity-60"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Check className="w-4 h-4" />
-                {isEdit ? "Update Game Log" : "Save to Game Log"}
-              </>
-            )}
-          </button>
         </div>
       </div>
     </div>
@@ -415,8 +519,8 @@ export default function GamesPage() {
             onClick={() => { setEditingGame(null); setShowManual(true); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white text-sm font-semibold transition-all shadow-md shadow-indigo-500/20 active:scale-95 cursor-pointer"
           >
-            <Pencil className="w-4 h-4" />
-            Log New Game
+            <Camera className="w-4 h-4" />
+            Add Game
           </button>
           <div className="relative w-full md:w-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
@@ -499,7 +603,7 @@ export default function GamesPage() {
                     </span>
                   </div>
                 </th>
-                <th className="text-left px-4 py-3 font-medium text-neutral-500 min-w-[320px]">Heroes & Players</th>
+                <th className="text-left px-4 py-3 font-medium text-neutral-500 min-w-[420px]">Heroes & Players</th>
                 <th
                   className="text-left px-4 py-3 font-medium text-neutral-500 cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors select-none"
                   onClick={() => handleSort("result")}
@@ -523,55 +627,91 @@ export default function GamesPage() {
               ) : sortedGames.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-12 text-center text-neutral-400">No games found</td></tr>
               ) : (
-                sortedGames.map((game, i) => (
-                  <tr
-                    key={game.id || i}
-                    className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors"
-                  >
-                    <td className="px-4 py-3 text-neutral-400">{game.game_num || i + 1}</td>
-                    <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 text-xs">{game.date || "-"}</td>
+                sortedGames.map((game, i) => {
+                  const allPlayers = game.players || [];
+                  const allies = allPlayers.filter((p: any) => p.team === "ally" || !p.team).filter((p: any) => p.hero_name);
+                  const enemies = allPlayers.filter((p: any) => p.team === "enemy").filter((p: any) => p.hero_name);
+                  const hasEnemies = enemies.length > 0;
 
-                    {/* Heroes & Players column */}
-                    <td className="px-4 py-2">
-                      {(game.players || []).filter((p: any) => p.hero_name).length === 0 ? (
-                        <span className="text-neutral-400">-</span>
-                      ) : (
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                          {(game.players || [])
-                            .filter((p: any) => p.hero_name)
-                            .map((p: any, j: number) => (
-                              <HeroWithPlayer
-                                key={j}
-                                heroName={p.hero_name}
-                                playerName={p.player_name}
-                              />
-                            ))}
-                        </div>
-                      )}
-                    </td>
+                  return (
+                    <tr
+                      key={game.id || i}
+                      className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors"
+                    >
+                      <td className="px-4 py-3 text-neutral-400">{game.game_num || i + 1}</td>
+                      <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 text-xs">{game.date || "-"}</td>
 
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        game.result?.toLowerCase() === "win"
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
-                          : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
-                      }`}>
-                        {game.result || "-"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-neutral-500 text-xs">{game.mode || "-"}</td>
-                    <td className="px-4 py-3 text-neutral-500 text-xs">{game.duration ? `${game.duration}m` : "-"}</td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => { setEditingGame(game); setShowManual(true); }}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 transition-colors"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        Edit
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      {/* Heroes & Players column — now with ally vs enemy layout */}
+                      <td className="px-4 py-2">
+                        {allies.length === 0 && enemies.length === 0 ? (
+                          <span className="text-neutral-400">-</span>
+                        ) : (
+                          <div className="flex flex-col gap-1.5">
+                            {/* Allies row */}
+                            {allies.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 items-center">
+                                <span className="text-[9px] uppercase font-bold text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 px-1.5 py-0.5 rounded-md flex-shrink-0">
+                                  Ally
+                                </span>
+                                {allies.map((p: any, j: number) => (
+                                  <HeroWithPlayer
+                                    key={`a-${j}`}
+                                    heroName={p.hero_name}
+                                    playerName={p.player_name}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            {/* VS divider */}
+                            {hasEnemies && allies.length > 0 && (
+                              <div className="flex items-center gap-2 px-1">
+                                <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+                                <span className="text-[9px] font-black text-neutral-400">VS</span>
+                                <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+                              </div>
+                            )}
+                            {/* Enemies row */}
+                            {hasEnemies && (
+                              <div className="flex flex-wrap gap-1.5 items-center">
+                                <span className="text-[9px] uppercase font-bold text-red-500 bg-red-50 dark:bg-red-500/10 px-1.5 py-0.5 rounded-md flex-shrink-0">
+                                  Enemy
+                                </span>
+                                {enemies.map((p: any, j: number) => (
+                                  <HeroWithPlayer
+                                    key={`e-${j}`}
+                                    heroName={p.hero_name}
+                                    playerName={p.player_name}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          game.result?.toLowerCase() === "win"
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
+                            : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
+                        }`}>
+                          {game.result || "-"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-neutral-500 text-xs">{game.mode || "-"}</td>
+                      <td className="px-4 py-3 text-neutral-500 text-xs">{game.duration ? `${game.duration}m` : "-"}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => { setEditingGame(game); setShowManual(true); }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 transition-colors"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
