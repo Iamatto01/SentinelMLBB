@@ -89,8 +89,24 @@ function ManualGameModal({
       setDuration("");
       setResult("Win");
       setNotes("");
+
+      let initialAllies = Array.from({ length: 5 }, () => ({ player_name: "", hero_name: "", team: "ally" as const }));
+      try {
+        const savedSquadStr = localStorage.getItem("squadLineup");
+        if (savedSquadStr) {
+          const savedSquad = JSON.parse(savedSquadStr);
+          initialAllies = [
+            { player_name: savedSquad.gold || "", hero_name: "", team: "ally" },
+            { player_name: savedSquad.hyper || "", hero_name: "", team: "ally" },
+            { player_name: savedSquad.exp || "", hero_name: "", team: "ally" },
+            { player_name: savedSquad.roamer || "", hero_name: "", team: "ally" },
+            { player_name: savedSquad.mid || "", hero_name: "", team: "ally" }
+          ];
+        }
+      } catch (e) {}
+
       setPlayers([
-        ...Array.from({ length: 5 }, () => ({ player_name: "", hero_name: "", team: "ally" as const })),
+        ...initialAllies,
         ...Array.from({ length: 5 }, () => ({ player_name: "", hero_name: "", team: "enemy" as const })),
       ]);
     }
@@ -419,6 +435,7 @@ export default function GamesPage() {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [showManual, setShowManual] = useState(false);
   const [editingGame, setEditingGame] = useState<GameEntry | null>(null);
+  const [squadPlayers, setSquadPlayers] = useState<string[]>([]);
 
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "desc";
@@ -431,6 +448,18 @@ export default function GamesPage() {
   useEffect(() => {
     setMounted(true);
     fetchGames();
+    
+    // Load squad players for autocomplete
+    try {
+      const savedSquadStr = localStorage.getItem("squadLineup");
+      if (savedSquadStr) {
+        const squad = JSON.parse(savedSquadStr);
+        const allSquadNames = [
+          squad.gold, squad.hyper, squad.exp, squad.roamer, squad.mid, ...(squad.subs || [])
+        ].filter(n => n && n.trim().length > 0);
+        setSquadPlayers(allSquadNames);
+      }
+    } catch(e) {}
   }, []);
 
   const fetchGames = async () => {
@@ -721,7 +750,7 @@ export default function GamesPage() {
       <ManualGameModal
         isOpen={showManual}
         gameToEdit={editingGame}
-        knownPlayers={knownPlayers}
+        knownPlayers={Array.from(new Set([...knownPlayers, ...squadPlayers]))}
         onClose={() => {
           setShowManual(false);
           setEditingGame(null);

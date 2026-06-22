@@ -63,9 +63,10 @@ const rest = new REST({ version: '10' }).setToken(token);
   try {
     console.log('Started refreshing application (/) commands.');
 
-    // Registers globally (takes up to 1 hour to propagate in Discord)
-    // For instant testing, you can use Routes.applicationGuildCommands(clientId, 'YOUR_GUILD_ID')
-    await rest.put(Routes.applicationCommands(clientId), { body: commands });
+    // Use POST to update individually so we don't accidentally delete the Activity Entry Point Command
+    for (const command of commands) {
+      await rest.post(Routes.applicationCommands(clientId), { body: command });
+    }
 
     console.log('Successfully reloaded application (/) commands.');
   } catch (error) {

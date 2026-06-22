@@ -86,25 +86,25 @@ export default function ChatPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             key={i}
-            className={\`flex \${msg.role === 'user' ? 'justify-end' : 'justify-start'}\`}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
-            <div className={\`flex gap-3 max-w-[85%] sm:max-w-[75%] \${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}\`}>
-              <div className={\`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 \${
+            <div className={`flex gap-3 max-w-[85%] sm:max-w-[75%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${
                 msg.role === 'user' 
                   ? 'bg-neutral-200 dark:bg-neutral-700' 
                   : 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md'
-              }\`}>
+              }`}>
                 {msg.role === 'user' ? (
                   <User className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
                 ) : (
                   <Bot className="w-5 h-5 text-white" />
                 )}
               </div>
-              <div className={\`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap shadow-sm \${
+              <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap shadow-sm ${
                 msg.role === 'user'
                   ? 'bg-neutral-900 text-white dark:bg-white dark:text-black rounded-tr-sm'
                   : 'bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-100 dark:border-neutral-700 rounded-tl-sm'
-              }\`}>
+              }`}>
                 {msg.content}
               </div>
             </div>
