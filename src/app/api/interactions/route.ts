@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import nacl from 'tweetnacl';
+import { verifyKey } from 'discord-interactions';
 import { ALL_HEROES } from '@/data/heroes-data';
 
 export async function POST(req: Request) {
@@ -12,17 +12,8 @@ export async function POST(req: Request) {
     return new NextResponse('Invalid request', { status: 401 });
   }
 
-  let isVerified = false;
-  try {
-    const pubKey = (process.env.DISCORD_PUBLIC_KEY || '').trim();
-    isVerified = nacl.sign.detached.verify(
-      Buffer.from(timestamp + body),
-      Buffer.from(signature, 'hex'),
-      Buffer.from(pubKey, 'hex')
-    );
-  } catch (err) {
-    console.error('Verify error:', err);
-  }
+  const pubKey = (process.env.DISCORD_PUBLIC_KEY || '').trim();
+  const isVerified = verifyKey(body, signature, timestamp, pubKey);
 
   if (!isVerified) {
     console.error('Invalid signature check failed. Ensure DISCORD_PUBLIC_KEY is correct.');
