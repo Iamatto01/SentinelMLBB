@@ -12,13 +12,19 @@ export async function POST(req: Request) {
     return new NextResponse('Invalid request', { status: 401 });
   }
 
-  const isVerified = nacl.sign.detached.verify(
-    Buffer.from(timestamp + body),
-    Buffer.from(signature, 'hex'),
-    Buffer.from(process.env.DISCORD_PUBLIC_KEY || '', 'hex')
-  );
+  let isVerified = false;
+  try {
+    isVerified = nacl.sign.detached.verify(
+      Buffer.from(timestamp + body),
+      Buffer.from(signature, 'hex'),
+      Buffer.from(process.env.DISCORD_PUBLIC_KEY || '', 'hex')
+    );
+  } catch (err) {
+    console.error('Verify error:', err);
+  }
 
   if (!isVerified) {
+    console.error('Invalid signature');
     return new NextResponse('Invalid request signature', { status: 401 });
   }
 
