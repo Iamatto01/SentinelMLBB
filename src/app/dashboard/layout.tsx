@@ -50,6 +50,16 @@ export default function DashboardLayout({
         document.documentElement.classList.add("dark");
       }
     }
+
+    // Listen for profile updates from the profile page
+    const handleStorageUpdate = () => {
+      const updatedJson = localStorage.getItem("user");
+      if (updatedJson) {
+        setUser(JSON.parse(updatedJson));
+      }
+    };
+    window.addEventListener("user-updated", handleStorageUpdate);
+    return () => window.removeEventListener("user-updated", handleStorageUpdate);
   }, [router]);
 
   const toggleDarkMode = () => {

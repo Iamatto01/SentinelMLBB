@@ -31,7 +31,7 @@ export default function ProfilePage() {
         setUser(updatedUser);
         setSaved(true);
         // Dispatch a storage event so layout.tsx can pick up changes if it listens (or just rely on reload)
-        window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(new Event("user-updated"));
       }
       setSaving(false);
       setTimeout(() => setSaved(false), 3000);
