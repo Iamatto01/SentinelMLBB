@@ -14,21 +14,23 @@ export async function POST(req: Request) {
 
   let isVerified = false;
   try {
+    const pubKey = (process.env.DISCORD_PUBLIC_KEY || '').trim();
     isVerified = nacl.sign.detached.verify(
       Buffer.from(timestamp + body),
       Buffer.from(signature, 'hex'),
-      Buffer.from(process.env.DISCORD_PUBLIC_KEY || '', 'hex')
+      Buffer.from(pubKey, 'hex')
     );
   } catch (err) {
     console.error('Verify error:', err);
   }
 
   if (!isVerified) {
-    console.error('Invalid signature');
+    console.error('Invalid signature check failed. Ensure DISCORD_PUBLIC_KEY is correct.');
     return new NextResponse('Invalid request signature', { status: 401 });
   }
 
   const data = JSON.parse(body);
+  console.log('Incoming Interaction:', JSON.stringify(data, null, 2));
 
   // Type 1: PING (Discord verification)
   if (data.type === 1) {
