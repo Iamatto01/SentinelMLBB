@@ -6,8 +6,6 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  basePath: '/SentinelMLBB',
-  assetPrefix: '/SentinelMLBB/',
 };
 
 export default nextConfig;

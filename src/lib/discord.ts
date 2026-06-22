@@ -25,7 +25,7 @@ export async function authenticateDiscord() {
 
       // Call our Next.js API route to exchange the authorization code for an access token
       // Our API route will use the CLIENT_SECRET to make the actual request to Discord
-      const response = await fetch('/SentinelMLBB/api/token', {
+      const response = await fetch('/api/token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
