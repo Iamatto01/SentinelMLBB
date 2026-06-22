@@ -154,13 +154,18 @@ export function buildFingerprintDB(): Promise<HeroFingerprint[]> {
       const batch = ALL_HEROES.slice(i, i + batchSize);
       const results = await Promise.allSettled(
         batch.map(async (hero) => {
-          const src = `/images/heroes/${hero.id}.png`;
+          // Use the correct basePath defined in next.config.ts
+          const basePath = typeof window !== 'undefined' && window.location.pathname.startsWith('/SentinelMLBB') 
+            ? '/SentinelMLBB' 
+            : '';
+          const src = `${basePath}/images/heroes/${hero.id}.png`;
           try {
             const imgData = await loadImageData(src);
             const fp = computeFingerprint(imgData);
             return { heroId: hero.id, heroName: hero.name, ...fp } as HeroFingerprint;
-          } catch {
+          } catch (err) {
             // Hero image might not exist — skip
+            console.warn(`Fingerprint DB: Failed to load ${src}`, err);
             return null;
           }
         })

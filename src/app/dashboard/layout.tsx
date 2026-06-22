@@ -33,13 +33,6 @@ export default function DashboardLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    const userJson = localStorage.getItem("user");
-    if (!userJson) {
-      router.push("/");
-    } else {
-      setUser(JSON.parse(userJson));
-    }
-    
     // Check dark mode
     if (document.documentElement.classList.contains("dark")) {
       setIsDark(true);
@@ -50,6 +43,36 @@ export default function DashboardLayout({
         document.documentElement.classList.add("dark");
       }
     }
+
+    const initDiscordOrLocal = async () => {
+      // Check if running in an iframe / Discord Activity (Discord usually passes frame_id or it's an iframe)
+      const isDiscord = window.parent !== window || new URLSearchParams(window.location.search).has('frame_id');
+      
+      if (isDiscord) {
+        try {
+          const { authenticateDiscord } = await import("@/lib/discord");
+          const { user: discordUser } = await authenticateDiscord();
+          setUser({
+            name: discordUser.global_name || discordUser.username,
+            role: "discord_user",
+            squad: "Discord",
+          });
+          return;
+        } catch (err) {
+          console.error("Failed to init Discord Activity:", err);
+          // fallback to local storage
+        }
+      }
+
+      const userJson = localStorage.getItem("user");
+      if (!userJson) {
+        router.push("/");
+      } else {
+        setUser(JSON.parse(userJson));
+      }
+    };
+
+    initDiscordOrLocal();
 
     // Listen for profile updates from the profile page
     const handleStorageUpdate = () => {
