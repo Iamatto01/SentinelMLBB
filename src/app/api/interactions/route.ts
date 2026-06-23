@@ -120,42 +120,130 @@ export async function POST(req: Request) {
 
           case 'ask': {
             const query = subCommand.options?.[0]?.value || "";
+            const userId = data.member?.user?.id || data.user?.id || "unknown_user";
             
             try {
               const { db } = await import('@/lib/db');
               const groq = (await import('@/lib/groq')).default;
+              const { getActiveModel } = await import('@/lib/groq');
+              const activeModel = await getActiveModel();
               
-              // Fetch system stats from DB (Allies are slot <= 5)
-              const mostPlayedRes = await db.execute("SELECT player_name, COUNT(*) as games, SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) as wins FROM game_players JOIN games ON game_players.game_id = games.id WHERE slot <= 5 AND player_name != '' GROUP BY player_name ORDER BY games DESC LIMIT 10");
+              // Initialize chat history table if not exists
+              await db.execute(`
+                CREATE TABLE IF NOT EXISTS discord_chat_history (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  user_id TEXT,
+                  role TEXT,
+                  content TEXT,
+                  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+              `);
               
-              const mostUsedHeroesRes = await db.execute("SELECT hero_name, COUNT(*) as picks FROM game_players WHERE slot <= 5 AND hero_name != '' GROUP BY hero_name ORDER BY picks DESC LIMIT 10");
+              // Fetch history for this user
+              const historyRes = await db.execute({
+                sql: "SELECT role, content FROM discord_chat_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 6",
+                args: [userId]
+              });
               
-              let contextStats = "Current Squad Stats:\n";
-              contextStats += "- Top Players (Matches, Wins):\n" + mostPlayedRes.rows.map(r => `  * ${r.player_name}: ${r.games} matches, ${r.wins} wins`).join('\n') + "\n";
-              contextStats += "- Most Used Heroes:\n" + mostUsedHeroesRes.rows.map(r => `  * ${r.hero_name}: ${r.picks} picks`).join('\n');
+              const pastMessages = historyRes.rows.reverse().map(r => ({
+                role: r.role as 'user' | 'assistant',
+                content: r.content as string
+              }));
               
-              const systemPrompt = `You are "Sentinel AI", an elite Mobile Legends: Bang Bang (MLBB) coaching assistant.
-Your job is to provide concise, highly strategic, and accurate drafting and gameplay advice.
+              const systemPrompt = `You are "Sentinel AI", an elite Mobile Legends: Bang Bang (MLBB) coaching and personal assistant.
+Your job is to provide concise, highly strategic, and accurate drafting and gameplay advice, and remember the conversation context.
+You have a tool called 'query_database' to execute read-only SQL queries on the user's MLBB database to analyze stats dynamically.
+The database has these tables:
+- users(id, name)
+- games(id, date, mode, result)
+- game_players(id, game_id, slot, player_name, hero_name). slot <= 5 is ally, slot > 5 is enemy.
 
-Here is the current system database of our squad's games:
-${contextStats}
+Keep your answer concise (Discord limits messages to 2000 chars), formatting neatly with markdown. Be extremely helpful, friendly, and act as their personal assistant!`;
 
-User asked: ${query}
+              const messages: any[] = [
+                { role: 'system', content: systemPrompt },
+                ...pastMessages,
+                { role: 'user', content: query }
+              ];
 
-Keep your answer concise (Discord limits messages to 2000 chars), formatting neatly with markdown. Be helpful and friendly!`;
-
-              const chatCompletion = await groq.chat.completions.create({
-                messages: [{ role: 'system', content: systemPrompt }],
-                model: 'llama-3.3-70b-versatile',
+              let chatCompletion = await groq.chat.completions.create({
+                messages,
+                model: activeModel,
                 temperature: 0.7,
-                max_tokens: 500,
+                max_tokens: 1000,
+                tools: [
+                  {
+                    type: "function",
+                    function: {
+                      name: "query_database",
+                      description: "Executes a read-only SELECT SQL query on the MLBB SQLite database.",
+                      parameters: {
+                        type: "object",
+                        properties: {
+                          query: { type: "string", description: "The SQLite SELECT query." }
+                        },
+                        required: ["query"]
+                      }
+                    }
+                  }
+                ],
+                tool_choice: "auto"
               });
 
-              const responseContent = chatCompletion.choices[0]?.message?.content || 'I could not generate a response.';
+              const responseMessage = chatCompletion.choices[0]?.message;
+
+              if (responseMessage?.tool_calls) {
+                messages.push(responseMessage);
+                
+                for (const toolCall of responseMessage.tool_calls) {
+                  if (toolCall.function?.name === 'query_database') {
+                    try {
+                      const args = JSON.parse(toolCall.function.arguments || '{}');
+                      const sqlQuery = (args.query || '').trim();
+                      let resultStr = "";
+                      
+                      if (sqlQuery.toUpperCase().match(/^(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE)/)) {
+                        resultStr = "Error: Only SELECT queries are allowed.";
+                      } else {
+                        const dbRes = await db.execute(sqlQuery);
+                        resultStr = JSON.stringify(dbRes.rows);
+                      }
+                      
+                      messages.push({
+                        tool_call_id: toolCall.id,
+                        role: "tool",
+                        name: "query_database",
+                        content: resultStr
+                      });
+                    } catch (err: any) {
+                      messages.push({
+                        tool_call_id: toolCall.id,
+                        role: "tool",
+                        name: "query_database",
+                        content: "DB Error: " + err.message
+                      });
+                    }
+                  }
+                }
+                
+                // Second call with tool results
+                chatCompletion = await groq.chat.completions.create({
+                  messages,
+                  model: activeModel,
+                  temperature: 0.7,
+                  max_tokens: 1000,
+                });
+              }
+
+              const finalResponse = chatCompletion.choices[0]?.message?.content || 'I could not generate a response.';
+
+              // Save to DB asynchronously
+              db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'user', query] }).catch(console.error);
+              db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'assistant', finalResponse] }).catch(console.error);
 
               return NextResponse.json({
                 type: 4,
-                data: { content: responseContent }
+                data: { content: finalResponse }
               });
               
             } catch (error: any) {
@@ -163,6 +251,117 @@ Keep your answer concise (Discord limits messages to 2000 chars), formatting nea
               return NextResponse.json({
                 type: 4,
                 data: { content: `*I encountered an error while consulting the database or AI. Please try again!*` }
+              });
+            }
+          }
+
+          case 'model': {
+            try {
+              const { getActiveModel, setActiveModel } = await import('@/lib/groq');
+              const selectOption = subCommand.options?.find((o: any) => o.name === 'select')?.value;
+
+              if (selectOption) {
+                await setActiveModel(selectOption);
+                return NextResponse.json({
+                  type: 4,
+                  data: {
+                    content: `✅ **Model successfully updated!**\nSentinel AI is now using: \`${selectOption}\``
+                  }
+                });
+              } else {
+                const currentModel = await getActiveModel();
+                
+                return NextResponse.json({
+                  type: 4,
+                  data: {
+                    embeds: [
+                      {
+                        title: '⚙️ Sentinel AI — Model Configuration & Limits',
+                        description: `Current Active Model: \`${currentModel}\`\n\nYou can switch models using \`/sentinel model select <model_id>\``,
+                        color: 0x9b59b6,
+                        fields: [
+                          {
+                            name: '📊 Active Model Limits',
+                            value: currentModel === 'llama-3.3-70b-versatile'
+                              ? '**Llama 3.3 70B (Versatile)**\n• Free Tier: **1,000 TPM** / 30 RPM\n• Paid Tier: **300,000 TPM** / 1,000 RPM\n*(High intelligence, low free limits)*'
+                              : currentModel === 'llama-3.1-8b-instant'
+                              ? '**Llama 3.1 8B (Instant)**\n• Free Tier: **6,000 TPM** / 30 RPM\n• Paid Tier: **250,000 TPM** / 1,000 RPM\n*(Very fast, high free-tier limits)*'
+                              : currentModel === 'gemma2-9b-it'
+                              ? '**Gemma 2 9B (Google)**\n• Free Tier: **6,000 TPM** / 30 RPM\n• Paid Tier: **250,000 TPM** / 1,000 RPM\n*(Balanced)*'
+                              : currentModel === 'llama-3.2-3b-preview'
+                              ? '**Llama 3.2 3B (Preview)**\n• Free Tier: **6,000 TPM** / 30 RPM\n• Paid Tier: **250,000 TPM** / 1,000 RPM\n*(Super lightweight & fast)*'
+                              : `**${currentModel}**\n• Limits vary depending on Groq Cloud configuration.`,
+                            inline: false
+                          },
+                          {
+                            name: '💡 Rate Limits Tip',
+                            value: 'If you frequently receive rate-limit warnings or "Error 429", choose \`llama-3.1-8b-instant\` or \`llama-3.2-3b-preview\`. They have 6x higher token-per-minute (TPM) allowance on the free tier compared to Llama 3.3 70B!',
+                            inline: false
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                });
+              }
+            } catch (error: any) {
+              console.error('Groq model configuration error:', error);
+              return NextResponse.json({
+                type: 4,
+                data: { content: `❌ Failed to retrieve or configure the model. Error: ${error.message || error}` }
+              });
+            }
+          }
+
+          case 'addgame': {
+            try {
+              const { db } = await import('@/lib/db');
+              const result = subCommand.options?.find((o: any) => o.name === 'result')?.value || 'Win';
+              const hero = subCommand.options?.find((o: any) => o.name === 'hero')?.value || 'Unknown';
+              const duration = subCommand.options?.find((o: any) => o.name === 'duration')?.value || 0;
+              const notes = subCommand.options?.find((o: any) => o.name === 'notes')?.value || '';
+              
+              const playerName = data.member?.user?.username || data.user?.username || 'me';
+
+              // 1. Insert into games table (default user_id = 1)
+              const gameRes = await db.execute({
+                sql: "INSERT INTO games (user_id, date, mode, duration, result, notes) VALUES (1, datetime('now'), 'Ranked', ?, ?, ?) RETURNING id",
+                args: [duration, result, notes]
+              });
+              
+              const gameId = gameRes.rows[0].id;
+              
+              // 2. Insert into game_players table (slot 1)
+              await db.execute({
+                sql: "INSERT INTO game_players (game_id, slot, player_name, hero_name) VALUES (?, 1, ?, ?)",
+                args: [gameId, playerName, hero]
+              });
+              
+              return NextResponse.json({
+                type: 4,
+                data: {
+                  content: `✅ **Game Successfully Recorded!**`,
+                  embeds: [
+                    {
+                      title: 'Match Details',
+                      color: result === 'Win' ? 0x2ecc71 : 0xe74c3c,
+                      fields: [
+                        { name: 'Game ID', value: `${gameId}`, inline: true },
+                        { name: 'Result', value: result, inline: true },
+                        { name: 'Duration', value: `${duration} mins`, inline: true },
+                        { name: 'Hero', value: hero, inline: true },
+                        { name: 'Player', value: playerName, inline: true },
+                        { name: 'Notes', value: notes || 'None', inline: false },
+                      ]
+                    }
+                  ]
+                }
+              });
+            } catch (err: any) {
+              console.error('AddGame Error:', err);
+              return NextResponse.json({
+                type: 4,
+                data: { content: `❌ Failed to record game. Error: ${err.message}` }
               });
             }
           }
@@ -181,6 +380,8 @@ Keep your answer concise (Discord limits messages to 2000 chars), formatting nea
                       { name: '`/sentinel hero <name>`', value: 'Get detailed info about a hero', inline: false },
                       { name: '`/sentinel draft`', value: 'Get drafting tips & open the draft simulator', inline: false },
                       { name: '`/sentinel ask <question>`', value: 'Ask Sentinel AI for coaching advice', inline: false },
+                      { name: '`/sentinel addgame`', value: 'Record a new MLBB game into the database', inline: false },
+                      { name: '`/sentinel model [select]`', value: 'View or select the AI model used by Sentinel', inline: false },
                       { name: '`/sentinel help`', value: 'Show this help message', inline: false },
                     ],
                   },
