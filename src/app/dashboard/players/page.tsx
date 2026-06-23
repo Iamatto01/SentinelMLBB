@@ -10,6 +10,7 @@ export default function PlayersPage() {
   const [mounted, setMounted] = useState(false);
   const [games, setGames] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [players, setPlayers] = useState<any[]>([]);
   
   const COLORS = ["#6366f1", "#14b8a6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
   const pieData = players.slice(0, 6).map((p) => ({ name: p.name, value: p.games }));

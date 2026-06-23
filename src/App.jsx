@@ -4,16 +4,16 @@ import Navbar from './components/Layout/Navbar';
 import Sidebar from './components/Layout/Sidebar';
 import ProtectedRoute from './components/Layout/ProtectedRoute';
 
-import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
-import GameLogPage from './pages/GameLogPage';
-import OCRUploadPage from './pages/OCRUploadPage';
-import PlayerStatsPage from './pages/PlayerStatsPage';
-import HeroPoolPage from './pages/HeroPoolPage';
-import TeamCompsPage from './pages/TeamCompsPage';
-import PlayersManagePage from './pages/PlayersManagePage';
-import SettingsPage from './pages/SettingsPage';
-import AdminPortalPage from './pages/AdminPortalPage';
+import LoginPage from './vite_pages/LoginPage';
+import DashboardPage from './vite_pages/DashboardPage';
+import GameLogPage from './vite_pages/GameLogPage';
+import OCRUploadPage from './vite_pages/OCRUploadPage';
+import PlayerStatsPage from './vite_pages/PlayerStatsPage';
+import HeroPoolPage from './vite_pages/HeroPoolPage';
+import TeamCompsPage from './vite_pages/TeamCompsPage';
+import PlayersManagePage from './vite_pages/PlayersManagePage';
+import SettingsPage from './vite_pages/SettingsPage';
+import AdminPortalPage from './vite_pages/AdminPortalPage';
 
 const MainLayout = () => {
   return (
