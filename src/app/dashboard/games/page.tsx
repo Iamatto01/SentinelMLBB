@@ -48,7 +48,7 @@ function ManualGameModal({
   const [players, setPlayers] = useState<Array<{ player_name: string; hero_name: string; team: "ally" | "enemy" }>>(
     [
       ...Array.from({ length: 5 }, () => ({ player_name: "", hero_name: "", team: "ally" as const })),
-      ...Array.from({ length: 5 }, () => ({ player_name: "", hero_name: "", team: "enemy" as const })),
+      ...Array.from({ length: 5 }, (_, i) => ({ player_name: `BOT${i + 1}`, hero_name: "", team: "enemy" as const })),
     ]
   );
   const [saving, setSaving] = useState(false);
@@ -107,7 +107,7 @@ function ManualGameModal({
 
       setPlayers([
         ...initialAllies,
-        ...Array.from({ length: 5 }, () => ({ player_name: "", hero_name: "", team: "enemy" as const })),
+        ...Array.from({ length: 5 }, (_, i) => ({ player_name: `BOT${i + 1}`, hero_name: "", team: "enemy" as const })),
       ]);
     }
     setSaving(false);

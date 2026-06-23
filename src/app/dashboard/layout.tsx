@@ -18,7 +18,8 @@ import {
   Menu,
   X,
   TrendingUp,
-  Bot
+  Bot,
+  Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -102,6 +103,7 @@ export default function DashboardLayout({
   const links = [
     { label: "Dashboard", href: "/dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
     { label: "Game Log", href: "/dashboard/games", icon: <Gamepad2 className="h-4 w-4" /> },
+    { label: "Team Management", href: "/dashboard/team", icon: <Shield className="h-4 w-4" /> },
     { label: "Player Stats", href: "/dashboard/players", icon: <Users className="h-4 w-4" /> },
     { label: "Rankings", href: "/dashboard/ranking", icon: <Crown className="text-amber-500 h-4 w-4" /> },
     { label: "Team Comps", href: "/dashboard/comps", icon: <Swords className="h-4 w-4" /> },
