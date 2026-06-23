@@ -45,6 +45,11 @@ const commands = [
           },
         ],
       },
+      {
+        name: 'help',
+        description: 'Show all available Sentinel commands',
+        type: 1, // SUB_COMMAND
+      },
     ],
   },
 ];

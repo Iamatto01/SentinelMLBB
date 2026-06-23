@@ -3,143 +3,166 @@ import { verifyKey } from 'discord-interactions';
 import { ALL_HEROES } from '@/data/heroes-data';
 
 export async function POST(req: Request) {
-  // Verify Discord signature
-  const signature = req.headers.get('x-signature-ed25519');
-  const timestamp = req.headers.get('x-signature-timestamp');
-  const body = await req.text();
+  try {
+    // Verify Discord signature
+    const signature = req.headers.get('x-signature-ed25519');
+    const timestamp = req.headers.get('x-signature-timestamp');
+    const body = await req.text();
 
-  if (!signature || !timestamp) {
-    return new NextResponse('Invalid request', { status: 401 });
-  }
+    if (!signature || !timestamp) {
+      return new NextResponse('Invalid request', { status: 401 });
+    }
 
-  const pubKey = (process.env.DISCORD_PUBLIC_KEY || '').trim();
-  const isVerified = verifyKey(body, signature, timestamp, pubKey);
+    const pubKey = (process.env.DISCORD_PUBLIC_KEY || '').trim();
 
-  if (!isVerified) {
-    console.error('Invalid signature check failed. Ensure DISCORD_PUBLIC_KEY is correct.');
-    return new NextResponse('Invalid request signature', { status: 401 });
-  }
+    // IMPORTANT: verifyKey in discord-interactions v4 is async (returns Promise)
+    const isVerified = await verifyKey(body, signature, timestamp, pubKey);
 
-  const data = JSON.parse(body);
-  console.log('Incoming Interaction:', JSON.stringify(data, null, 2));
+    if (!isVerified) {
+      console.error('Invalid signature check failed. Ensure DISCORD_PUBLIC_KEY is correct.');
+      return new NextResponse('Invalid request signature', { status: 401 });
+    }
 
-  // Type 1: PING (Discord verification)
-  if (data.type === 1) {
-    return NextResponse.json({ type: 1 });
-  }
+    const data = JSON.parse(body);
+    console.log('Incoming Interaction:', JSON.stringify(data, null, 2));
 
-  // Type 2: APPLICATION_COMMAND
-  if (data.type === 2) {
-    const { name, options } = data.data;
+    // Type 1: PING (Discord verification)
+    if (data.type === 1) {
+      return NextResponse.json({ type: 1 });
+    }
 
-    if (name === 'sentinel') {
-      const subCommand = options?.[0];
+    // Type 2: APPLICATION_COMMAND
+    if (data.type === 2) {
+      const { name, options } = data.data;
 
-      if (!subCommand) {
-        return NextResponse.json({
-          type: 4,
-          data: { content: 'Please provide a sub-command (e.g. `/sentinel launch`)' },
-        });
-      }
+      if (name === 'sentinel') {
+        const subCommand = options?.[0];
 
-      switch (subCommand.name) {
-        case 'launch':
+        if (!subCommand) {
           return NextResponse.json({
             type: 4,
-            data: {
-              content: '🚀 Launching Sentinel MLBB...',
-              components: [
-                {
-                  type: 1,
-                  components: [
-                    {
-                      type: 2,
-                      label: 'Open Dashboard',
-                      style: 5,
-                      url: 'https://sentinel-mlbb.vercel.app/dashboard',
-                    },
-                  ],
-                },
-              ],
-            },
+            data: { content: 'Please provide a sub-command (e.g. `/sentinel launch`)' },
           });
+        }
 
-        case 'hero':
-          const heroQuery = subCommand.options?.[0]?.value?.toLowerCase();
-          const hero = ALL_HEROES.find((h) => h.name.toLowerCase().includes(heroQuery));
-          if (!hero) {
+        switch (subCommand.name) {
+          case 'launch':
             return NextResponse.json({
               type: 4,
-              data: { content: `Hero **${heroQuery}** not found.` },
+              data: {
+                content: '🚀 Launching Sentinel MLBB...',
+                components: [
+                  {
+                    type: 1,
+                    components: [
+                      {
+                        type: 2,
+                        label: 'Open Dashboard',
+                        style: 5,
+                        url: 'https://sentinel-mlbb.vercel.app/dashboard',
+                      },
+                    ],
+                  },
+                ],
+              },
+            });
+
+          case 'hero': {
+            const heroQuery = subCommand.options?.[0]?.value?.toLowerCase();
+            const hero = ALL_HEROES.find((h) => h.name.toLowerCase().includes(heroQuery));
+            if (!hero) {
+              return NextResponse.json({
+                type: 4,
+                data: { content: `Hero **${heroQuery}** not found.` },
+              });
+            }
+            return NextResponse.json({
+              type: 4,
+              data: {
+                embeds: [
+                  {
+                    title: hero.name,
+                    description: hero.description,
+                    color: 0x3498db,
+                    fields: [
+                      { name: 'Role', value: hero.role.join(', '), inline: true },
+                      { name: 'Specialty', value: hero.specialty, inline: true },
+                      { name: 'Difficulty', value: `${hero.difficulty}/3`, inline: true },
+                      { name: 'Playstyle', value: hero.tags.join(', '), inline: false },
+                    ],
+                    thumbnail: { url: hero.image },
+                  },
+                ],
+              },
             });
           }
-          return NextResponse.json({
-            type: 4,
-            data: {
-              embeds: [
-                {
-                  title: hero.name,
-                  description: hero.description,
-                  color: 0x3498db,
-                  fields: [
-                    { name: 'Role', value: hero.role.join(', '), inline: true },
-                    { name: 'Specialty', value: hero.specialty, inline: true },
-                    { name: 'Difficulty', value: `${hero.difficulty}/3`, inline: true },
-                    { name: 'Playstyle', value: hero.tags.join(', '), inline: false },
-                  ],
-                  thumbnail: { url: hero.image },
-                },
-              ],
-            },
-          });
 
-        case 'draft':
-          return NextResponse.json({
-            type: 4,
-            data: {
-              content: '**Drafting Tips:**\n1. Pick your core heroes first.\n2. Ensure you have proper CC and synergy.\n3. Adjust based on enemy counter-picks!',
-              components: [
-                {
-                  type: 1,
-                  components: [
-                    {
-                      type: 2,
-                      label: 'Open Draft Simulator',
-                      style: 5,
-                      url: 'https://sentinel-mlbb.vercel.app/dashboard/draft',
-                    },
-                  ],
-                },
-              ],
-            },
-          });
+          case 'draft':
+            return NextResponse.json({
+              type: 4,
+              data: {
+                content: '**Drafting Tips:**\n1. Pick your core heroes first.\n2. Ensure you have proper CC and synergy.\n3. Adjust based on enemy counter-picks!',
+                components: [
+                  {
+                    type: 1,
+                    components: [
+                      {
+                        type: 2,
+                        label: 'Open Draft Simulator',
+                        style: 5,
+                        url: 'https://sentinel-mlbb.vercel.app/dashboard/draft',
+                      },
+                    ],
+                  },
+                ],
+              },
+            });
 
-        case 'ask':
-          const query = subCommand.options?.[0]?.value;
-          
-          // First acknowledge the request since Groq API might take >3s (Discord timeout is 3s)
-          // Wait, actually Groq is very fast, but to be safe, we might need a deferred response.
-          // For simplicity, we'll try to reply directly. If it fails, Discord will show 'The application did not respond'.
-          
-          try {
-             const groqUrl = new URL('/api/chat', requestUrl(req)).toString();
-             // We can't await this directly if it takes too long, but let's try a direct fetch for MVP
-             // A better architecture is sending a deferred response (Type 5) and patching it later.
-             // But let's return a deferred response immediately, then process in background (not strictly supported in serverless without waitUntil, but we'll use it)
-          } catch(e) {}
-          
-          return NextResponse.json({
-             type: 4,
-             data: { content: `*Consulting Sentinel AI... Please check the web dashboard chat for full responses while I configure deferred messaging!*` }
-          });
+          case 'ask': {
+            // Return a placeholder for now - Groq deferred messaging needs more architecture
+            return NextResponse.json({
+              type: 4,
+              data: { content: `*Consulting Sentinel AI... Please check the web dashboard chat for full responses while I configure deferred messaging!*` }
+            });
+          }
+
+          case 'help':
+            return NextResponse.json({
+              type: 4,
+              data: {
+                embeds: [
+                  {
+                    title: '🛡️ Sentinel MLBB — Commands',
+                    description: 'Your AI-powered MLBB coaching assistant.',
+                    color: 0xf59e0b,
+                    fields: [
+                      { name: '`/sentinel launch`', value: 'Open the Sentinel MLBB Dashboard', inline: false },
+                      { name: '`/sentinel hero <name>`', value: 'Get detailed info about a hero', inline: false },
+                      { name: '`/sentinel draft`', value: 'Get drafting tips & open the draft simulator', inline: false },
+                      { name: '`/sentinel ask <question>`', value: 'Ask Sentinel AI for coaching advice', inline: false },
+                      { name: '`/sentinel help`', value: 'Show this help message', inline: false },
+                    ],
+                  },
+                ],
+              },
+            });
+
+          default:
+            return NextResponse.json({
+              type: 4,
+              data: { content: `Unknown sub-command \`${subCommand.name}\`. Use \`/sentinel help\` to see available commands.` },
+            });
+        }
       }
     }
+
+    return NextResponse.json({ error: 'Unknown interaction type' }, { status: 400 });
+  } catch (error: unknown) {
+    console.error('Interaction handler error:', error);
+    // Always return a valid response so Discord doesn't show "did not respond"
+    return NextResponse.json({
+      type: 4,
+      data: { content: '❌ An error occurred processing this command. Please try again.' },
+    });
   }
-
-  return NextResponse.json({ error: 'Unknown interaction type' }, { status: 400 });
-}
-
-function requestUrl(req: Request) {
-  const url = new URL(req.url);
-  return `${url.protocol}//${url.host}`;
 }
