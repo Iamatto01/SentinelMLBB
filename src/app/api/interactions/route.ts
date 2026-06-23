@@ -119,11 +119,52 @@ export async function POST(req: Request) {
             });
 
           case 'ask': {
-            // Return a placeholder for now - Groq deferred messaging needs more architecture
-            return NextResponse.json({
-              type: 4,
-              data: { content: `*Consulting Sentinel AI... Please check the web dashboard chat for full responses while I configure deferred messaging!*` }
-            });
+            const query = subCommand.options?.[0]?.value || "";
+            
+            try {
+              const { db } = await import('@/lib/db');
+              const groq = (await import('@/lib/groq')).default;
+              
+              // Fetch system stats from DB (Allies are slot <= 5)
+              const mostPlayedRes = await db.execute("SELECT player_name, COUNT(*) as games, SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) as wins FROM game_players JOIN games ON game_players.game_id = games.id WHERE slot <= 5 AND player_name != '' GROUP BY player_name ORDER BY games DESC LIMIT 10");
+              
+              const mostUsedHeroesRes = await db.execute("SELECT hero_name, COUNT(*) as picks FROM game_players WHERE slot <= 5 AND hero_name != '' GROUP BY hero_name ORDER BY picks DESC LIMIT 10");
+              
+              let contextStats = "Current Squad Stats:\n";
+              contextStats += "- Top Players (Matches, Wins):\n" + mostPlayedRes.rows.map(r => `  * ${r.player_name}: ${r.games} matches, ${r.wins} wins`).join('\n') + "\n";
+              contextStats += "- Most Used Heroes:\n" + mostUsedHeroesRes.rows.map(r => `  * ${r.hero_name}: ${r.picks} picks`).join('\n');
+              
+              const systemPrompt = `You are "Sentinel AI", an elite Mobile Legends: Bang Bang (MLBB) coaching assistant.
+Your job is to provide concise, highly strategic, and accurate drafting and gameplay advice.
+
+Here is the current system database of our squad's games:
+${contextStats}
+
+User asked: ${query}
+
+Keep your answer concise (Discord limits messages to 2000 chars), formatting neatly with markdown. Be helpful and friendly!`;
+
+              const chatCompletion = await groq.chat.completions.create({
+                messages: [{ role: 'system', content: systemPrompt }],
+                model: 'llama-3.3-70b-versatile',
+                temperature: 0.7,
+                max_tokens: 500,
+              });
+
+              const responseContent = chatCompletion.choices[0]?.message?.content || 'I could not generate a response.';
+
+              return NextResponse.json({
+                type: 4,
+                data: { content: responseContent }
+              });
+              
+            } catch (error: any) {
+              console.error('Groq/DB Error in Discord Ask:', error);
+              return NextResponse.json({
+                type: 4,
+                data: { content: `*I encountered an error while consulting the database or AI. Please try again!*` }
+              });
+            }
           }
 
           case 'help':
