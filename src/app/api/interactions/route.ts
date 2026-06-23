@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyKey } from 'discord-interactions';
 import { ALL_HEROES } from '@/data/heroes-data';
-import groq, { getActiveModel, setActiveModel } from '@/lib/groq';
+import groq from '@/lib/groq';
 
 export async function POST(req: Request) {
   try {
@@ -125,7 +125,7 @@ export async function POST(req: Request) {
             
             try {
               const { db } = await import('@/lib/db');
-              const activeModel = await getActiveModel();
+              const activeModel = await (groq as any).getActiveModel();
               
               // Initialize chat history table if not exists
               await db.execute(`
@@ -259,7 +259,7 @@ Keep your answer concise (Discord limits messages to 2000 chars), formatting nea
               const selectOption = subCommand.options?.find((o: any) => o.name === 'select')?.value;
 
               if (selectOption) {
-                await setActiveModel(selectOption);
+                await (groq as any).setActiveModel(selectOption);
                 return NextResponse.json({
                   type: 4,
                   data: {
@@ -267,7 +267,7 @@ Keep your answer concise (Discord limits messages to 2000 chars), formatting nea
                   }
                 });
               } else {
-                const currentModel = await getActiveModel();
+                const currentModel = await (groq as any).getActiveModel();
                 
                 return NextResponse.json({
                   type: 4,
