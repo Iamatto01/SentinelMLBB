@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyKey } from 'discord-interactions';
 import { ALL_HEROES } from '@/data/heroes-data';
+import groq, { getActiveModel, setActiveModel } from '@/lib/groq';
 
 export async function POST(req: Request) {
   try {
@@ -124,8 +125,6 @@ export async function POST(req: Request) {
             
             try {
               const { db } = await import('@/lib/db');
-              const groq = (await import('@/lib/groq')).default;
-              const { getActiveModel } = await import('@/lib/groq');
               const activeModel = await getActiveModel();
               
               // Initialize chat history table if not exists
@@ -257,7 +256,6 @@ Keep your answer concise (Discord limits messages to 2000 chars), formatting nea
 
           case 'model': {
             try {
-              const { getActiveModel, setActiveModel } = await import('@/lib/groq');
               const selectOption = subCommand.options?.find((o: any) => o.name === 'select')?.value;
 
               if (selectOption) {
