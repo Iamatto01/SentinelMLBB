@@ -97,6 +97,37 @@ async function startBot() {
         )
       `);
 
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS squad_games (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          game_name TEXT UNIQUE,
+          category TEXT DEFAULT 'General',
+          created_by TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Seed default squad games if empty
+      const countRes = await db.execute("SELECT COUNT(*) as count FROM squad_games").catch(() => ({ rows: [{ count: 0 }] }));
+      const totalCount = countRes.rows[0]?.count || 0;
+      if (totalCount === 0) {
+        const defaultGames = [
+          'Mobile Legends: Bang Bang (MLBB)',
+          'Valorant',
+          'PUBG Mobile / PUBG',
+          'Dota 2',
+          'Call of Duty: Modern Warfare',
+          'CS:GO',
+          'Fortnite',
+          'League of Legends',
+          'Overwatch',
+          'Rainbow Six Siege'
+        ];
+        for (const g of defaultGames) {
+          await db.execute({ sql: "INSERT OR IGNORE INTO squad_games (game_name, created_by) VALUES (?, 'System')", args: [g] }).catch(() => {});
+        }
+      }
+
       const lower = prompt.toLowerCase();
 
       // ── 1. User Preference & Memory Auto-Saver ───────────────
@@ -140,7 +171,23 @@ async function startBot() {
       const userName = message.author.username || 'member';
       const displayName = savedNickname || userName;
 
-      // ── 2. REAL DISCORD EVENT CREATION ─────────────────────────
+      // ── 2. GAME MANAGEMENT COMMANDS ────────────────────────────
+      const isAddGame = /tambah game|add game|masukkan game/i.test(lower);
+      if (isAddGame) {
+        const gameMatch = prompt.replace(/tambah game|add game|masukkan game/gi, '').replace(/<@!?\d+>/g, '').trim();
+        if (gameMatch) {
+          await db.execute({
+            sql: "INSERT INTO squad_games (game_name, created_by) VALUES (?, ?) ON CONFLICT(game_name) DO NOTHING",
+            args: [gameMatch, displayName]
+          });
+          await message.reply({
+            content: `🎮 **Game Berjaya Ditambah!**\nGame **"${gameMatch}"** kini disimpan secara kekal dalam database Sentinel AI oleh **${displayName}**!`
+          });
+          return;
+        }
+      }
+
+      // ── 3. REAL DISCORD EVENT CREATION ─────────────────────────
       const isCreateEvent = /create event|buat event|tambah event|set event/i.test(lower);
       if (isCreateEvent) {
         const parsedEvent = parseEventDetails(prompt);
@@ -149,7 +196,7 @@ async function startBot() {
             const scheduledEvent = await guild.scheduledEvents.create({
               name: parsedEvent.title,
               scheduledStartTime: parsedEvent.startTime,
-              scheduledEndTime: new Date(parsedEvent.startTime.getTime() + 2 * 60 * 60 * 1000), // +2 hours
+              scheduledEndTime: new Date(parsedEvent.startTime.getTime() + 2 * 60 * 60 * 1000),
               privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
               entityType: GuildScheduledEventEntityType.External,
               entityMetadata: { location: 'Discord Server / Mobile Legends' },
@@ -169,7 +216,6 @@ async function startBot() {
             return;
           } catch (eventErr: any) {
             console.error('Failed to create Discord Event:', eventErr);
-            // Fallback: save in local DB event if Discord API fails
             const startTimeSql = parsedEvent.startTime.toISOString().replace('T', ' ').substring(0, 19);
             await db.execute({
               sql: "INSERT INTO squad_events (guild_id, channel_id, title, description, start_time, discord_event_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -184,7 +230,7 @@ async function startBot() {
         }
       }
 
-      // ── 3. SQUAD SCHEDULE MANAGEMENT ───────────────────────────
+      // ── 4. SQUAD SCHEDULE MANAGEMENT ───────────────────────────
       const isScheduleAdd = /tambah jadual|add schedule|set jadual/i.test(lower);
       if (isScheduleAdd) {
         const schedMatch = prompt.match(/(?:tambah jadual|add schedule|set jadual)\s+(isnin|selasa|rabu|khamis|jumaat|sabtu|ahad|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(\d{1,2}[\.:]\d{2}\s*(?:am|pm)?|\d{1,2}\s*(?:am|pm)?)\s+(.+)/i);
@@ -222,7 +268,7 @@ async function startBot() {
         return;
       }
 
-      // ── 4. REMINDERS & ALARMS ──────────────────────────────────
+      // ── 5. REMINDERS & ALARMS ──────────────────────────────────
       const isCheckReminder = /do u have any reminder|any reminder|check reminder|senarai reminder|what are my reminder|ada reminder/i.test(lower);
       if (isCheckReminder) {
         const activeR = await db.execute({
@@ -256,7 +302,10 @@ async function startBot() {
         }
       }
 
-      // ── 5. AI PERSONAL ASSISTANT CHAT ──────────────────────────
+      // ── 6. AI PERSONAL ASSISTANT CHAT WITH REAL DB GAMES ───────
+      const gamesRes = await db.execute("SELECT game_name FROM squad_games ORDER BY id ASC").catch(() => ({ rows: [] }));
+      const savedGamesList = gamesRes.rows.map((r: any) => `• ${r.game_name}`).join('\n');
+
       const historyRes = await db.execute({
         sql: "SELECT role, content FROM discord_chat_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 16",
         args: [userId],
@@ -272,13 +321,12 @@ async function startBot() {
 SAVED FACTS ABOUT THIS USER (${displayName}):
 ${factList.length > 0 ? factList.join('\n') : '- Primary Nickname: ' + displayName}
 
-YOUR REAL MINI PC P.A. CAPABILITIES:
-- You have REAL automated reminders & alarms with auto-ping background scheduler!
-- You can create REAL Discord Guild Scheduled Events!
-- You manage weekly squad schedules!
-- You remember user preferences permanently in local Mini PC SQLite DB.
+ACTUAL GAMES STORED IN SENTINEL AI DATABASE:
+${savedGamesList || '• Mobile Legends: Bang Bang (MLBB)\n• Valorant\n• PUBG Mobile\n• Dota 2\n• Call of Duty: Modern Warfare\n• CS:GO\n• Fortnite\n• League of Legends\n• Overwatch\n• Rainbow Six Siege'}
 
 CRITICAL RULES:
+- ALWAYS reference the exact games in the database list above when asked about games played by the squad!
+- NEVER hallucinate fake esports teams (like Evos, Blacklist, TNC, ONIC) or fake match results unless they are in the database!
 - ALWAYS address the user as "${displayName}".
 - Respect user preferences (e.g., if preferred pronoun is 'kau', use 'kau'/'aku'. Never use 'bro' if forbidden).
 - Talk like a loyal, friendly, and witty squad member & personal assistant ("geng", "member", "kau", "aku").
@@ -398,7 +446,6 @@ function startPAScheduler(client: Client, db: any) {
 function parseEventDetails(prompt: string) {
   const lower = prompt.toLowerCase();
 
-  // Extract title
   let title = prompt
     .replace(/create event|buat event|tambah event|set event/gi, '')
     .replace(/\d{1,2}[\.:]\d{2}\s*(?:am|pm)?/gi, '')
@@ -410,9 +457,8 @@ function parseEventDetails(prompt: string) {
 
   if (!title) title = 'Squad Activity / Match';
 
-  // Extract time
   const timeMatch = lower.match(/(\d{1,2})[\.:](\d{2})\s*(am|pm)?/i) || lower.match(/(\d{1,2})\s*(am|pm)/i);
-  let hours = 20; // default 8pm
+  let hours = 20;
   let mins = 0;
 
   if (timeMatch) {
