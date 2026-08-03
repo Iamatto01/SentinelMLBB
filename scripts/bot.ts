@@ -53,8 +53,59 @@ async function startBot() {
         )
       `);
 
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS user_memories (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT,
+          memory_key TEXT,
+          memory_value TEXT,
+          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, memory_key)
+        )
+      `);
+
+      const lower = prompt.toLowerCase();
+      // Auto-extract nickname declarations (e.g. "remember my name, Kentang", "nama aku Kentang", "panggil aku Kentang")
+      const nickMatch = prompt.match(/(?:remember my name(?: is|,|\s+)|nama (?:panggilan )?aku|panggil (?:aku|saya)|name is|my name is|panggilan aku)\s+([A-Za-z0-9_-]+)/i);
+      if (nickMatch && nickMatch[1]) {
+        const nick = nickMatch[1].trim();
+        if (nick.length > 1 && !['siapa', 'siapakah', 'apa', 'apakah', 'siapa?', 'apa?'].includes(nick.toLowerCase())) {
+          await db.execute({
+            sql: "INSERT INTO user_memories (user_id, memory_key, memory_value) VALUES (?, 'nickname', ?) ON CONFLICT(user_id, memory_key) DO UPDATE SET memory_value = excluded.memory_value",
+            args: [userId, nick]
+          }).catch(console.error);
+        }
+      }
+
+      if (lower.includes('jgn guna bro') || lower.includes('jangan panggil bro') || lower.includes('bukan bro') || lower.includes('jangan guna bro')) {
+        await db.execute({
+          sql: "INSERT INTO user_memories (user_id, memory_key, memory_value) VALUES (?, 'forbidden_words', 'bro, kamu') ON CONFLICT(user_id, memory_key) DO UPDATE SET memory_value = excluded.memory_value",
+          args: [userId]
+        }).catch(console.error);
+      }
+
+      if (lower.includes('tukar kamu ke kau') || lower.includes('pakai kau') || lower.includes('guna kau') || lower.includes('pakai bahasa melayu')) {
+        await db.execute({
+          sql: "INSERT INTO user_memories (user_id, memory_key, memory_value) VALUES (?, 'preferred_pronoun', 'kau') ON CONFLICT(user_id, memory_key) DO UPDATE SET memory_value = excluded.memory_value",
+          args: [userId]
+        }).catch(console.error);
+      }
+
+      // Fetch saved memories
+      const memRes = await db.execute({
+        sql: "SELECT memory_key, memory_value FROM user_memories WHERE user_id = ?",
+        args: [userId]
+      }).catch(() => ({ rows: [] }));
+
+      let savedNickname = '';
+      const factList: string[] = [];
+      for (const r of memRes.rows) {
+        if (r.memory_key === 'nickname') savedNickname = r.memory_value;
+        factList.push(`- ${r.memory_key}: ${r.memory_value}`);
+      }
+
       const historyRes = await db.execute({
-        sql: "SELECT role, content FROM discord_chat_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 6",
+        sql: "SELECT role, content FROM discord_chat_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 16",
         args: [userId],
       });
 
@@ -64,11 +115,18 @@ async function startBot() {
       }));
 
       const userName = message.author.username || 'member';
-      const systemPrompt = `You are "Sentinel", a close squad member and dedicated personal assistant in this Discord server.
-Your Persona:
-- Talk like a loyal, friendly, and witty squad member / personal assistant ("geng", "bro", "member").
-- Be supportive, highly intelligent, attentive, and ready to assist ${userName} with anything (casual chat, server tasks, advice, general knowledge, or games).
-- Blend casual Bahasa Melayu / English naturally depending on how ${userName} speaks to you.
+      const displayName = savedNickname || userName;
+
+      const systemPrompt = `You are "Sentinel", a close squad member and dedicated personal assistant to ${displayName} in this Discord server.
+
+SAVED FACTS & PREFERENCES ABOUT THIS USER (${displayName}):
+${factList.length > 0 ? factList.join('\n') : '- Primary Nickname: ' + displayName}
+
+CRITICAL RULES:
+- ALWAYS address the user as "${displayName}" (NEVER forget their nickname!).
+- Respect user preferences (e.g. if preferred pronoun is 'kau', use 'kau' / 'aku'. If forbidden word is 'bro', NEVER use 'bro'!).
+- Talk like a loyal, friendly, and witty squad member & personal assistant ("geng", "member", "kau", "aku").
+- DO NOT pretend or hallucinate non-existent Discord commands (e.g., /createevent, /setreminder). If asked for features not supported yet, answer truthfully in casual BM.
 - Keep responses concise (under 2000 chars), formatted neatly with markdown.`;
 
       const messages = [
