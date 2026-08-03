@@ -6,7 +6,7 @@ dotenv.config({ path: '.env.local' });
 
 // Dynamic imports to prevent top-level execution errors
 async function startBot() {
-  const { createChatCompletion } = await import('../src/lib/groq');
+  const { llm } = await import('../src/lib/groq');
   const { db } = await import('../src/lib/db');
 
   const client = new Client({
@@ -77,8 +77,8 @@ Your Persona:
         { role: 'user', content: prompt },
       ];
 
-      const activeModel = (process.env.LLM_MODEL || 'auto').trim();
-      const chatCompletion = await createChatCompletion({
+      const activeModel = await llm.getActiveModel();
+      const chatCompletion = await llm.chat.completions.create({
         messages,
         model: activeModel,
         temperature: 0.7,
