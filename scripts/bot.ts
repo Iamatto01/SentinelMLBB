@@ -90,9 +90,13 @@ Your Persona:
         chatCompletion.choices[0]?.message?.reasoning_content ||
         'I could not generate a response.';
 
-      // Save history asynchronously
-      db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'user', prompt] }).catch(console.error);
-      db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'assistant', finalResponse] }).catch(console.error);
+      // Await history inserts
+      try {
+        await db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'user', prompt] });
+        await db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'assistant', finalResponse] });
+      } catch (e) {
+        console.warn('[DB] History insert warning in bot.ts:', e);
+      }
 
       await message.reply({ content: finalResponse });
     } catch (err: any) {

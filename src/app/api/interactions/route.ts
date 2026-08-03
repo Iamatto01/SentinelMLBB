@@ -179,8 +179,13 @@ Your Persona:
                 || chatCompletion.choices[0]?.message?.reasoning_content
                 || 'I could not generate a response.';
 
-              db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'user', query] }).catch(console.error);
-              db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'assistant', finalResponse] }).catch(console.error);
+              // Await DB writes so serverless/Vercel never kills history inserts before returning
+              try {
+                await db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'user', query] });
+                await db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'assistant', finalResponse] });
+              } catch (e) {
+                console.warn('[DB] History insert warning:', e);
+              }
 
               return NextResponse.json({
                 type: 4,
