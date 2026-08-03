@@ -107,6 +107,18 @@ async function startBot() {
         )
       `);
 
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS squad_members (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT UNIQUE,
+          username TEXT,
+          role_name TEXT DEFAULT 'Member',
+          favorite_games TEXT DEFAULT 'MLBB',
+          status TEXT DEFAULT 'Aktif',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
       // Seed default squad games if empty
       const countRes = await db.execute("SELECT COUNT(*) as count FROM squad_games").catch(() => ({ rows: [{ count: 0 }] }));
       const totalCount = countRes.rows[0]?.count || 0;
@@ -172,7 +184,56 @@ async function startBot() {
       const userName = message.author.username || 'member';
       const displayName = savedNickname || userName;
 
-      // ── 2. GAME MANAGEMENT COMMANDS ────────────────────────────
+      // Auto-register current user into squad_members if not present
+      await db.execute({
+        sql: "INSERT INTO squad_members (user_id, username, role_name, favorite_games) VALUES (?, ?, 'Member', 'MLBB') ON CONFLICT(user_id) DO UPDATE SET username = excluded.username",
+        args: [userId, displayName]
+      }).catch(() => {});
+
+      // ── 2. SQUAD MEMBER MANAGEMENT COMMANDS ───────────────────
+      const isAddMember = !isQuestion && /tambah member|add member|tambah ahli|add player/i.test(lower);
+      if (isAddMember) {
+        const targetMention = message.mentions.users.first();
+        const targetId = targetMention ? targetMention.id : userId;
+        const targetName = targetMention ? (targetMention.username) : displayName;
+
+        const roleMatch = prompt.match(/(?:role|peran)\s+([A-Za-z0-9_-]+)/i);
+        const roleName = roleMatch ? roleMatch[1] : 'Member';
+
+        const gameMatch = prompt.match(/(?:game|suka)\s+([A-Za-z0-9_,\s-]+)/i);
+        const favGames = gameMatch ? gameMatch[1].trim() : 'MLBB';
+
+        await db.execute({
+          sql: "INSERT INTO squad_members (user_id, username, role_name, favorite_games, status) VALUES (?, ?, ?, ?, 'Aktif') ON CONFLICT(user_id) DO UPDATE SET username = excluded.username, role_name = excluded.role_name, favorite_games = excluded.favorite_games",
+          args: [targetId, targetName, roleName, favGames]
+        });
+
+        await message.reply({
+          content: `👥 **Ahli Squad Berjaya Ditambah!**\n\n| Anggota | Peran | Game Utama | Status |\n| :--- | :--- | :--- | :--- |\n| **${targetName}** | ${roleName} | ${favGames} | 🟢 Aktif |`
+        });
+        return;
+      }
+
+      const isViewMembers = /senarai member|ahli squad|squad members|senarai ahli|view members|pengaturan squad/i.test(lower) && !lower.includes('contoh');
+      if (isViewMembers) {
+        const memberRes = await db.execute("SELECT username, role_name, favorite_games, status FROM squad_members ORDER BY id ASC");
+        if (memberRes.rows.length === 0) {
+          await message.reply({ content: `👥 **${displayName}**, belum ada ahli squad yang didaftarkan! Taip \`@Sentinel MLBB tambah member @User role Leader game MLBB\` untuk daftar ahli.` });
+          return;
+        }
+
+        let msgText = `👥 **SENARAI AHLI SQUAD SEBENAR (${memberRes.rows.length} Orang)**\n\n`;
+        msgText += `| Anggota | Peran | Game Utama | Status |\n`;
+        msgText += `| :--- | :--- | :--- | :--- |\n`;
+        memberRes.rows.forEach((r: any) => {
+          msgText += `| **${r.username}** | ${r.role_name || 'Member'} | ${r.favorite_games || 'MLBB'} | 🟢 ${r.status || 'Aktif'} |\n`;
+        });
+
+        await message.reply({ content: msgText });
+        return;
+      }
+
+      // ── 3. GAME MANAGEMENT COMMANDS ────────────────────────────
       const isAddGame = !isQuestion && /tambah game|add game|masukkan game/i.test(lower);
       if (isAddGame) {
         const gameMatch = prompt.replace(/tambah game|add game|masukkan game/gi, '').replace(/<@!?\d+>/g, '').trim();
@@ -188,7 +249,7 @@ async function startBot() {
         }
       }
 
-      // ── 3. REAL DISCORD EVENT CREATION ─────────────────────────
+      // ── 4. REAL DISCORD EVENT CREATION ─────────────────────────
       const isCreateEvent = !isQuestion && /create event|buat event|tambah event|set event/i.test(lower);
       if (isCreateEvent) {
         const parsedEvent = parseEventDetails(prompt);
@@ -228,7 +289,7 @@ async function startBot() {
         }
       }
 
-      // ── 4. SQUAD SCHEDULE MANAGEMENT ───────────────────────────
+      // ── 5. SQUAD SCHEDULE MANAGEMENT ───────────────────────────
       const isScheduleAdd = !isQuestion && /tambah jadual|add schedule|set jadual/i.test(lower);
       if (isScheduleAdd) {
         const schedMatch = prompt.match(/(?:tambah jadual|add schedule|set jadual)\s+(isnin|selasa|rabu|khamis|jumaat|sabtu|ahad|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(\d{1,2}[\.:]\d{2}\s*(?:am|pm)?|\d{1,2}\s*(?:am|pm)?)\s+(.+)/i);
@@ -268,7 +329,7 @@ async function startBot() {
         return;
       }
 
-      // ── 5. REMINDERS & ALARMS ──────────────────────────────────
+      // ── 6. REMINDERS & ALARMS ──────────────────────────────────
       const isCheckReminder = /do u have any reminder|any reminder|check reminder|senarai reminder|what are my reminder|ada reminder/i.test(lower);
       if (isCheckReminder) {
         const activeR = await db.execute({
@@ -309,9 +370,12 @@ async function startBot() {
         }
       }
 
-      // ── 6. AI PERSONAL ASSISTANT CHAT WITH REAL DB GAMES ───────
+      // ── 7. AI PERSONAL ASSISTANT CHAT WITH REAL DB DATA ───────
       const gamesRes = await db.execute("SELECT game_name FROM squad_games ORDER BY id ASC").catch(() => ({ rows: [] }));
       const savedGamesList = gamesRes.rows.map((r: any) => `• ${r.game_name}`).join('\n');
+
+      const membersRes = await db.execute("SELECT username, role_name, favorite_games, status FROM squad_members ORDER BY id ASC").catch(() => ({ rows: [] }));
+      const squadMembersList = membersRes.rows.map((r: any) => `| ${r.username} | ${r.role_name || 'Member'} | ${r.favorite_games || 'MLBB'} | ${r.status || 'Aktif'} |`).join('\n');
 
       const historyRes = await db.execute({
         sql: "SELECT role, content FROM discord_chat_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 16",
@@ -328,11 +392,18 @@ async function startBot() {
 SAVED FACTS ABOUT THIS USER (${displayName}):
 ${factList.length > 0 ? factList.join('\n') : '- Primary Nickname: ' + displayName}
 
+ACTUAL REGISTERED SQUAD MEMBERS IN DATABASE:
+| Anggota | Peran | Game Utama | Status |
+| :--- | :--- | :--- | :--- |
+${squadMembersList || `| ${displayName} | Member | MLBB | Aktif |`}
+
 ACTUAL GAMES STORED IN SENTINEL AI DATABASE:
 ${savedGamesList || '• Mobile Legends: Bang Bang (MLBB)\n• Valorant\n• PUBG Mobile\n• Dota 2\n• Call of Duty: Modern Warfare\n• CS:GO\n• Fortnite\n• League of Legends\n• Overwatch\n• Rainbow Six Siege'}
 
-CRITICAL FORMATTING & PERSONA RULES:
-- TABLE FORMATTING: Whenever you present timetables, schedules, activity plans, or game comparison lists, ALWAYS format them as neat Markdown Tables (using | Column 1 | Column 2 |) or ASCII codeblock tables so it looks clean and structured!
+CRITICAL FORMATTING & TRUTH RULES:
+- DUMMY EXAMPLES vs REAL DATA: When asked for features or options, if you output example data (like dummy usernames), ALWAYS explicitly state "(Contoh sahaja / Example data)". NEVER present fake usernames as real squad members!
+- SQUAD MEMBERS: Always refer to the actual registered squad members list above when asked about squad members or lineup!
+- TABLE FORMATTING: Whenever you present timetables, schedules, activity plans, or game/member lists, ALWAYS format them as neat Markdown Tables!
 - ALWAYS address the user as "${displayName}".
 - NEVER use 'bro' or 'kamu' if forbidden. Use 'kau' / 'aku'.
 - ALWAYS reference the exact games in the database list above when asked about games played by the squad!
