@@ -1,7 +1,13 @@
 import path from 'path';
 import fs from 'fs';
 
-const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'data', 'sentinel.db');
+function getDbPath(): string {
+  if (process.env.DB_PATH) return process.env.DB_PATH;
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return path.join('/tmp', 'sentinel.db');
+  }
+  return path.join(process.cwd(), 'data', 'sentinel.db');
+}
 
 interface DbAdapter {
   execute(sql: string, args?: any[] | Record<string, any>): Promise<{ rows: any[] }>;
@@ -10,13 +16,18 @@ interface DbAdapter {
 let _adapterPromise: Promise<DbAdapter> | null = null;
 
 async function initAdapter(): Promise<DbAdapter> {
-  const dir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const dbPath = getDbPath();
+  const dir = path.dirname(dbPath);
+  try {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  } catch (e) {
+    console.warn('[DB] mkdir warning (read-only filesystem or tmp):', e);
+  }
 
-  // 1. Try better-sqlite3
+  // 1. Try better-sqlite3 (if native binary supported)
   try {
     const { default: BetterSqlite } = await import('better-sqlite3');
-    const d = new BetterSqlite(DB_PATH);
+    const d = new BetterSqlite(dbPath);
     d.pragma('journal_mode = WAL');
     d.pragma('foreign_keys = ON');
     
@@ -42,8 +53,12 @@ async function initAdapter(): Promise<DbAdapter> {
   const { default: initSqlJs } = await import('sql.js');
   const SQL = await initSqlJs();
   let fileBuffer: Buffer | undefined;
-  if (fs.existsSync(DB_PATH)) {
-    fileBuffer = fs.readFileSync(DB_PATH);
+  try {
+    if (fs.existsSync(dbPath)) {
+      fileBuffer = fs.readFileSync(dbPath);
+    }
+  } catch (e) {
+    console.warn('[DB] Reading dbPath failed:', e);
   }
   const d = new SQL.Database(fileBuffer);
   
@@ -51,9 +66,9 @@ async function initAdapter(): Promise<DbAdapter> {
     try {
       const data = d.export();
       const buffer = Buffer.from(data);
-      fs.writeFileSync(DB_PATH, buffer);
+      fs.writeFileSync(dbPath, buffer);
     } catch (err) {
-      console.error('[DB] Failed to save sql.js DB to disk:', err);
+      console.warn('[DB] Could not save sql.js DB to disk (read-only environment):', err);
     }
   }
 
