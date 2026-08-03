@@ -257,9 +257,11 @@ async function startBot() {
           return;
         }
 
-        let msgText = `🗓️ **JADUAL AKTIVITI SQUAD (${displayName}):**\n\n`;
+        let msgText = `🗓️ **JADUAL AKTIVITI SQUAD SENTINEL (${displayName})**\n\n`;
+        msgText += `| # | Hari | Masa | Aktiviti / Match | Disusun Oleh |\n`;
+        msgText += `| :-: | :--- | :--- | :--- | :--- |\n`;
         schedRes.rows.forEach((r: any, i: number) => {
-          msgText += `${i + 1}. **[${r.day_name}]** \`${r.time_str}\` — **${r.activity_name}** *(Ditambah oleh: ${r.created_by})*\n`;
+          msgText += `| **${i + 1}** | **${r.day_name}** | \`${r.time_str}\` | ${r.activity_name} | ${r.created_by} |\n`;
         });
 
         await message.reply({ content: msgText });
@@ -277,10 +279,12 @@ async function startBot() {
           await message.reply({ content: `📋 **${displayName}**, kau tak ada sebarang reminder/alarm aktif sekarang!` });
           return;
         }
-        let listText = `📋 **${displayName}**, ini senarai reminder/alarm kau yang tengah aktif:\n`;
+        let listText = `📋 **${displayName}**, ini senarai reminder/alarm kau yang tengah aktif:\n\n`;
+        listText += `| # | Masa Peringatan | Mesej Peringatan / Alarm |\n`;
+        listText += `| :-: | :--- | :--- |\n`;
         activeR.rows.forEach((r: any, idx: number) => {
           const dateStr = new Date(r.remind_at_ms).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' });
-          listText += `${idx + 1}. 🕒 \`${dateStr}\` — **${r.reminder_text}**\n`;
+          listText += `| **${idx + 1}** | \`${dateStr}\` | **${r.reminder_text}** |\n`;
         });
         await message.reply({ content: listText });
         return;
@@ -327,9 +331,10 @@ ${factList.length > 0 ? factList.join('\n') : '- Primary Nickname: ' + displayNa
 ACTUAL GAMES STORED IN SENTINEL AI DATABASE:
 ${savedGamesList || '• Mobile Legends: Bang Bang (MLBB)\n• Valorant\n• PUBG Mobile\n• Dota 2\n• Call of Duty: Modern Warfare\n• CS:GO\n• Fortnite\n• League of Legends\n• Overwatch\n• Rainbow Six Siege'}
 
-CRITICAL RULES:
+CRITICAL FORMATTING & PERSONA RULES:
+- TABLE FORMATTING: Whenever you present timetables, schedules, activity plans, or game comparison lists, ALWAYS format them as neat Markdown Tables (using | Column 1 | Column 2 |) or ASCII codeblock tables so it looks clean and structured!
 - ALWAYS address the user as "${displayName}".
-- NEVER use 'bro' or 'kamu' if the user forbade it. Use 'kau' / 'aku'.
+- NEVER use 'bro' or 'kamu' if forbidden. Use 'kau' / 'aku'.
 - ALWAYS reference the exact games in the database list above when asked about games played by the squad!
 - NEVER hallucinate fake esports teams (like Evos, Blacklist, TNC, ONIC) or fake match results unless they are in the database!
 - Talk like a loyal, friendly, and witty squad member & personal assistant ("geng", "member", "kau", "aku").
