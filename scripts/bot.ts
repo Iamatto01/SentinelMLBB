@@ -71,7 +71,7 @@ async function startBot() {
       await db.execute(`
         CREATE TABLE IF NOT EXISTS user_reminders (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id TEXT, channel_id TEXT, remind_at DATETIME,
+          user_id TEXT, channel_id TEXT, remind_at_ms INTEGER,
           reminder_text TEXT, status TEXT DEFAULT 'pending',
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -81,7 +81,7 @@ async function startBot() {
         CREATE TABLE IF NOT EXISTS squad_events (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           guild_id TEXT, channel_id TEXT, title TEXT,
-          description TEXT, start_time DATETIME,
+          description TEXT, start_time_ms INTEGER,
           discord_event_id TEXT, notified_15m INTEGER DEFAULT 0,
           notified_start INTEGER DEFAULT 0, created_by TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -129,6 +129,7 @@ async function startBot() {
       }
 
       const lower = prompt.toLowerCase();
+      const isQuestion = /\?|why|kenapa|macam mana|how|can|boleh|apakah|what/i.test(prompt);
 
       // ── 1. User Preference & Memory Auto-Saver ───────────────
       const nickMatch = prompt.match(/(?:remember my name(?: is|,|\s+)|nama (?:panggilan )?aku|panggil (?:aku|saya)|name is|my name is|panggilan aku)\s+([A-Za-z0-9_-]+)/i);
@@ -172,7 +173,7 @@ async function startBot() {
       const displayName = savedNickname || userName;
 
       // ── 2. GAME MANAGEMENT COMMANDS ────────────────────────────
-      const isAddGame = /tambah game|add game|masukkan game/i.test(lower);
+      const isAddGame = !isQuestion && /tambah game|add game|masukkan game/i.test(lower);
       if (isAddGame) {
         const gameMatch = prompt.replace(/tambah game|add game|masukkan game/gi, '').replace(/<@!?\d+>/g, '').trim();
         if (gameMatch) {
@@ -188,7 +189,7 @@ async function startBot() {
       }
 
       // ── 3. REAL DISCORD EVENT CREATION ─────────────────────────
-      const isCreateEvent = /create event|buat event|tambah event|set event/i.test(lower);
+      const isCreateEvent = !isQuestion && /create event|buat event|tambah event|set event/i.test(lower);
       if (isCreateEvent) {
         const parsedEvent = parseEventDetails(prompt);
         if (guild && parsedEvent) {
@@ -203,11 +204,9 @@ async function startBot() {
               description: `Dianjurkan oleh ${displayName} (Disusun oleh Sentinel P.A.)`,
             });
 
-            const startTimeSql = parsedEvent.startTime.toISOString().replace('T', ' ').substring(0, 19);
-
             await db.execute({
-              sql: "INSERT INTO squad_events (guild_id, channel_id, title, description, start_time, discord_event_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
-              args: [guild.id, channelId, parsedEvent.title, parsedEvent.description, startTimeSql, scheduledEvent.id, displayName]
+              sql: "INSERT INTO squad_events (guild_id, channel_id, title, description, start_time_ms, discord_event_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+              args: [guild.id, channelId, parsedEvent.title, parsedEvent.description, parsedEvent.startTime.getTime(), scheduledEvent.id, displayName]
             });
 
             await message.reply({
@@ -216,10 +215,9 @@ async function startBot() {
             return;
           } catch (eventErr: any) {
             console.error('Failed to create Discord Event:', eventErr);
-            const startTimeSql = parsedEvent.startTime.toISOString().replace('T', ' ').substring(0, 19);
             await db.execute({
-              sql: "INSERT INTO squad_events (guild_id, channel_id, title, description, start_time, discord_event_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
-              args: [guild?.id || '', channelId, parsedEvent.title, parsedEvent.description, startTimeSql, '', displayName]
+              sql: "INSERT INTO squad_events (guild_id, channel_id, title, description, start_time_ms, discord_event_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+              args: [guild?.id || '', channelId, parsedEvent.title, parsedEvent.description, parsedEvent.startTime.getTime(), '', displayName]
             });
 
             await message.reply({
@@ -231,7 +229,7 @@ async function startBot() {
       }
 
       // ── 4. SQUAD SCHEDULE MANAGEMENT ───────────────────────────
-      const isScheduleAdd = /tambah jadual|add schedule|set jadual/i.test(lower);
+      const isScheduleAdd = !isQuestion && /tambah jadual|add schedule|set jadual/i.test(lower);
       if (isScheduleAdd) {
         const schedMatch = prompt.match(/(?:tambah jadual|add schedule|set jadual)\s+(isnin|selasa|rabu|khamis|jumaat|sabtu|ahad|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(\d{1,2}[\.:]\d{2}\s*(?:am|pm)?|\d{1,2}\s*(?:am|pm)?)\s+(.+)/i);
         if (schedMatch) {
@@ -272,7 +270,7 @@ async function startBot() {
       const isCheckReminder = /do u have any reminder|any reminder|check reminder|senarai reminder|what are my reminder|ada reminder/i.test(lower);
       if (isCheckReminder) {
         const activeR = await db.execute({
-          sql: "SELECT remind_at, reminder_text FROM user_reminders WHERE user_id = ? AND status = 'pending' ORDER BY remind_at ASC",
+          sql: "SELECT remind_at_ms, reminder_text FROM user_reminders WHERE user_id = ? AND status = 'pending' ORDER BY remind_at_ms ASC",
           args: [userId]
         });
         if (activeR.rows.length === 0) {
@@ -281,19 +279,24 @@ async function startBot() {
         }
         let listText = `📋 **${displayName}**, ini senarai reminder/alarm kau yang tengah aktif:\n`;
         activeR.rows.forEach((r: any, idx: number) => {
-          listText += `${idx + 1}. 🕒 \`${r.remind_at}\` — **${r.reminder_text}**\n`;
+          const dateStr = new Date(r.remind_at_ms).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' });
+          listText += `${idx + 1}. 🕒 \`${dateStr}\` — **${r.reminder_text}**\n`;
         });
         await message.reply({ content: listText });
         return;
       }
 
-      const isSetReminder = /setreminder|ingatkan|remind me|peringatan|set reminder|peringatkan|set alarm|alarm/i.test(prompt);
+      const isSetReminder = !isQuestion && (
+        /\/setreminder/i.test(prompt) ||
+        /(?:ingatkan aku|ingatkan saya|set reminder|set alarm|remind me to|peringatkan aku|peringatkan saya)/i.test(prompt)
+      );
+
       if (isSetReminder) {
         const parsed = parseReminderIntent(prompt);
         if (parsed) {
           await db.execute({
-            sql: "INSERT INTO user_reminders (user_id, channel_id, remind_at, reminder_text, status) VALUES (?, ?, ?, ?, 'pending')",
-            args: [userId, channelId, parsed.remindAtSql, parsed.text]
+            sql: "INSERT INTO user_reminders (user_id, channel_id, remind_at_ms, reminder_text, status) VALUES (?, ?, ?, ?, 'pending')",
+            args: [userId, channelId, parsed.remindAtMs, parsed.text]
           });
           await message.reply({
             content: `⏰ **Noted, ${displayName}!** Aku dah setkan alarm/reminder pada \`${parsed.timeFormatted}\` untuk:\n> **${parsed.text}**\n\nNanti aku ping kau kat sini bila sampai masa!`
@@ -325,10 +328,10 @@ ACTUAL GAMES STORED IN SENTINEL AI DATABASE:
 ${savedGamesList || '• Mobile Legends: Bang Bang (MLBB)\n• Valorant\n• PUBG Mobile\n• Dota 2\n• Call of Duty: Modern Warfare\n• CS:GO\n• Fortnite\n• League of Legends\n• Overwatch\n• Rainbow Six Siege'}
 
 CRITICAL RULES:
+- ALWAYS address the user as "${displayName}".
+- NEVER use 'bro' or 'kamu' if the user forbade it. Use 'kau' / 'aku'.
 - ALWAYS reference the exact games in the database list above when asked about games played by the squad!
 - NEVER hallucinate fake esports teams (like Evos, Blacklist, TNC, ONIC) or fake match results unless they are in the database!
-- ALWAYS address the user as "${displayName}".
-- Respect user preferences (e.g., if preferred pronoun is 'kau', use 'kau'/'aku'. Never use 'bro' if forbidden).
 - Talk like a loyal, friendly, and witty squad member & personal assistant ("geng", "member", "kau", "aku").
 - Keep responses concise (under 2000 chars), formatted neatly with markdown.`;
 
@@ -378,9 +381,12 @@ CRITICAL RULES:
 function startPAScheduler(client: Client, db: any) {
   setInterval(async () => {
     try {
-      // 1. Check Due User Reminders & Alarms
+      const nowMs = Date.now();
+
+      // 1. Check Due User Reminders & Alarms (Timezone-agnostic Unix Epoch ms)
       const dueReminders = await db.execute({
-        sql: "SELECT id, user_id, channel_id, reminder_text FROM user_reminders WHERE status = 'pending' AND datetime(remind_at) <= datetime('now', 'localtime')"
+        sql: "SELECT id, user_id, channel_id, reminder_text FROM user_reminders WHERE status = 'pending' AND remind_at_ms <= ?",
+        args: [nowMs]
       });
 
       for (const r of dueReminders.rows) {
@@ -401,14 +407,11 @@ function startPAScheduler(client: Client, db: any) {
 
       // 2. Check Upcoming Guild Events (15m warning & start ping)
       const upcomingEvents = await db.execute({
-        sql: "SELECT id, channel_id, title, start_time, notified_15m, notified_start, created_by FROM squad_events WHERE notified_start = 0"
+        sql: "SELECT id, channel_id, title, start_time_ms, notified_15m, notified_start, created_by FROM squad_events WHERE notified_start = 0"
       });
 
-      const now = new Date().getTime();
-
       for (const ev of upcomingEvents.rows) {
-        const eventTime = new Date(ev.start_time).getTime();
-        const diffMins = (eventTime - now) / (1000 * 60);
+        const diffMins = (ev.start_time_ms - nowMs) / (1000 * 60);
 
         // 15-minute warning ping
         if (diffMins <= 15 && diffMins > 0 && ev.notified_15m === 0) {
@@ -494,18 +497,18 @@ function parseReminderIntent(prompt: string) {
   const minMatch = lower.match(/(?:in|lagi|dalam)\s*(\d+)\s*(?:minit|minutes|min)/i) || lower.match(/(\d+)\s*(?:minit|minutes|min)\s*(?:lagi|later)/i);
   if (minMatch) {
     const mins = parseInt(minMatch[1], 10);
-    const targetDate = new Date(Date.now() + mins * 60 * 1000);
+    const remindAtMs = Date.now() + mins * 60 * 1000;
+    const targetDate = new Date(remindAtMs);
     const text = prompt
       .replace(/\/setreminder/gi, '')
-      .replace(/ingatkan|remind me|set reminder|peringatan|set alarm|alarm/gi, '')
+      .replace(/ingatkan|remind me to|remind me|set reminder|peringatan|set alarm|alarm/gi, '')
       .replace(/(?:in|lagi|dalam)\s*\d+\s*(?:minit|minutes|min)/gi, '')
       .replace(/\d+\s*(?:minit|minutes|min)\s*(?:lagi|later)/gi, '')
       .replace(/<@!?\d+>/g, '')
       .replace(/^[\s,:-]+|[\s,:-]+$/g, '')
       .trim() || 'Peringatan / Alarm anda';
 
-    const remindAtSql = targetDate.toISOString().replace('T', ' ').substring(0, 19);
-    return { remindAtSql, text, timeFormatted: `dalam ${mins} minit lagi (${targetDate.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })})` };
+    return { remindAtMs, text, timeFormatted: `dalam ${mins} minit lagi (${targetDate.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })})` };
   }
 
   const timeMatch = lower.match(/(\d{1,2})[\.:](\d{2})\s*(am|pm)?/i) || lower.match(/(\d{1,2})\s*(am|pm)/i);
@@ -526,7 +529,7 @@ function parseReminderIntent(prompt: string) {
     let text = prompt
       .replace(/\/setreminder/gi, '')
       .replace(/ingatkan (?:aku|saya)?/gi, '')
-      .replace(/remind me/gi, '')
+      .replace(/remind me to|remind me/gi, '')
       .replace(/set alarm|alarm/gi, '')
       .replace(/\d{1,2}[\.:]\d{2}\s*(?:am|pm)?/gi, '')
       .replace(/\d{1,2}\s*(?:am|pm)/gi, '')
@@ -537,15 +540,12 @@ function parseReminderIntent(prompt: string) {
 
     if (!text) text = 'Peringatan / Alarm anda';
 
-    const remindAtSql = targetDate.toISOString().replace('T', ' ').substring(0, 19);
-    const timeFormatted = targetDate.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' });
-    return { remindAtSql, text, timeFormatted };
+    return { remindAtMs: targetDate.getTime(), text, timeFormatted: targetDate.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' }) };
   }
 
-  const targetDate = new Date(Date.now() + 15 * 60 * 1000);
+  const remindAtMs = Date.now() + 15 * 60 * 1000;
   const text = prompt.replace(/\/setreminder/gi, '').replace(/ingatkan|remind me|set reminder|alarm/gi, '').replace(/<@!?\d+>/g, '').trim() || 'Peringatan / Alarm anda';
-  const remindAtSql = targetDate.toISOString().replace('T', ' ').substring(0, 19);
-  return { remindAtSql, text, timeFormatted: 'dalam 15 minit lagi' };
+  return { remindAtMs, text, timeFormatted: 'dalam 15 minit lagi' };
 }
 
 startBot().catch(console.error);
