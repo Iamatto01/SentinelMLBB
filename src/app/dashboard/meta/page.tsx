@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -20,9 +20,9 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
+const API_URL = "/api/worker";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface HeroRankRecord {
   hero_id: number;
   hero_name: string;
@@ -38,12 +38,12 @@ type SortField = "win_rate" | "pick_rate" | "ban_rate";
 type ViewMode = "tier" | "table";
 
 const RANK_TIERS: { value: RankTier; label: string; emoji: string }[] = [
-  { value: "all", label: "All Ranks", emoji: "🌐" },
-  { value: "epic", label: "Epic", emoji: "💜" },
-  { value: "legend", label: "Legend", emoji: "💛" },
-  { value: "mythic", label: "Mythic", emoji: "❤️" },
-  { value: "honor", label: "Mythical Honor", emoji: "🔥" },
-  { value: "glory", label: "Mythical Glory", emoji: "👑" },
+  { value: "all", label: "All Ranks", emoji: "ðŸŒ" },
+  { value: "epic", label: "Epic", emoji: "ðŸ’œ" },
+  { value: "legend", label: "Legend", emoji: "ðŸ’›" },
+  { value: "mythic", label: "Mythic", emoji: "â¤ï¸" },
+  { value: "honor", label: "Mythical Honor", emoji: "ðŸ”¥" },
+  { value: "glory", label: "Mythical Glory", emoji: "ðŸ‘‘" },
 ];
 
 const TIME_WINDOWS: { value: TimeWindow; label: string }[] = [
@@ -63,7 +63,7 @@ function getTier(winRate: number): { tier: string; color: string; bg: string; bo
   return { tier: "D", color: "text-neutral-500", bg: "bg-neutral-500/10", border: "border-neutral-500/30", glow: "shadow-neutral-500/20" };
 }
 
-// ─── Hero Card ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Hero Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function MetaHeroCard({ hero, rank }: { hero: HeroRankRecord; rank: number }) {
   const [imgErr, setImgErr] = useState(false);
   const tierInfo = getTier(hero.win_rate);
@@ -135,7 +135,7 @@ function MetaHeroCard({ hero, rank }: { hero: HeroRankRecord; rank: number }) {
   );
 }
 
-// ─── Main Meta Page ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Meta Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function MetaPage() {
   const [heroes, setHeroes] = useState<HeroRankRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -230,10 +230,10 @@ export default function MetaPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 flex items-center gap-2">
-            📊 Global Meta Tier List
+            ðŸ“Š Global Meta Tier List
           </h1>
           <p className="text-neutral-500 text-sm mt-0.5">
-            Live hero statistics from MLBB official data • Updated hourly
+            Live hero statistics from MLBB official data â€¢ Updated hourly
           </p>
         </div>
 
@@ -482,7 +482,7 @@ export default function MetaPage() {
       {!loading && !error && (
         <AnimatePresence mode="wait">
           {viewMode === "tier" ? (
-            /* ─── TIER LIST VIEW ─────────────────────────────────────────── */
+            /* â”€â”€â”€ TIER LIST VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
             <motion.div
               key="tier-view"
               initial={{ opacity: 0, y: 10 }}
@@ -521,7 +521,7 @@ export default function MetaPage() {
               )}
             </motion.div>
           ) : (
-            /* ─── TABLE VIEW ─────────────────────────────────────────────── */
+            /* â”€â”€â”€ TABLE VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
             <motion.div
               key="table-view"
               initial={{ opacity: 0, y: 10 }}
@@ -537,13 +537,13 @@ export default function MetaPage() {
                       <th className="text-center px-2 py-3.5 font-bold w-10">Tier</th>
                       <th className="text-left px-4 py-3.5 font-bold">Hero</th>
                       <th className="text-center px-4 py-3.5 font-bold cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-300" onClick={() => setSortField("win_rate")}>
-                        Win Rate {sortField === "win_rate" && "▼"}
+                        Win Rate {sortField === "win_rate" && "â–¼"}
                       </th>
                       <th className="text-center px-4 py-3.5 font-bold cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-300" onClick={() => setSortField("pick_rate")}>
-                        Pick Rate {sortField === "pick_rate" && "▼"}
+                        Pick Rate {sortField === "pick_rate" && "â–¼"}
                       </th>
                       <th className="text-center px-4 py-3.5 font-bold cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-300" onClick={() => setSortField("ban_rate")}>
-                        Ban Rate {sortField === "ban_rate" && "▼"}
+                        Ban Rate {sortField === "ban_rate" && "â–¼"}
                       </th>
                     </tr>
                   </thead>
@@ -627,7 +627,7 @@ export default function MetaPage() {
       {/* Footer info */}
       <div className="text-center pb-4">
         <p className="text-[10px] text-neutral-400 dark:text-neutral-600">
-          Data sourced from MLBB Public Data API (mlbb.rone.dev) • Cached for 1 hour • Not affiliated with Moonton
+          Data sourced from MLBB Public Data API (mlbb.rone.dev) â€¢ Cached for 1 hour â€¢ Not affiliated with Moonton
         </p>
       </div>
     </div>

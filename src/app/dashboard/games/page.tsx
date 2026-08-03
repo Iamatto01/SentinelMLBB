@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
@@ -9,7 +9,7 @@ import { Swords, Trophy, Target, Search, Loader2, Check, X, ChevronUp, ChevronDo
 import { getHeroByName, ALL_HEROES } from "@/data/heroes-data";
 import ScreenshotHeroDetector, { type DetectedHero } from "./ScreenshotHeroDetector";
 
-const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
+const API_URL = "/api/worker";
 
 type GameSaveCallback = () => Promise<void> | void;
 type GamePlayer = { player_name?: string; hero_name?: string; team?: "ally" | "enemy" };
@@ -24,7 +24,7 @@ type GameEntry = {
   players?: GamePlayer[];
 };
 
-// ─── Manual Create/Update Modal ───────────────────────────────────────────
+// â”€â”€â”€ Manual Create/Update Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ManualGameModal({
   isOpen,
   onClose,
@@ -281,7 +281,7 @@ function ManualGameModal({
                 />
               </div>
 
-              {/* Players — 10 slots, split into Ally and Enemy */}
+              {/* Players â€” 10 slots, split into Ally and Enemy */}
               <datalist id="heroes-list">
                 {ALL_HEROES.map((h) => (
                   <option key={h.id} value={h.name} />
@@ -540,7 +540,7 @@ export default function GamesPage() {
             Game Log
           </h1>
           <p className="text-neutral-500 dark:text-neutral-400 mt-1">
-            {loading ? "Loading..." : `${totalGames} games recorded · ${winRate}% win rate`}
+            {loading ? "Loading..." : `${totalGames} games recorded Â· ${winRate}% win rate`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -670,7 +670,7 @@ export default function GamesPage() {
                       <td className="px-4 py-3 text-neutral-400">{game.game_num || i + 1}</td>
                       <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 text-xs">{game.date || "-"}</td>
 
-                      {/* Heroes & Players column — now with ally vs enemy layout */}
+                      {/* Heroes & Players column â€” now with ally vs enemy layout */}
                       <td className="px-4 py-2">
                         {allies.length === 0 && enemies.length === 0 ? (
                           <span className="text-neutral-400">-</span>

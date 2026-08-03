@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useMemo } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
-const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
+const API_URL = "/api/worker";
 
 type GameData = {
   id: number;
@@ -170,7 +170,7 @@ export default function CompsPage() {
                 <tr>
                   <td colSpan={teamSize + 4} className="px-4 py-16 text-center text-neutral-400">
                     <div className="flex flex-col items-center gap-2">
-                      <span className="text-4xl">🎮</span>
+                      <span className="text-4xl">ðŸŽ®</span>
                       <span>No {teamSize}-man compositions found.</span>
                       <span className="text-xs">Need at least 2 games with the same {teamSize}-hero combo.</span>
                     </div>

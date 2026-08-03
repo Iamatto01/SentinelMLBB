@@ -1,4 +1,4 @@
-export const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev/api";
+export const API_URL = "/api/worker";
 
 export async function loginUser(passcode: string) {
   const response = await fetch(`${API_URL}/auth/login`, {

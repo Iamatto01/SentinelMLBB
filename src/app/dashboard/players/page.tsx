@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Save, Check, Users } from "lucide-react";
 
-const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
+const API_URL = "/api/worker";
 
 export default function PlayersPage() {
   const [mounted, setMounted] = useState(false);

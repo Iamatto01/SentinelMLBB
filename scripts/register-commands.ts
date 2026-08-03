@@ -56,10 +56,10 @@ const commands = [
             type: 3, // STRING
             required: false,
             choices: [
-              { name: 'Llama 3.1 8B (Instant) - High Limits', value: 'llama-3.1-8b-instant' },
-              { name: 'Llama 3.3 70B (Versatile) - High Intelligence', value: 'llama-3.3-70b-versatile' },
-              { name: 'Gemma 2 9B (Google) - Balanced', value: 'gemma2-9b-it' },
-              { name: 'Llama 3.2 3B (Preview) - Lightweight', value: 'llama-3.2-3b-preview' },
+              { name: 'Auto (DeepSeek Flash)', value: 'auto' },
+              { name: 'DeepSeek V3', value: 'deepseek-v3' },
+              { name: 'DeepSeek R1', value: 'deepseek-r1' },
+              { name: 'Qwen 2.5 72B', value: 'qwen-2.5-72b' },
             ],
           },
         ],
@@ -123,13 +123,19 @@ const rest = new REST({ version: '10' }).setToken(token);
   try {
     console.log('Started refreshing application (/) commands.');
 
-    const route = guildId
-      ? Routes.applicationGuildCommands(clientId, guildId)
+    // guildId kosong/undefined = global commands (boleh guna di mana-mana server)
+    const validGuildId = guildId && guildId.trim().length > 0 ? guildId.trim() : null;
+
+    const route = validGuildId
+      ? Routes.applicationGuildCommands(clientId, validGuildId)
       : Routes.applicationCommands(clientId);
 
     await rest.put(route, { body: commands });
 
-    console.log('Successfully reloaded application (/) commands.');
+    console.log(validGuildId
+      ? `Successfully registered GUILD commands for server ${validGuildId}.`
+      : 'Successfully registered GLOBAL commands (boleh guna di mana-mana server, ambil ~1 jam untuk muncul).'
+    );
   } catch (error) {
     console.error(error);
   }

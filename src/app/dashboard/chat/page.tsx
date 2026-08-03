@@ -74,7 +74,7 @@ export default function ChatPage() {
             <h1 className="font-bold text-lg text-neutral-900 dark:text-white flex items-center gap-2">
               Sentinel AI <Sparkles className="w-4 h-4 text-purple-500" />
             </h1>
-            <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Powered by Groq</p>
+            <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Powered by DeepSeek Flash</p>
           </div>
         </div>
       </div>

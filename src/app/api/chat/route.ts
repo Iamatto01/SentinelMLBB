@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import groq from '@/lib/groq';
+import llm from '@/lib/groq';
 import { ALL_HEROES } from '@/data/heroes-data';
 
-// Helper to format hero data context for the AI
 function getHeroContext() {
   return ALL_HEROES.map(h => 
     `${h.name}: Role=${h.role.join('/')}, Difficulty=${h.difficulty}/3, Tags=${h.tags.join(',')}, Timing=${h.timing.join(',')}, Strategy=${h.strategy.join(',')}, Specialty=${h.specialty}`
@@ -12,11 +11,16 @@ function getHeroContext() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { messages } = body;
+    const { messages, sessionId } = body;
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json({ error: 'Messages array is required' }, { status: 400 });
     }
+
+    const sid = sessionId || 'anonymous';
+
+    // Load conversation memory from Turso
+    const memory = await llm.getConversationMemory(sid, 10);
 
     const systemPrompt = `You are "Sentinel AI", an elite Mobile Legends: Bang Bang (MLBB) coaching assistant.
 Your job is to provide concise, highly strategic, and accurate drafting and gameplay advice.
@@ -32,21 +36,36 @@ When answering questions:
 5. If someone asks for a counter-pick, suggest heroes with strategies/tags that naturally counter the enemy's specialty (e.g., CC counters high mobility).
 `;
 
-    const chatCompletion = await groq.chat.completions.create({
+    const activeModel = await llm.getActiveModel();
+
+    // Save user messages to memory
+    for (const msg of messages) {
+      if (msg.role === 'user') {
+        llm.saveConversationMemory(sid, 'user', msg.content);
+      }
+    }
+
+    const chatCompletion = await llm.chat.completions.create({
       messages: [
         { role: 'system', content: systemPrompt },
-        ...messages
+        ...memory,
+        ...messages,
       ],
-      model: 'llama-3.3-70b-versatile',
+      model: activeModel,
       temperature: 0.7,
       max_tokens: 1024,
     });
 
-    const responseContent = chatCompletion.choices[0]?.message?.content || 'I could not generate a response.';
+    const responseContent = chatCompletion.choices?.[0]?.message?.content
+      || chatCompletion.choices?.[0]?.message?.reasoning_content
+      || 'I could not generate a response.';
 
-    return NextResponse.json({ role: 'assistant', content: responseContent });
+    // Save assistant response to memory
+    llm.saveConversationMemory(sid, 'assistant', responseContent);
+
+    return NextResponse.json({ role: 'assistant', content: responseContent, sessionId: sid });
   } catch (error: any) {
-    console.error('Groq API Error:', error);
+    console.error('LLM API Error:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }

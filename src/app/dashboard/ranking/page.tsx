@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -18,9 +18,9 @@ import {
 } from "lucide-react";
 import { getHeroByName } from "@/data/heroes-data";
 
-const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
+const API_URL = "/api/worker";
 
-// ─── Leaderboard Types ──────────────────────────────────────────────────────
+// â”€â”€â”€ Leaderboard Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface PlayerRankData {
   name: string;
   games: number;
@@ -88,7 +88,7 @@ export default function RankingsPage() {
     })();
   }, []);
 
-  // ─── Process Player Stats ──────────────────────────────────────────────────
+  // â”€â”€â”€ Process Player Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const playersData = useMemo(() => {
     const map: Record<
       string,
@@ -141,7 +141,7 @@ export default function RankingsPage() {
     });
   }, [games]);
 
-  // ─── Process Hero Stats ────────────────────────────────────────────────────
+  // â”€â”€â”€ Process Hero Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const heroesData = useMemo(() => {
     const map: Record<
       string,
@@ -194,7 +194,7 @@ export default function RankingsPage() {
     });
   }, [games]);
 
-  // ─── Find Hall of Fame / Accolades 👑 ──────────────────────────────────────
+  // â”€â”€â”€ Find Hall of Fame / Accolades ðŸ‘‘ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const awards = useMemo(() => {
     if (playersData.length === 0) return null;
 
@@ -226,7 +226,7 @@ export default function RankingsPage() {
     };
   }, [playersData, heroesData]);
 
-  // ─── Filtered Lists ────────────────────────────────────────────────────────
+  // â”€â”€â”€ Filtered Lists â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const filteredPlayers = useMemo(() => {
     let result = playersData.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
     
@@ -359,7 +359,7 @@ export default function RankingsPage() {
             <div>
               <div className="flex justify-between items-start">
                 <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-                  👑 Apex Carry
+                  ðŸ‘‘ Apex Carry
                 </span>
                 <span className="text-[10px] text-neutral-400 dark:text-neutral-500 italic">min 3 games</span>
               </div>
@@ -389,7 +389,7 @@ export default function RankingsPage() {
             </div>
             <div>
               <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                {activeTab === "players" ? "🔥 Ultimate Grinder" : "🔥 Most Contested"}
+                {activeTab === "players" ? "ðŸ”¥ Ultimate Grinder" : "ðŸ”¥ Most Contested"}
               </span>
               <h3 className="text-2xl font-black text-neutral-800 dark:text-white mt-3 truncate">
                 {activeTab === "players" ? awards.topGrinderPlayer?.name : awards.topPickedHero?.name}
@@ -414,7 +414,7 @@ export default function RankingsPage() {
               </div>
               <div>
                 <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  🔮 Master of All
+                  ðŸ”® Master of All
                 </span>
                 <h3 className="text-2xl font-black text-neutral-800 dark:text-white mt-3 truncate">
                   {awards.topVersatilePlayer?.name}
@@ -536,7 +536,7 @@ export default function RankingsPage() {
                               <span>{player.name}</span>
                                 <div className="flex gap-0.5">
                                  {isWRChampion && (
-                                   <span title="Win Rate Champion 👑">
+                                   <span title="Win Rate Champion ðŸ‘‘">
                                      <Crown className="w-4 h-4 text-amber-500 fill-amber-500" />
                                    </span>
                                  )}
@@ -698,7 +698,7 @@ export default function RankingsPage() {
                               <span>{hero.name}</span>
                                 <div className="flex gap-0.5">
                                  {isWRHeroChampion && (
-                                   <span title="Win Rate Champion Hero 👑">
+                                   <span title="Win Rate Champion Hero ðŸ‘‘">
                                      <Crown className="w-4 h-4 text-amber-500 fill-amber-500" />
                                    </span>
                                  )}

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -27,7 +27,7 @@ import {
   HeroRole,
 } from "@/data/heroes-data";
 
-// ─── Extended Hero Data Type ───────────────────────────────────────────────
+// â”€â”€â”€ Extended Hero Data Type â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export interface ExtendedHeroData extends Omit<HeroData, "tags" | "strategy"> {
   tags: string[];
   strategy: string[];
@@ -35,7 +35,7 @@ export interface ExtendedHeroData extends Omit<HeroData, "tags" | "strategy"> {
   counteredBy: string[];   // IDs of heroes that counter this hero
 }
 
-// ─── Custom Tag Type ────────────────────────────────────────────────────────
+// â”€â”€â”€ Custom Tag Type â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface CustomTag {
   id: string;
   category: "playstyle" | "strategy";
@@ -44,7 +44,7 @@ interface CustomTag {
   colorScheme: string; // "rose", "emerald", "cyan", "indigo", "red", "yellow", "purple"
 }
 
-// ─── Color Schemes for Custom Tags ──────────────────────────────────────────
+// â”€â”€â”€ Color Schemes for Custom Tags â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const COLOR_SCHEMES = [
   { id: "rose", name: "Sunset Rose", color: "text-rose-650 dark:text-rose-400", bg: "bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20", ring: "ring-rose-500" },
   { id: "emerald", name: "Emerald Aura", color: "text-emerald-650 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20", ring: "ring-emerald-500" },
@@ -55,32 +55,32 @@ const COLOR_SCHEMES = [
   { id: "purple", name: "Purple Dream", color: "text-purple-650 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20", ring: "ring-purple-500" },
 ];
 
-// ─── Default Static Configuration ──────────────────────────────────────────
+// â”€â”€â”€ Default Static Configuration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const PLAYSTYLE_CONFIG: Record<string, { label: string; emoji: string; color: string; bg: string }> = {
-  "barbar":              { label: "Barbar",        emoji: "⚔️", color: "text-red-650 dark:text-red-400",    bg: "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20" },
-  "semi-barbar":         { label: "Semi Barbar",   emoji: "🗡️", color: "text-amber-650 dark:text-amber-400",  bg: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20" },
-  "situational-barbar":  { label: "Situational",   emoji: "🎯", color: "text-cyan-650 dark:text-cyan-400",   bg: "bg-cyan-50 dark:bg-cyan-500/10 border-cyan-200 dark:border-cyan-500/20" },
-  "playsafe":            { label: "Playsafe",      emoji: "🛡️", color: "text-emerald-650 dark:text-emerald-400",bg: "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20" },
+  "barbar":              { label: "Barbar",        emoji: "âš”ï¸", color: "text-red-650 dark:text-red-400",    bg: "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20" },
+  "semi-barbar":         { label: "Semi Barbar",   emoji: "ðŸ—¡ï¸", color: "text-amber-650 dark:text-amber-400",  bg: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20" },
+  "situational-barbar":  { label: "Situational",   emoji: "ðŸŽ¯", color: "text-cyan-650 dark:text-cyan-400",   bg: "bg-cyan-50 dark:bg-cyan-500/10 border-cyan-200 dark:border-cyan-500/20" },
+  "playsafe":            { label: "Playsafe",      emoji: "ðŸ›¡ï¸", color: "text-emerald-650 dark:text-emerald-400",bg: "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20" },
 };
 
 const STRATEGY_CONFIG: Record<string, { label: string; emoji: string; color: string; bg: string }> = {
-  "high-ground":          { label: "High Ground",        emoji: "🏔️", color: "text-yellow-650 dark:text-yellow-400",  bg: "bg-yellow-50 dark:bg-yellow-500/10 border-yellow-200 dark:border-yellow-500/20" },
-  "tebal":                { label: "Tebal",              emoji: "🪨", color: "text-slate-650 dark:text-slate-400",   bg: "bg-slate-50 dark:bg-slate-500/10 border-slate-200 dark:border-slate-500/20" },
-  "healer":               { label: "Healer",             emoji: "💚", color: "text-lime-650 dark:text-lime-400",    bg: "bg-lime-50 dark:bg-lime-500/10 border-lime-200 dark:border-lime-500/20" },
-  "split-push":           { label: "Split Push",         emoji: "🏃", color: "text-orange-650 dark:text-orange-400",  bg: "bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/20" },
-  "counter-split-push":   { label: "Counter Split",      emoji: "🚫", color: "text-rose-650 dark:text-rose-400",    bg: "bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20" },
+  "high-ground":          { label: "High Ground",        emoji: "ðŸ”ï¸", color: "text-yellow-650 dark:text-yellow-400",  bg: "bg-yellow-50 dark:bg-yellow-500/10 border-yellow-200 dark:border-yellow-500/20" },
+  "tebal":                { label: "Tebal",              emoji: "ðŸª¨", color: "text-slate-650 dark:text-slate-400",   bg: "bg-slate-50 dark:bg-slate-500/10 border-slate-200 dark:border-slate-500/20" },
+  "healer":               { label: "Healer",             emoji: "ðŸ’š", color: "text-lime-650 dark:text-lime-400",    bg: "bg-lime-50 dark:bg-lime-500/10 border-lime-200 dark:border-lime-500/20" },
+  "split-push":           { label: "Split Push",         emoji: "ðŸƒ", color: "text-orange-650 dark:text-orange-400",  bg: "bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/20" },
+  "counter-split-push":   { label: "Counter Split",      emoji: "ðŸš«", color: "text-rose-650 dark:text-rose-400",    bg: "bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20" },
 };
 
 const CC_CONFIG: Record<CCTag, { label: string; emoji: string; color: string; bg: string }> = {
-  "full-cc":  { label: "Full CC",  emoji: "⛓️", color: "text-violet-650 dark:text-violet-400",  bg: "bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/20" },
-  "semi-cc":  { label: "Semi CC",  emoji: "🔗", color: "text-fuchsia-650 dark:text-fuchsia-400", bg: "bg-fuchsia-50 dark:bg-fuchsia-500/10 border-fuchsia-200 dark:border-fuchsia-500/20" },
-  "no-cc":    { label: "No CC",    emoji: "➖", color: "text-neutral-650 dark:text-neutral-400",  bg: "bg-neutral-50 dark:bg-neutral-500/10 border-neutral-200 dark:border-neutral-500/20" },
+  "full-cc":  { label: "Full CC",  emoji: "â›“ï¸", color: "text-violet-650 dark:text-violet-400",  bg: "bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/20" },
+  "semi-cc":  { label: "Semi CC",  emoji: "ðŸ”—", color: "text-fuchsia-650 dark:text-fuchsia-400", bg: "bg-fuchsia-50 dark:bg-fuchsia-500/10 border-fuchsia-200 dark:border-fuchsia-500/20" },
+  "no-cc":    { label: "No CC",    emoji: "âž–", color: "text-neutral-650 dark:text-neutral-400",  bg: "bg-neutral-50 dark:bg-neutral-500/10 border-neutral-200 dark:border-neutral-500/20" },
 };
 
 const TIMING_CONFIG: Record<TimingTag, { label: string; emoji: string; color: string; bg: string }> = {
-  "early": { label: "Early (0-7m)", emoji: "⏱️", color: "text-orange-650 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/20" },
-  "mid":   { label: "Mid (7-12m)",  emoji: "⏱️", color: "text-purple-650 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20" },
-  "late":  { label: "Late (12m+)",  emoji: "⏱️", color: "text-blue-650 dark:text-blue-400",   bg: "bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20" },
+  "early": { label: "Early (0-7m)", emoji: "â±ï¸", color: "text-orange-650 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/20" },
+  "mid":   { label: "Mid (7-12m)",  emoji: "â±ï¸", color: "text-purple-650 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20" },
+  "late":  { label: "Late (12m+)",  emoji: "â±ï¸", color: "text-blue-650 dark:text-blue-400",   bg: "bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20" },
 };
 
 const ROLE_COLORS: Record<HeroRole, string> = {
@@ -92,7 +92,7 @@ const ROLE_COLORS: Record<HeroRole, string> = {
   Support:   "bg-teal-50 dark:bg-teal-500/10 text-teal-650 dark:text-teal-400 border-teal-200 dark:border-teal-500/20",
 };
 
-// ─── Small Pill Component ──────────────────────────────────────────────────
+// â”€â”€â”€ Small Pill Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function Pill({ emoji, label, color, bg }: { emoji: string; label: string; color: string; bg: string }) {
   return (
     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${bg} ${color} transition-all hover:scale-105`}>
@@ -101,7 +101,7 @@ function Pill({ emoji, label, color, bg }: { emoji: string; label: string; color
   );
 }
 
-// ─── Filter Button Component ───────────────────────────────────────────────
+// â”€â”€â”€ Filter Button Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function FilterBtn<T extends string>({
   value, active, label, emoji, color, bg, onClick,
 }: {
@@ -119,7 +119,7 @@ function FilterBtn<T extends string>({
   );
 }
 
-// ─── Hero Card Component ───────────────────────────────────────────────────
+// â”€â”€â”€ Hero Card Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function HeroCard({
   hero,
   onClick,
@@ -178,7 +178,7 @@ function HeroCard({
         {/* Playstyle tags */}
         <div className="flex flex-wrap gap-1">
           {hero.tags.map(t => {
-            const config = playstyleConfigs[t] || { label: t, emoji: "🏷️", color: "text-neutral-600 dark:text-neutral-400", bg: "bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700" };
+            const config = playstyleConfigs[t] || { label: t, emoji: "ðŸ·ï¸", color: "text-neutral-600 dark:text-neutral-400", bg: "bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700" };
             return <Pill key={t} {...config} />;
           })}
         </div>
@@ -194,7 +194,7 @@ function HeroCard({
   );
 }
 
-// ─── Detail Modal Component ───────────────────────────────────────────────
+// â”€â”€â”€ Detail Modal Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function HeroModal({
   hero,
   onClose,
@@ -273,7 +273,7 @@ function HeroModal({
               <p className="text-xs text-neutral-400 dark:text-neutral-500 font-semibold uppercase tracking-wider">Playstyle</p>
               <div className="flex flex-wrap gap-1">
                 {hero.tags.map(t => {
-                  const config = playstyleConfigs[t] || { label: t, emoji: "🏷️", color: "text-neutral-600 dark:text-neutral-400", bg: "bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700" };
+                  const config = playstyleConfigs[t] || { label: t, emoji: "ðŸ·ï¸", color: "text-neutral-600 dark:text-neutral-400", bg: "bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700" };
                   return <Pill key={t} {...config} />;
                 })}
               </div>
@@ -285,7 +285,7 @@ function HeroModal({
                 <p className="text-xs text-neutral-400 dark:text-neutral-500 font-semibold uppercase tracking-wider">Strategy</p>
                 <div className="flex flex-wrap gap-1">
                   {hero.strategy.map(t => {
-                    const config = strategyConfigs[t] || { label: t, emoji: "🎯", color: "text-neutral-600 dark:text-neutral-400", bg: "bg-neutral-50 dark:bg-neutral-850/50 border-neutral-200 dark:border-neutral-700" };
+                    const config = strategyConfigs[t] || { label: t, emoji: "ðŸŽ¯", color: "text-neutral-600 dark:text-neutral-400", bg: "bg-neutral-50 dark:bg-neutral-850/50 border-neutral-200 dark:border-neutral-700" };
                     return <Pill key={t} {...config} />;
                   })}
                 </div>
@@ -382,7 +382,7 @@ function HeroModal({
   );
 }
 
-// ─── Tag & Counters Editor Modal ───────────────────────────────────────────
+// â”€â”€â”€ Tag & Counters Editor Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function EditorModal({
   isOpen,
   onClose,
@@ -406,7 +406,7 @@ function EditorModal({
 }) {
   const [selectedHeroId, setSelectedHeroId] = useState(heroes[0]?.id || "");
   const [newTagLabel, setNewTagLabel] = useState("");
-  const [newTagEmoji, setNewTagEmoji] = useState("🏷️");
+  const [newTagEmoji, setNewTagEmoji] = useState("ðŸ·ï¸");
   const [newTagCategory, setNewTagCategory] = useState<"playstyle" | "strategy">("playstyle");
   const [newTagColorScheme, setNewTagColorScheme] = useState("rose");
 
@@ -527,7 +527,7 @@ function EditorModal({
                     <label className="text-[10px] text-neutral-400 font-semibold uppercase">Emoji</label>
                     <input
                       type="text"
-                      placeholder="e.g. 👑"
+                      placeholder="e.g. ðŸ‘‘"
                       value={newTagEmoji}
                       onChange={e => setNewTagEmoji(e.target.value)}
                       className="w-full mt-1 px-3 py-2 text-xs rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 text-center focus:outline-none focus:border-indigo-500"
@@ -750,7 +750,7 @@ function EditorModal({
                                 ${isStrongAgainst ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-500/10 dark:text-emerald-450 dark:border-emerald-500/30" : "bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:border-emerald-300"}`}
                               title={`Click to mark ${selectedHero.name} as STRONG counter to ${candidate.name}`}
                             >
-                              ⚔️ Strong
+                              âš”ï¸ Strong
                             </button>
 
                             <button
@@ -759,7 +759,7 @@ function EditorModal({
                                 ${isWeakAgainst ? "bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-500/10 dark:text-rose-450 dark:border-rose-500/30" : "bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:border-rose-300"}`}
                               title={`Click to mark ${selectedHero.name} as WEAK / countered by ${candidate.name}`}
                             >
-                              🛡️ Weak
+                              ðŸ›¡ï¸ Weak
                             </button>
                           </div>
 
@@ -781,7 +781,7 @@ function EditorModal({
   );
 }
 
-// ─── Main Page Component ───────────────────────────────────────────────────
+// â”€â”€â”€ Main Page Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function HeroesPage() {
   const [search, setSearch] = useState("");
   const [selectedPlaystyle, setSelectedPlaystyle] = useState<string | null>(null);
@@ -828,7 +828,7 @@ export default function HeroesPage() {
 
       // 2. Enrich with live MLBB API data
       try {
-        const API_URL = "https://sentinel-mlbb-api.muhammadsaifudinmj.workers.dev";
+        const API_URL = "/api/worker";
         const res = await fetch(`${API_URL}/api/mlbb/heroes`);
         if (res.ok) {
           const apiData = await res.json();
@@ -1187,7 +1187,7 @@ export default function HeroesPage() {
       {/* Hero Grid */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-neutral-400 dark:text-neutral-500">
-          <p className="text-4xl mb-3 animate-bounce">🔍</p>
+          <p className="text-4xl mb-3 animate-bounce">ðŸ”</p>
           <p className="font-bold">No heroes found</p>
           <p className="text-sm text-neutral-505">Try adjusting your filters or search keywords</p>
         </div>
