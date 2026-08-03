@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyKey } from 'discord-interactions';
 import { ALL_HEROES } from '@/data/heroes-data';
-import groq from '@/lib/groq';
+import llm from '@/lib/groq';
 
 export async function POST(req: Request) {
   try {
@@ -122,136 +122,133 @@ export async function POST(req: Request) {
           case 'ask': {
             const query = subCommand.options?.[0]?.value || "";
             const userId = data.member?.user?.id || data.user?.id || "unknown_user";
-            
-            try {
-              const { db } = await import('@/lib/db');
-              const activeModel = await (groq as any).getActiveModel();
-              
-              // Initialize chat history table if not exists
-              await db.execute(`
-                CREATE TABLE IF NOT EXISTS discord_chat_history (
-                  id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  user_id TEXT,
-                  role TEXT,
-                  content TEXT,
-                  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-              `);
-              
-              // Fetch history for this user
-              const historyRes = await db.execute({
-                sql: "SELECT role, content FROM discord_chat_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 6",
-                args: [userId]
-              });
-              
-              const pastMessages = historyRes.rows.reverse().map(r => ({
-                role: r.role as 'user' | 'assistant',
-                content: r.content as string
-              }));
-              
-              const systemPrompt = `You are "Sentinel AI", an elite Mobile Legends: Bang Bang (MLBB) coaching and personal assistant.
-Your job is to provide concise, highly strategic, and accurate drafting and gameplay advice, and remember the conversation context.
+            const interactionToken = data.token;
+            const appId = data.application_id || process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || '1518723674553716756';
+
+            // Process AI and DB in background task to never block Discord's 3-second limit
+            (async () => {
+              try {
+                const { db } = await import('@/lib/db');
+                const activeModel = await llm.getActiveModel();
+                
+                await db.execute(`
+                  CREATE TABLE IF NOT EXISTS discord_chat_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT, role TEXT, content TEXT,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                  )
+                `);
+                
+                const historyRes = await db.execute({
+                  sql: "SELECT role, content FROM discord_chat_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 6",
+                  args: [userId]
+                });
+                
+                const pastMessages = historyRes.rows.reverse().map(r => ({
+                  role: r.role as 'user' | 'assistant',
+                  content: r.content as string
+                }));
+                
+                const systemPrompt = `You are "Sentinel AI", an elite Mobile Legends: Bang Bang (MLBB) coaching and personal assistant.
+Your job is to provide concise, highly strategic, and accurate drafting and gameplay advice, and remember conversation context.
 You have a tool called 'query_database' to execute read-only SQL queries on the user's MLBB database to analyze stats dynamically.
 The database has these tables:
 - users(id, name)
 - games(id, date, mode, result)
 - game_players(id, game_id, slot, player_name, hero_name). slot <= 5 is ally, slot > 5 is enemy.
 
-Keep your answer concise (Discord limits messages to 2000 chars), formatting neatly with markdown. Be extremely helpful, friendly, and act as their personal assistant!`;
+Keep your answer concise (Discord limits messages to 2000 chars), formatting neatly with markdown bullet points. Be extremely helpful and friendly!`;
 
-              const messages: any[] = [
-                { role: 'system', content: systemPrompt },
-                ...pastMessages,
-                { role: 'user', content: query }
-              ];
+                const messages: any[] = [
+                  { role: 'system', content: systemPrompt },
+                  ...pastMessages,
+                  { role: 'user', content: query }
+                ];
 
-              let chatCompletion = await groq.chat.completions.create({
-                messages,
-                model: activeModel,
-                temperature: 0.7,
-                max_tokens: 1000,
-                tools: [
-                  {
-                    type: "function",
-                    function: {
-                      name: "query_database",
-                      description: "Executes a read-only SELECT SQL query on the MLBB SQLite database.",
-                      parameters: {
-                        type: "object",
-                        properties: {
-                          query: { type: "string", description: "The SQLite SELECT query." }
-                        },
-                        required: ["query"]
-                      }
-                    }
-                  }
-                ],
-                tool_choice: "auto"
-              });
-
-              const responseMessage = chatCompletion.choices[0]?.message;
-
-              if (responseMessage?.tool_calls) {
-                messages.push(responseMessage);
-                
-                for (const toolCall of responseMessage.tool_calls) {
-                  if (toolCall.function?.name === 'query_database') {
-                    try {
-                      const args = JSON.parse(toolCall.function.arguments || '{}');
-                      const sqlQuery = (args.query || '').trim();
-                      let resultStr = "";
-                      
-                      if (sqlQuery.toUpperCase().match(/^(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE)/)) {
-                        resultStr = "Error: Only SELECT queries are allowed.";
-                      } else {
-                        const dbRes = await db.execute(sqlQuery);
-                        resultStr = JSON.stringify(dbRes.rows);
-                      }
-                      
-                      messages.push({
-                        tool_call_id: toolCall.id,
-                        role: "tool",
-                        name: "query_database",
-                        content: resultStr
-                      });
-                    } catch (err: any) {
-                      messages.push({
-                        tool_call_id: toolCall.id,
-                        role: "tool",
-                        name: "query_database",
-                        content: "DB Error: " + err.message
-                      });
-                    }
-                  }
-                }
-                
-                // Second call with tool results
-                chatCompletion = await groq.chat.completions.create({
+                let chatCompletion = await llm.chat.completions.create({
                   messages,
                   model: activeModel,
                   temperature: 0.7,
                   max_tokens: 1000,
+                  tools: [
+                    {
+                      type: "function",
+                      function: {
+                        name: "query_database",
+                        description: "Executes a read-only SELECT SQL query on the MLBB SQLite database.",
+                        parameters: {
+                          type: "object",
+                          properties: {
+                            query: { type: "string", description: "The SQLite SELECT query." }
+                          },
+                          required: ["query"]
+                        }
+                      }
+                    }
+                  ],
+                  tool_choice: "auto"
                 });
+
+                const responseMessage = chatCompletion.choices[0]?.message;
+
+                if (responseMessage?.tool_calls) {
+                  messages.push(responseMessage);
+                  for (const toolCall of responseMessage.tool_calls) {
+                    if (toolCall.function?.name === 'query_database') {
+                      try {
+                        const args = JSON.parse(toolCall.function.arguments || '{}');
+                        const sqlQuery = (args.query || '').trim();
+                        let resultStr = "";
+                        if (sqlQuery.toUpperCase().match(/^(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE)/)) {
+                          resultStr = "Error: Only SELECT queries are allowed.";
+                        } else {
+                          const dbRes = await db.execute(sqlQuery);
+                          resultStr = JSON.stringify(dbRes.rows);
+                        }
+                        messages.push({ tool_call_id: toolCall.id, role: "tool", name: "query_database", content: resultStr });
+                      } catch (err: any) {
+                        messages.push({ tool_call_id: toolCall.id, role: "tool", name: "query_database", content: "DB Error: " + err.message });
+                      }
+                    }
+                  }
+                  
+                  chatCompletion = await llm.chat.completions.create({
+                    messages,
+                    model: activeModel,
+                    temperature: 0.7,
+                    max_tokens: 1000,
+                  });
+                }
+
+                const finalResponse = chatCompletion.choices[0]?.message?.content
+                  || chatCompletion.choices[0]?.message?.reasoning_content
+                  || 'I could not generate a response.';
+
+                db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'user', query] }).catch(console.error);
+                db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'assistant', finalResponse] }).catch(console.error);
+
+                // Send final answer to Discord webhook
+                if (interactionToken) {
+                  await fetch(`https://discord.com/api/v10/webhooks/${appId}/${interactionToken}/messages/@original`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: finalResponse })
+                  });
+                }
+              } catch (error: any) {
+                console.error('LLM/DB Error in Discord Ask:', error);
+                if (interactionToken) {
+                  await fetch(`https://discord.com/api/v10/webhooks/${appId}/${interactionToken}/messages/@original`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: `*I encountered an error while consulting the database or AI: ${error.message || error}*` })
+                  });
+                }
               }
+            })();
 
-              const finalResponse = chatCompletion.choices[0]?.message?.content || 'I could not generate a response.';
-
-              // Save to DB asynchronously
-              db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'user', query] }).catch(console.error);
-              db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'assistant', finalResponse] }).catch(console.error);
-
-              return NextResponse.json({
-                type: 4,
-                data: { content: finalResponse }
-              });
-              
-            } catch (error: any) {
-              console.error('Groq/DB Error in Discord Ask:', error);
-              return NextResponse.json({
-                type: 4,
-                data: { content: `*I encountered an error while consulting the database or AI. Please try again!*` }
-              });
-            }
+            // Immediately acknowledge Discord with Deferred response (Type 5: Sentinel AI is thinking...)
+            return NextResponse.json({ type: 5 });
           }
 
           case 'model': {
@@ -259,7 +256,7 @@ Keep your answer concise (Discord limits messages to 2000 chars), formatting nea
               const selectOption = subCommand.options?.find((o: any) => o.name === 'select')?.value;
 
               if (selectOption) {
-                await (groq as any).setActiveModel(selectOption);
+                await llm.setActiveModel(selectOption);
                 return NextResponse.json({
                   type: 4,
                   data: {
@@ -267,33 +264,25 @@ Keep your answer concise (Discord limits messages to 2000 chars), formatting nea
                   }
                 });
               } else {
-                const currentModel = await (groq as any).getActiveModel();
+                const currentModel = await llm.getActiveModel();
                 
                 return NextResponse.json({
                   type: 4,
                   data: {
                     embeds: [
                       {
-                        title: '⚙️ Sentinel AI — Model Configuration & Limits',
+                        title: '⚙️ Sentinel AI — Model Configuration',
                         description: `Current Active Model: \`${currentModel}\`\n\nYou can switch models using \`/sentinel model select <model_id>\``,
                         color: 0x9b59b6,
                         fields: [
                           {
-                            name: '📊 Active Model Limits',
-                            value: currentModel === 'llama-3.3-70b-versatile'
-                              ? '**Llama 3.3 70B (Versatile)**\n• Free Tier: **1,000 TPM** / 30 RPM\n• Paid Tier: **300,000 TPM** / 1,000 RPM\n*(High intelligence, low free limits)*'
-                              : currentModel === 'llama-3.1-8b-instant'
-                              ? '**Llama 3.1 8B (Instant)**\n• Free Tier: **6,000 TPM** / 30 RPM\n• Paid Tier: **250,000 TPM** / 1,000 RPM\n*(Very fast, high free-tier limits)*'
-                              : currentModel === 'gemma2-9b-it'
-                              ? '**Gemma 2 9B (Google)**\n• Free Tier: **6,000 TPM** / 30 RPM\n• Paid Tier: **250,000 TPM** / 1,000 RPM\n*(Balanced)*'
-                              : currentModel === 'llama-3.2-3b-preview'
-                              ? '**Llama 3.2 3B (Preview)**\n• Free Tier: **6,000 TPM** / 30 RPM\n• Paid Tier: **250,000 TPM** / 1,000 RPM\n*(Super lightweight & fast)*'
-                              : `**${currentModel}**\n• Limits vary depending on Groq Cloud configuration.`,
+                            name: '📊 Available Models',
+                            value: '• `auto` — DeepSeek Flash (default)\n• `deepseek-v3` — DeepSeek V3\n• `deepseek-r1` — DeepSeek R1\n• `qwen-2.5-72b` — Qwen 2.5 72B\n\nPowered by your mini server at `bandelbanget.xyz`',
                             inline: false
                           },
                           {
-                            name: '💡 Rate Limits Tip',
-                            value: 'If you frequently receive rate-limit warnings or "Error 429", choose \`llama-3.1-8b-instant\` or \`llama-3.2-3b-preview\`. They have 6x higher token-per-minute (TPM) allowance on the free tier compared to Llama 3.3 70B!',
+                            name: '💡 Fallback',
+                            value: 'If mini server is down, automatically falls back to Groq API.',
                             inline: false
                           }
                         ]
@@ -303,7 +292,7 @@ Keep your answer concise (Discord limits messages to 2000 chars), formatting nea
                 });
               }
             } catch (error: any) {
-              console.error('Groq model configuration error:', error);
+              console.error('LLM model configuration error:', error);
               return NextResponse.json({
                 type: 4,
                 data: { content: `❌ Failed to retrieve or configure the model. Error: ${error.message || error}` }
