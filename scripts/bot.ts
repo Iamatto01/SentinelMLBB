@@ -1,10 +1,15 @@
-import { Client, GatewayIntentBits, Events } from 'discord.js';
+import {
+  Client,
+  GatewayIntentBits,
+  Events,
+  GuildScheduledEventPrivacyLevel,
+  GuildScheduledEventEntityType,
+} from 'discord.js';
 import dotenv from 'dotenv';
 import path from 'path';
 
 dotenv.config({ path: '.env.local' });
 
-// Dynamic imports to prevent top-level execution errors
 async function startBot() {
   const { llm } = await import('../src/lib/groq');
   const { db } = await import('../src/lib/db');
@@ -13,40 +18,39 @@ async function startBot() {
     intents: [
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.GuildScheduledEvents,
     ],
   });
 
   client.once(Events.ClientReady, (c) => {
-    console.log(`🤖 Sentinel MLBB Gateway Bot is online as ${c.user.tag}`);
-    startReminderScheduler(client, db);
+    console.log(`🚀 Sentinel MLBB 100% Mini PC P.A. Engine Online as ${c.user.tag}`);
+    startPAScheduler(client, db);
   });
 
   client.on(Events.MessageCreate, async (message) => {
-    // Ignore messages from bots
     if (message.author.bot) return;
 
-    // Check if bot is mentioned (@Sentinel MLBB)
     const isMentioned = client.user && message.mentions.has(client.user);
     if (!isMentioned) return;
 
-    // Remove @bot mention from prompt
     const prompt = message.content.replace(/<@!?\d+>/g, '').trim();
     if (!prompt) {
-      await message.reply("Hello! Ask me any question or mention me (@Sentinel MLBB) with your question.");
+      await message.reply("👋 Yo! Aku Sentinel P.A. korang. Ada apa-apa nak aku ingat, set reminder, buat event, atau susun jadual?");
       return;
     }
 
-    // Trigger typing indicator
     try {
       await message.channel.sendTyping();
     } catch (e) {
-      // ignore typing indicator errors
+      // ignore typing error
     }
 
     try {
       const userId = message.author.id;
       const channelId = message.channel.id;
+      const guild = message.guild;
 
+      // ── Initialize SQLite Tables ───────────────────────────────
       await db.execute(`
         CREATE TABLE IF NOT EXISTS discord_chat_history (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,9 +62,7 @@ async function startBot() {
       await db.execute(`
         CREATE TABLE IF NOT EXISTS user_memories (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id TEXT,
-          memory_key TEXT,
-          memory_value TEXT,
+          user_id TEXT, memory_key TEXT, memory_value TEXT,
           timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
           UNIQUE(user_id, memory_key)
         )
@@ -69,18 +71,35 @@ async function startBot() {
       await db.execute(`
         CREATE TABLE IF NOT EXISTS user_reminders (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id TEXT,
-          channel_id TEXT,
-          remind_at DATETIME,
-          reminder_text TEXT,
-          status TEXT DEFAULT 'pending',
+          user_id TEXT, channel_id TEXT, remind_at DATETIME,
+          reminder_text TEXT, status TEXT DEFAULT 'pending',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS squad_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          guild_id TEXT, channel_id TEXT, title TEXT,
+          description TEXT, start_time DATETIME,
+          discord_event_id TEXT, notified_15m INTEGER DEFAULT 0,
+          notified_start INTEGER DEFAULT 0, created_by TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS squad_schedules (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          day_name TEXT, time_str TEXT, activity_name TEXT,
+          notes TEXT, created_by TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `);
 
       const lower = prompt.toLowerCase();
 
-      // Auto-extract nickname declarations (e.g. "remember my name, Kentang", "nama aku Kentang", "panggil aku Kentang")
+      // ── 1. User Preference & Memory Auto-Saver ───────────────
       const nickMatch = prompt.match(/(?:remember my name(?: is|,|\s+)|nama (?:panggilan )?aku|panggil (?:aku|saya)|name is|my name is|panggilan aku)\s+([A-Za-z0-9_-]+)/i);
       if (nickMatch && nickMatch[1]) {
         const nick = nickMatch[1].trim();
@@ -106,7 +125,6 @@ async function startBot() {
         }).catch(console.error);
       }
 
-      // Fetch saved memories
       const memRes = await db.execute({
         sql: "SELECT memory_key, memory_value FROM user_memories WHERE user_id = ?",
         args: [userId]
@@ -122,7 +140,89 @@ async function startBot() {
       const userName = message.author.username || 'member';
       const displayName = savedNickname || userName;
 
-      // ── Handle REAL Reminder Actions ────────────────────────────
+      // ── 2. REAL DISCORD EVENT CREATION ─────────────────────────
+      const isCreateEvent = /create event|buat event|tambah event|set event/i.test(lower);
+      if (isCreateEvent) {
+        const parsedEvent = parseEventDetails(prompt);
+        if (guild && parsedEvent) {
+          try {
+            const scheduledEvent = await guild.scheduledEvents.create({
+              name: parsedEvent.title,
+              scheduledStartTime: parsedEvent.startTime,
+              scheduledEndTime: new Date(parsedEvent.startTime.getTime() + 2 * 60 * 60 * 1000), // +2 hours
+              privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
+              entityType: GuildScheduledEventEntityType.External,
+              entityMetadata: { location: 'Discord Server / Mobile Legends' },
+              description: `Dianjurkan oleh ${displayName} (Disusun oleh Sentinel P.A.)`,
+            });
+
+            const startTimeSql = parsedEvent.startTime.toISOString().replace('T', ' ').substring(0, 19);
+
+            await db.execute({
+              sql: "INSERT INTO squad_events (guild_id, channel_id, title, description, start_time, discord_event_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+              args: [guild.id, channelId, parsedEvent.title, parsedEvent.description, startTimeSql, scheduledEvent.id, displayName]
+            });
+
+            await message.reply({
+              content: `🎉 **Event Berjaya Dicipta, ${displayName}!**\n\n📌 **Nama Event:** ${parsedEvent.title}\n🕒 **Waktu:** \`${parsedEvent.timeFormatted}\`\n🔗 **Link Event Discord:** ${scheduledEvent.url}\n\n*Aku akan automatik ping korang 15 minit sebelum event bermula & bila event bermula!*`
+            });
+            return;
+          } catch (eventErr: any) {
+            console.error('Failed to create Discord Event:', eventErr);
+            // Fallback: save in local DB event if Discord API fails
+            const startTimeSql = parsedEvent.startTime.toISOString().replace('T', ' ').substring(0, 19);
+            await db.execute({
+              sql: "INSERT INTO squad_events (guild_id, channel_id, title, description, start_time, discord_event_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+              args: [guild?.id || '', channelId, parsedEvent.title, parsedEvent.description, startTimeSql, '', displayName]
+            });
+
+            await message.reply({
+              content: `📅 **Event P.A. Berjaya Disimpan, ${displayName}!**\n\n📌 **Nama Event:** ${parsedEvent.title}\n🕒 **Waktu:** \`${parsedEvent.timeFormatted}\`\n\n*Aku akan ingatkan korang 15 minit sebelum event bermula!*`
+            });
+            return;
+          }
+        }
+      }
+
+      // ── 3. SQUAD SCHEDULE MANAGEMENT ───────────────────────────
+      const isScheduleAdd = /tambah jadual|add schedule|set jadual/i.test(lower);
+      if (isScheduleAdd) {
+        const schedMatch = prompt.match(/(?:tambah jadual|add schedule|set jadual)\s+(isnin|selasa|rabu|khamis|jumaat|sabtu|ahad|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(\d{1,2}[\.:]\d{2}\s*(?:am|pm)?|\d{1,2}\s*(?:am|pm)?)\s+(.+)/i);
+        if (schedMatch) {
+          const day = schedMatch[1];
+          const time = schedMatch[2];
+          const activity = schedMatch[3];
+
+          await db.execute({
+            sql: "INSERT INTO squad_schedules (day_name, time_str, activity_name, created_by) VALUES (?, ?, ?, ?)",
+            args: [day.toUpperCase(), time, activity, displayName]
+          });
+
+          await message.reply({
+            content: `📅 **Jadual Squad Ditambah, ${displayName}!**\n\n🗓️ **Hari:** ${day.toUpperCase()}\n⏰ **Masa:** ${time}\n🎮 **Aktiviti:** ${activity}`
+          });
+          return;
+        }
+      }
+
+      const isScheduleView = /tunjuk jadual|senarai jadual|view schedule|jadual squad|lihat jadual/i.test(lower);
+      if (isScheduleView) {
+        const schedRes = await db.execute("SELECT day_name, time_str, activity_name, created_by FROM squad_schedules ORDER BY id ASC");
+        if (schedRes.rows.length === 0) {
+          await message.reply({ content: `📅 **${displayName}**, belum ada jadual squad yang ditetapkan! Taip \`@Sentinel MLBB tambah jadual Isnin 9.00 pm Scrim MLBB\` untuk tambah.` });
+          return;
+        }
+
+        let msgText = `🗓️ **JADUAL AKTIVITI SQUAD (${displayName}):**\n\n`;
+        schedRes.rows.forEach((r: any, i: number) => {
+          msgText += `${i + 1}. **[${r.day_name}]** \`${r.time_str}\` — **${r.activity_name}** *(Ditambah oleh: ${r.created_by})*\n`;
+        });
+
+        await message.reply({ content: msgText });
+        return;
+      }
+
+      // ── 4. REMINDERS & ALARMS ──────────────────────────────────
       const isCheckReminder = /do u have any reminder|any reminder|check reminder|senarai reminder|what are my reminder|ada reminder/i.test(lower);
       if (isCheckReminder) {
         const activeR = await db.execute({
@@ -130,10 +230,10 @@ async function startBot() {
           args: [userId]
         });
         if (activeR.rows.length === 0) {
-          await message.reply({ content: `📋 **${displayName}**, kau tak ada sebarang reminder aktif sekarang!` });
+          await message.reply({ content: `📋 **${displayName}**, kau tak ada sebarang reminder/alarm aktif sekarang!` });
           return;
         }
-        let listText = `📋 **${displayName}**, ini senarai reminder kau yang tengah aktif:\n`;
+        let listText = `📋 **${displayName}**, ini senarai reminder/alarm kau yang tengah aktif:\n`;
         activeR.rows.forEach((r: any, idx: number) => {
           listText += `${idx + 1}. 🕒 \`${r.remind_at}\` — **${r.reminder_text}**\n`;
         });
@@ -141,7 +241,7 @@ async function startBot() {
         return;
       }
 
-      const isSetReminder = /setreminder|ingatkan|remind me|peringatan|set reminder|peringatkan/i.test(prompt);
+      const isSetReminder = /setreminder|ingatkan|remind me|peringatan|set reminder|peringatkan|set alarm|alarm/i.test(prompt);
       if (isSetReminder) {
         const parsed = parseReminderIntent(prompt);
         if (parsed) {
@@ -150,13 +250,13 @@ async function startBot() {
             args: [userId, channelId, parsed.remindAtSql, parsed.text]
           });
           await message.reply({
-            content: `⏰ **Noted, ${displayName}!** Aku dah setkan reminder pada \`${parsed.timeFormatted}\` untuk:\n> **${parsed.text}**\n\nNanti aku ping kau kat sini bila sampai masa!`
+            content: `⏰ **Noted, ${displayName}!** Aku dah setkan alarm/reminder pada \`${parsed.timeFormatted}\` untuk:\n> **${parsed.text}**\n\nNanti aku ping kau kat sini bila sampai masa!`
           });
           return;
         }
       }
 
-      // ── Standard AI Personal Assistant Chat ─────────────────────
+      // ── 5. AI PERSONAL ASSISTANT CHAT ──────────────────────────
       const historyRes = await db.execute({
         sql: "SELECT role, content FROM discord_chat_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 16",
         args: [userId],
@@ -167,18 +267,20 @@ async function startBot() {
         content: r.content as string,
       }));
 
-      const systemPrompt = `You are "Sentinel", a close squad member and dedicated personal assistant to ${displayName} in this Discord server.
+      const systemPrompt = `You are "Sentinel", a dedicated 24/7 Personal Assistant and Squad Coordinator running 100% locally on the Mini PC for ${displayName} and their squad in this Discord server.
 
-SAVED FACTS & PREFERENCES ABOUT THIS USER (${displayName}):
+SAVED FACTS ABOUT THIS USER (${displayName}):
 ${factList.length > 0 ? factList.join('\n') : '- Primary Nickname: ' + displayName}
 
-REAL P.A. CAPABILITIES YOU HAVE:
-- You have a REAL built-in reminder engine! If the user wants to set a reminder or check reminders, guide them naturally.
-- You can remember user preferences (nickname, preferred pronouns, custom facts).
+YOUR REAL MINI PC P.A. CAPABILITIES:
+- You have REAL automated reminders & alarms with auto-ping background scheduler!
+- You can create REAL Discord Guild Scheduled Events!
+- You manage weekly squad schedules!
+- You remember user preferences permanently in local Mini PC SQLite DB.
 
 CRITICAL RULES:
-- ALWAYS address the user as "${displayName}" (NEVER forget their nickname!).
-- Respect user preferences (e.g. if preferred pronoun is 'kau', use 'kau' / 'aku'. If forbidden word is 'bro', NEVER use 'bro'!).
+- ALWAYS address the user as "${displayName}".
+- Respect user preferences (e.g., if preferred pronoun is 'kau', use 'kau'/'aku'. Never use 'bro' if forbidden).
 - Talk like a loyal, friendly, and witty squad member & personal assistant ("geng", "member", "kau", "aku").
 - Keep responses concise (under 2000 chars), formatted neatly with markdown.`;
 
@@ -199,20 +301,19 @@ CRITICAL RULES:
       const finalResponse =
         chatCompletion.choices[0]?.message?.content ||
         chatCompletion.choices[0]?.message?.reasoning_content ||
-        'I could not generate a response.';
+        'Aku tak dapat jawapan dari enjin P.A.';
 
-      // Await history inserts
       try {
         await db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'user', prompt] });
         await db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'assistant', finalResponse] });
       } catch (e) {
-        console.warn('[DB] History insert warning in bot.ts:', e);
+        console.warn('[DB] History insert warning:', e);
       }
 
       await message.reply({ content: finalResponse });
     } catch (err: any) {
-      console.error('Error replying to mention:', err);
-      await message.reply({ content: `*I encountered an error replying to your mention: ${err.message || err}*` });
+      console.error('Error replying to P.A. request:', err);
+      await message.reply({ content: `*Ralat P.A. Mini PC: ${err.message || err}*` });
     }
   });
 
@@ -225,23 +326,23 @@ CRITICAL RULES:
   client.login(token);
 }
 
-// ── Reminder Scheduler Function ──────────────────────────────
-function startReminderScheduler(client: Client, db: any) {
+// ── 24/7 BACKGROUND SCHEDULER (MINI PC) ──────────────────────────
+function startPAScheduler(client: Client, db: any) {
   setInterval(async () => {
     try {
-      // Find due reminders
-      const due = await db.execute({
-        sql: "SELECT id, user_id, channel_id, reminder_text FROM user_reminders WHERE status = 'pending' AND datetime(remind_at) <= datetime('now')"
+      // 1. Check Due User Reminders & Alarms
+      const dueReminders = await db.execute({
+        sql: "SELECT id, user_id, channel_id, reminder_text FROM user_reminders WHERE status = 'pending' AND datetime(remind_at) <= datetime('now', 'localtime')"
       });
 
-      for (const r of due.rows) {
+      for (const r of dueReminders.rows) {
         try {
           const channel = await client.channels.fetch(r.channel_id) as any;
           if (channel && channel.send) {
-            await channel.send(`🔔 <@${r.user_id}> **P.A. Reminder!**\n> **${r.reminder_text}**`);
+            await channel.send(`🚨 <@${r.user_id}> **ALARM / P.A. REMINDER!**\n> **${r.reminder_text}**`);
           }
         } catch (err) {
-          console.error('[Reminder] Failed to send reminder to channel:', err);
+          console.error('[Scheduler] Failed to send reminder:', err);
         }
 
         await db.execute({
@@ -249,35 +350,118 @@ function startReminderScheduler(client: Client, db: any) {
           args: [r.id]
         }).catch(console.error);
       }
+
+      // 2. Check Upcoming Guild Events (15m warning & start ping)
+      const upcomingEvents = await db.execute({
+        sql: "SELECT id, channel_id, title, start_time, notified_15m, notified_start, created_by FROM squad_events WHERE notified_start = 0"
+      });
+
+      const now = new Date().getTime();
+
+      for (const ev of upcomingEvents.rows) {
+        const eventTime = new Date(ev.start_time).getTime();
+        const diffMins = (eventTime - now) / (1000 * 60);
+
+        // 15-minute warning ping
+        if (diffMins <= 15 && diffMins > 0 && ev.notified_15m === 0) {
+          try {
+            const channel = await client.channels.fetch(ev.channel_id) as any;
+            if (channel && channel.send) {
+              await channel.send(`📣 @everyone **P.A. EVENT WARNING!**\n> Event **${ev.title}** (dicipta oleh ${ev.created_by}) akan bermula dalam **15 MINIT lagi**! Sedia geng!`);
+            }
+          } catch (e) {
+            console.error('Failed to send 15m event warning:', e);
+          }
+          await db.execute({ sql: "UPDATE squad_events SET notified_15m = 1 WHERE id = ?", args: [ev.id] });
+        }
+
+        // Event started ping
+        if (diffMins <= 0 && ev.notified_start === 0) {
+          try {
+            const channel = await client.channels.fetch(ev.channel_id) as any;
+            if (channel && channel.send) {
+              await channel.send(`🚨 @everyone **EVENT BERMULA SEKARANG!**\n> Event **${ev.title}** dah bermula! Jom masuk!`);
+            }
+          } catch (e) {
+            console.error('Failed to send event start ping:', e);
+          }
+          await db.execute({ sql: "UPDATE squad_events SET notified_start = 1 WHERE id = ?", args: [ev.id] });
+        }
+      }
     } catch (e) {
-      // ignore check error
+      // ignore tick errors
     }
-  }, 10000); // Check every 10s
+  }, 10000); // Check every 10 seconds
 }
 
-// ── Reminder Parser Helper ──────────────────────────────────
+// ── PARSERS FOR EVENTS & REMINDERS ────────────────────────────────
+function parseEventDetails(prompt: string) {
+  const lower = prompt.toLowerCase();
+
+  // Extract title
+  let title = prompt
+    .replace(/create event|buat event|tambah event|set event/gi, '')
+    .replace(/\d{1,2}[\.:]\d{2}\s*(?:am|pm)?/gi, '')
+    .replace(/\d{1,2}\s*(?:am|pm)/gi, '')
+    .replace(/harini|today|besok|tomorrow|malam ni|pagi ni/gi, '')
+    .replace(/<@!?\d+>/g, '')
+    .replace(/^[\s,:-]+|[\s,:-]+$/g, '')
+    .trim();
+
+  if (!title) title = 'Squad Activity / Match';
+
+  // Extract time
+  const timeMatch = lower.match(/(\d{1,2})[\.:](\d{2})\s*(am|pm)?/i) || lower.match(/(\d{1,2})\s*(am|pm)/i);
+  let hours = 20; // default 8pm
+  let mins = 0;
+
+  if (timeMatch) {
+    hours = parseInt(timeMatch[1], 10);
+    mins = timeMatch[2] && !isNaN(parseInt(timeMatch[2], 10)) ? parseInt(timeMatch[2], 10) : 0;
+    const ampm = (timeMatch[3] || timeMatch[2] || '').toLowerCase();
+    if (ampm === 'pm' && hours < 12) hours += 12;
+    if (ampm === 'am' && hours === 12) hours = 0;
+  }
+
+  const now = new Date();
+  const startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins, 0);
+
+  if (lower.includes('besok') || lower.includes('tomorrow')) {
+    startTime.setDate(startTime.getDate() + 1);
+  } else if (startTime.getTime() <= now.getTime()) {
+    startTime.setDate(startTime.getDate() + 1);
+  }
+
+  const timeFormatted = startTime.toLocaleString('ms-MY', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+  return {
+    title,
+    description: `Aktiviti Squad: ${title}`,
+    startTime,
+    timeFormatted,
+  };
+}
+
 function parseReminderIntent(prompt: string) {
   const lower = prompt.toLowerCase();
 
-  // Relative minutes (e.g., 10 minit lagi, in 5 minutes)
   const minMatch = lower.match(/(?:in|lagi|dalam)\s*(\d+)\s*(?:minit|minutes|min)/i) || lower.match(/(\d+)\s*(?:minit|minutes|min)\s*(?:lagi|later)/i);
   if (minMatch) {
     const mins = parseInt(minMatch[1], 10);
     const targetDate = new Date(Date.now() + mins * 60 * 1000);
     const text = prompt
       .replace(/\/setreminder/gi, '')
-      .replace(/ingatkan|remind me|set reminder|peringatan/gi, '')
+      .replace(/ingatkan|remind me|set reminder|peringatan|set alarm|alarm/gi, '')
       .replace(/(?:in|lagi|dalam)\s*\d+\s*(?:minit|minutes|min)/gi, '')
       .replace(/\d+\s*(?:minit|minutes|min)\s*(?:lagi|later)/gi, '')
       .replace(/<@!?\d+>/g, '')
       .replace(/^[\s,:-]+|[\s,:-]+$/g, '')
-      .trim() || 'Peringatan anda';
+      .trim() || 'Peringatan / Alarm anda';
 
     const remindAtSql = targetDate.toISOString().replace('T', ' ').substring(0, 19);
     return { remindAtSql, text, timeFormatted: `dalam ${mins} minit lagi (${targetDate.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })})` };
   }
 
-  // Clock time (e.g. 12.00 pm, 12:00 pm, 8:30 am, 14:00)
   const timeMatch = lower.match(/(\d{1,2})[\.:](\d{2})\s*(am|pm)?/i) || lower.match(/(\d{1,2})\s*(am|pm)/i);
   if (timeMatch) {
     let hours = parseInt(timeMatch[1], 10);
@@ -297,6 +481,7 @@ function parseReminderIntent(prompt: string) {
       .replace(/\/setreminder/gi, '')
       .replace(/ingatkan (?:aku|saya)?/gi, '')
       .replace(/remind me/gi, '')
+      .replace(/set alarm|alarm/gi, '')
       .replace(/\d{1,2}[\.:]\d{2}\s*(?:am|pm)?/gi, '')
       .replace(/\d{1,2}\s*(?:am|pm)/gi, '')
       .replace(/harini|today|besok|tomorrow/gi, '')
@@ -304,16 +489,15 @@ function parseReminderIntent(prompt: string) {
       .replace(/^[\s,:-]+|[\s,:-]+$/g, '')
       .trim();
 
-    if (!text) text = 'Peringatan anda';
+    if (!text) text = 'Peringatan / Alarm anda';
 
     const remindAtSql = targetDate.toISOString().replace('T', ' ').substring(0, 19);
     const timeFormatted = targetDate.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' });
     return { remindAtSql, text, timeFormatted };
   }
 
-  // Fallback 15 mins
   const targetDate = new Date(Date.now() + 15 * 60 * 1000);
-  const text = prompt.replace(/\/setreminder/gi, '').replace(/ingatkan|remind me|set reminder/gi, '').replace(/<@!?\d+>/g, '').trim() || 'Peringatan anda';
+  const text = prompt.replace(/\/setreminder/gi, '').replace(/ingatkan|remind me|set reminder|alarm/gi, '').replace(/<@!?\d+>/g, '').trim() || 'Peringatan / Alarm anda';
   const remindAtSql = targetDate.toISOString().replace('T', ' ').substring(0, 19);
   return { remindAtSql, text, timeFormatted: 'dalam 15 minit lagi' };
 }
