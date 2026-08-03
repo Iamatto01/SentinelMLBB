@@ -122,133 +122,64 @@ export async function POST(req: Request) {
           case 'ask': {
             const query = subCommand.options?.[0]?.value || "";
             const userId = data.member?.user?.id || data.user?.id || "unknown_user";
-            const interactionToken = data.token;
-            const appId = data.application_id || process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || '1518723674553716756';
 
-            // Process AI and DB in background task to never block Discord's 3-second limit
-            (async () => {
-              try {
-                const { db } = await import('@/lib/db');
-                const activeModel = await llm.getActiveModel();
-                
-                await db.execute(`
-                  CREATE TABLE IF NOT EXISTS discord_chat_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id TEXT, role TEXT, content TEXT,
-                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-                  )
-                `);
-                
-                const historyRes = await db.execute({
-                  sql: "SELECT role, content FROM discord_chat_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 6",
-                  args: [userId]
-                });
-                
-                const pastMessages = historyRes.rows.reverse().map(r => ({
-                  role: r.role as 'user' | 'assistant',
-                  content: r.content as string
-                }));
-                
-                const systemPrompt = `You are "Sentinel AI", an elite Mobile Legends: Bang Bang (MLBB) coaching and personal assistant.
+            try {
+              const { db } = await import('@/lib/db');
+              const activeModel = await llm.getActiveModel();
+              
+              await db.execute(`
+                CREATE TABLE IF NOT EXISTS discord_chat_history (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  user_id TEXT, role TEXT, content TEXT,
+                  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+              `);
+              
+              const historyRes = await db.execute({
+                sql: "SELECT role, content FROM discord_chat_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 6",
+                args: [userId]
+              });
+              
+              const pastMessages = historyRes.rows.reverse().map(r => ({
+                role: r.role as 'user' | 'assistant',
+                content: r.content as string
+              }));
+              
+              const systemPrompt = `You are "Sentinel AI", an elite Mobile Legends: Bang Bang (MLBB) coaching and personal assistant.
 Your job is to provide concise, highly strategic, and accurate drafting and gameplay advice, and remember conversation context.
-You have a tool called 'query_database' to execute read-only SQL queries on the user's MLBB database to analyze stats dynamically.
-The database has these tables:
-- users(id, name)
-- games(id, date, mode, result)
-- game_players(id, game_id, slot, player_name, hero_name). slot <= 5 is ally, slot > 5 is enemy.
-
 Keep your answer concise (Discord limits messages to 2000 chars), formatting neatly with markdown bullet points. Be extremely helpful and friendly!`;
 
-                const messages: any[] = [
-                  { role: 'system', content: systemPrompt },
-                  ...pastMessages,
-                  { role: 'user', content: query }
-                ];
+              const messages: any[] = [
+                { role: 'system', content: systemPrompt },
+                ...pastMessages,
+                { role: 'user', content: query }
+              ];
 
-                let chatCompletion = await llm.chat.completions.create({
-                  messages,
-                  model: activeModel,
-                  temperature: 0.7,
-                  max_tokens: 1000,
-                  tools: [
-                    {
-                      type: "function",
-                      function: {
-                        name: "query_database",
-                        description: "Executes a read-only SELECT SQL query on the MLBB SQLite database.",
-                        parameters: {
-                          type: "object",
-                          properties: {
-                            query: { type: "string", description: "The SQLite SELECT query." }
-                          },
-                          required: ["query"]
-                        }
-                      }
-                    }
-                  ],
-                  tool_choice: "auto"
-                });
+              let chatCompletion = await llm.chat.completions.create({
+                messages,
+                model: activeModel,
+                temperature: 0.7,
+                max_tokens: 1000,
+              });
 
-                const responseMessage = chatCompletion.choices[0]?.message;
+              const finalResponse = chatCompletion.choices[0]?.message?.content
+                || chatCompletion.choices[0]?.message?.reasoning_content
+                || 'I could not generate a response.';
 
-                if (responseMessage?.tool_calls) {
-                  messages.push(responseMessage);
-                  for (const toolCall of responseMessage.tool_calls) {
-                    if (toolCall.function?.name === 'query_database') {
-                      try {
-                        const args = JSON.parse(toolCall.function.arguments || '{}');
-                        const sqlQuery = (args.query || '').trim();
-                        let resultStr = "";
-                        if (sqlQuery.toUpperCase().match(/^(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE)/)) {
-                          resultStr = "Error: Only SELECT queries are allowed.";
-                        } else {
-                          const dbRes = await db.execute(sqlQuery);
-                          resultStr = JSON.stringify(dbRes.rows);
-                        }
-                        messages.push({ tool_call_id: toolCall.id, role: "tool", name: "query_database", content: resultStr });
-                      } catch (err: any) {
-                        messages.push({ tool_call_id: toolCall.id, role: "tool", name: "query_database", content: "DB Error: " + err.message });
-                      }
-                    }
-                  }
-                  
-                  chatCompletion = await llm.chat.completions.create({
-                    messages,
-                    model: activeModel,
-                    temperature: 0.7,
-                    max_tokens: 1000,
-                  });
-                }
+              db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'user', query] }).catch(console.error);
+              db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'assistant', finalResponse] }).catch(console.error);
 
-                const finalResponse = chatCompletion.choices[0]?.message?.content
-                  || chatCompletion.choices[0]?.message?.reasoning_content
-                  || 'I could not generate a response.';
-
-                db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'user', query] }).catch(console.error);
-                db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'assistant', finalResponse] }).catch(console.error);
-
-                // Send final answer to Discord webhook
-                if (interactionToken) {
-                  await fetch(`https://discord.com/api/v10/webhooks/${appId}/${interactionToken}/messages/@original`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ content: finalResponse })
-                  });
-                }
-              } catch (error: any) {
-                console.error('LLM/DB Error in Discord Ask:', error);
-                if (interactionToken) {
-                  await fetch(`https://discord.com/api/v10/webhooks/${appId}/${interactionToken}/messages/@original`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ content: `*I encountered an error while consulting the database or AI: ${error.message || error}*` })
-                  });
-                }
-              }
-            })();
-
-            // Immediately acknowledge Discord with Deferred response (Type 5: Sentinel AI is thinking...)
-            return NextResponse.json({ type: 5 });
+              return NextResponse.json({
+                type: 4,
+                data: { content: finalResponse }
+              });
+            } catch (error: any) {
+              console.error('LLM/DB Error in Discord Ask:', error);
+              return NextResponse.json({
+                type: 4,
+                data: { content: `*I encountered an error while consulting the database or AI: ${error.message || error}*` }
+              });
+            }
           }
 
           case 'model': {
