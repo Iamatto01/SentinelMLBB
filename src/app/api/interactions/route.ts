@@ -119,7 +119,8 @@ export async function POST(req: Request) {
               },
             });
 
-          case 'ask': {
+          case 'ask':
+          case 'askmlbb': {
             const query = subCommand.options?.[0]?.value || "";
             const userId = data.member?.user?.id || data.user?.id || "unknown_user";
 
@@ -144,10 +145,17 @@ export async function POST(req: Request) {
                 role: r.role as 'user' | 'assistant',
                 content: r.content as string
               }));
+
+              const isMlbbMode = subCommand.name === 'askmlbb';
               
-              const systemPrompt = `You are "Sentinel AI", an elite Mobile Legends: Bang Bang (MLBB) coaching and personal assistant.
-Your job is to provide concise, highly strategic, and accurate drafting and gameplay advice, and remember conversation context.
-Keep your answer concise (Discord limits messages to 2000 chars), formatting neatly with markdown bullet points. Be extremely helpful and friendly!`;
+              const systemPrompt = isMlbbMode
+                ? `You are "Sentinel AI", an elite Mobile Legends: Bang Bang (MLBB) coaching and personal assistant.
+Your job is to provide concise, highly strategic, and accurate MLBB drafting, hero counter pick, and gameplay advice.
+Keep your answer concise (Discord limits messages to 2000 chars), formatting neatly with markdown bullet points. Be extremely helpful and friendly!`
+                : `You are "Sentinel AI", a friendly, smart, and versatile AI general assistant.
+Your job is to answer any general question naturally, whether it's casual chat, general knowledge, programming, advice, or general discussion.
+Only talk about Mobile Legends if the user explicitly asks about MLBB in their question.
+Keep your answer concise (Discord limits messages to 2000 chars), formatting neatly with markdown. Be extremely helpful and friendly!`;
 
               const messages: any[] = [
                 { role: 'system', content: systemPrompt },

@@ -34,12 +34,25 @@ const commands = [
       },
       {
         name: 'ask',
-        description: 'Ask Sentinel AI (Groq) for MLBB coaching or meta advice',
+        description: 'Ask Sentinel AI any general question (General AI Assistant)',
         type: 1, // SUB_COMMAND
         options: [
           {
             name: 'question',
-            description: 'Your question for the AI coach',
+            description: 'Your question for the AI assistant',
+            type: 3, // STRING
+            required: true,
+          },
+        ],
+      },
+      {
+        name: 'askmlbb',
+        description: 'Ask Sentinel AI specifically for MLBB coaching, counters, or meta advice',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'question',
+            description: 'Your MLBB question for the AI coach',
             type: 3, // STRING
             required: true,
           },
@@ -123,14 +136,18 @@ const rest = new REST({ version: '10' }).setToken(token);
   try {
     console.log('Started refreshing application (/) commands.');
 
-    // guildId kosong/undefined = global commands (boleh guna di mana-mana server)
     const validGuildId = guildId && guildId.trim().length > 0 ? guildId.trim() : null;
 
     const route = validGuildId
       ? Routes.applicationGuildCommands(clientId, validGuildId)
       : Routes.applicationCommands(clientId);
 
-    await rest.put(route, { body: commands });
+    const existing = (await rest.get(route)) as any[];
+    const entryPoints = existing.filter(c => c.type === 4);
+    
+    console.log(`Found ${entryPoints.length} existing Primary Entry Point command(s).`);
+
+    await rest.put(route, { body: [...commands, ...entryPoints] });
 
     console.log(validGuildId
       ? `Successfully registered GUILD commands for server ${validGuildId}.`
