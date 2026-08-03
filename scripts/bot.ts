@@ -7,6 +7,7 @@ import {
 } from 'discord.js';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 
 dotenv.config({ path: '.env.local' });
 
@@ -119,6 +120,59 @@ async function startBot() {
         )
       `);
 
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS mlbb_game_logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          game_no INTEGER,
+          match_date TEXT,
+          mode TEXT,
+          duration INTEGER,
+          player1 TEXT, hero1 TEXT,
+          player2 TEXT, hero2 TEXT,
+          player3 TEXT, hero3 TEXT,
+          player4 TEXT, hero4 TEXT,
+          player5 TEXT, hero5 TEXT,
+          result TEXT,
+          notes TEXT
+        )
+      `);
+
+      // Seed CSV data if empty
+      const countLogs = await db.execute("SELECT COUNT(*) as count FROM mlbb_game_logs").catch(() => ({ rows: [{ count: 0 }] }));
+      const totalLogs = countLogs.rows[0]?.count || 0;
+      if (totalLogs === 0) {
+        const csvPath = path.join(process.cwd(), 'SentinelMLBB - muhammadsaifudinmj - 🎮 Game Log.csv');
+        if (fs.existsSync(csvPath)) {
+          const rawCsv = fs.readFileSync(csvPath, 'utf8');
+          const lines = rawCsv.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+          for (let i = 3; i < lines.length; i++) {
+            const line = lines[i];
+            if (!line || line.startsWith('#') || line.startsWith('⚔️')) continue;
+
+            const parts = line.split(',');
+            if (parts.length >= 15) {
+              const gameNo = parseInt(parts[0], 10);
+              const date = parts[1];
+              const mode = parts[2];
+              const duration = parseInt(parts[3], 10) || 0;
+              const p1 = parts[4], h1 = parts[5];
+              const p2 = parts[6], h2 = parts[7];
+              const p3 = parts[8], h3 = parts[9];
+              const p4 = parts[10], h4 = parts[11];
+              const p5 = parts[12], h5 = parts[13];
+              const result = parts[14];
+              const notes = parts.slice(15).join(',').replace(/^"|"$/g, '').trim();
+
+              await db.execute({
+                sql: "INSERT INTO mlbb_game_logs (game_no, match_date, mode, duration, player1, hero1, player2, hero2, player3, hero3, player4, hero4, player5, hero5, result, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                args: [gameNo, date, mode, duration, p1, h1, p2, h2, p3, h3, p4, h4, p5, h5, result, notes]
+              }).catch(console.error);
+            }
+          }
+        }
+      }
+
       // Seed default squad games if empty
       const countRes = await db.execute("SELECT COUNT(*) as count FROM squad_games").catch(() => ({ rows: [{ count: 0 }] }));
       const totalCount = countRes.rows[0]?.count || 0;
@@ -190,7 +244,29 @@ async function startBot() {
         args: [userId, displayName]
       }).catch(() => {});
 
-      // ── 2. SQUAD MEMBER MANAGEMENT COMMANDS ───────────────────
+      // ── 2. MLBB REAL MATCH LOG COMMANDS ───────────────────────
+      const isViewMatchLogs = /rekod match|rekod game|match log|keputusan tour|sejarah game|sejarah match/i.test(lower);
+      if (isViewMatchLogs) {
+        const logsRes = await db.execute("SELECT game_no, match_date, mode, result, player1, hero1, player2, hero2, player3, hero3, player4, hero4, player5, hero5, notes FROM mlbb_game_logs ORDER BY game_no DESC LIMIT 10");
+        if (logsRes.rows.length === 0) {
+          await message.reply({ content: `⚔️ **${displayName}**, tiada rekod perlawanan MLBB ditemui dalam database!` });
+          return;
+        }
+
+        let msgText = `⚔️ **REKOD PERLAWANAN SEBENAR SQUAD SENTINEL MLBB (10 Terkini)**\n\n`;
+        msgText += `| # | Tarikh | Mod | Keputusan | Lineup Hero Squad | Catatan |\n`;
+        msgText += `| :-: | :--- | :--- | :--- | :--- | :--- |\n`;
+        logsRes.rows.forEach((r: any) => {
+          const resEmoji = r.result === 'Win' ? '🟢 WIN' : '🔴 LOSE';
+          const lineup = `${r.player1}(${r.hero1}), ${r.player2}(${r.hero2}), ${r.player3}(${r.hero3})`;
+          msgText += `| **#${r.game_no}** | ${r.match_date} | ${r.mode} | ${resEmoji} | ${lineup} | ${r.notes || '-'} |\n`;
+        });
+
+        await message.reply({ content: msgText });
+        return;
+      }
+
+      // ── 3. SQUAD MEMBER MANAGEMENT COMMANDS ───────────────────
       const isAddMember = !isQuestion && /tambah member|add member|tambah ahli|add player/i.test(lower);
       if (isAddMember) {
         const targetMention = message.mentions.users.first();
@@ -233,7 +309,7 @@ async function startBot() {
         return;
       }
 
-      // ── 3. GAME MANAGEMENT COMMANDS ────────────────────────────
+      // ── 4. GAME MANAGEMENT COMMANDS ────────────────────────────
       const isAddGame = !isQuestion && /tambah game|add game|masukkan game/i.test(lower);
       if (isAddGame) {
         const gameMatch = prompt.replace(/tambah game|add game|masukkan game/gi, '').replace(/<@!?\d+>/g, '').trim();
@@ -249,7 +325,7 @@ async function startBot() {
         }
       }
 
-      // ── 4. REAL DISCORD EVENT CREATION ─────────────────────────
+      // ── 5. REAL DISCORD EVENT CREATION ─────────────────────────
       const isCreateEvent = !isQuestion && /create event|buat event|tambah event|set event/i.test(lower);
       if (isCreateEvent) {
         const parsedEvent = parseEventDetails(prompt);
@@ -289,7 +365,7 @@ async function startBot() {
         }
       }
 
-      // ── 5. SQUAD SCHEDULE MANAGEMENT ───────────────────────────
+      // ── 6. SQUAD SCHEDULE MANAGEMENT ───────────────────────────
       const isScheduleAdd = !isQuestion && /tambah jadual|add schedule|set jadual/i.test(lower);
       if (isScheduleAdd) {
         const schedMatch = prompt.match(/(?:tambah jadual|add schedule|set jadual)\s+(isnin|selasa|rabu|khamis|jumaat|sabtu|ahad|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(\d{1,2}[\.:]\d{2}\s*(?:am|pm)?|\d{1,2}\s*(?:am|pm)?)\s+(.+)/i);
@@ -329,7 +405,7 @@ async function startBot() {
         return;
       }
 
-      // ── 6. REMINDERS & ALARMS ──────────────────────────────────
+      // ── 7. REMINDERS & ALARMS ──────────────────────────────────
       const isCheckReminder = /do u have any reminder|any reminder|check reminder|senarai reminder|what are my reminder|ada reminder/i.test(lower);
       if (isCheckReminder) {
         const activeR = await db.execute({
@@ -370,12 +446,20 @@ async function startBot() {
         }
       }
 
-      // ── 7. AI PERSONAL ASSISTANT CHAT WITH REAL DB DATA ───────
+      // ── 8. AI PERSONAL ASSISTANT CHAT WITH REAL DB DATA ───────
       const gamesRes = await db.execute("SELECT game_name FROM squad_games ORDER BY id ASC").catch(() => ({ rows: [] }));
       const savedGamesList = gamesRes.rows.map((r: any) => `• ${r.game_name}`).join('\n');
 
       const membersRes = await db.execute("SELECT username, role_name, favorite_games, status FROM squad_members ORDER BY id ASC").catch(() => ({ rows: [] }));
       const squadMembersList = membersRes.rows.map((r: any) => `| ${r.username} | ${r.role_name || 'Member'} | ${r.favorite_games || 'MLBB'} | ${r.status || 'Aktif'} |`).join('\n');
+
+      const logsRes = await db.execute("SELECT game_no, match_date, mode, result, player1, hero1, player2, hero2, player3, hero3, player4, hero4, player5, hero5, notes FROM mlbb_game_logs ORDER BY game_no DESC LIMIT 20").catch(() => ({ rows: [] }));
+      let mlbbLogsContext = '';
+      if (logsRes.rows.length > 0) {
+        mlbbLogsContext = logsRes.rows.map((r: any) => 
+          `Game #${r.game_no} (${r.match_date}, ${r.mode}): Result=${r.result} | Players: ${r.player1}(${r.hero1}), ${r.player2}(${r.hero2}), ${r.player3}(${r.hero3}), ${r.player4}(${r.hero4}), ${r.player5}(${r.hero5}) | Notes: ${r.notes || 'N/A'}`
+        ).join('\n');
+      }
 
       const historyRes = await db.execute({
         sql: "SELECT role, content FROM discord_chat_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 16",
@@ -392,22 +476,25 @@ async function startBot() {
 SAVED FACTS ABOUT THIS USER (${displayName}):
 ${factList.length > 0 ? factList.join('\n') : '- Primary Nickname: ' + displayName}
 
-ACTUAL REGISTERED SQUAD MEMBERS IN DATABASE:
-| Anggota | Peran | Game Utama | Status |
-| :--- | :--- | :--- | :--- |
-${squadMembersList || `| ${displayName} | Member | MLBB | Aktif |`}
+REAL SQUAD PLAYERS FROM MATCH LOGS:
+- huehue (Plays: Hanabi, Ixia, Aulus, Karrie, Popol & Kupa, Minsitthar, Freya, Julian)
+- ryuu (Plays: Chou, Arlott, Gatotkaca, Gloo, Irithel, Belerick, Akai, Phoveus)
+- gerakan tambahan(real) (Plays: Phoveus, Lolita, Gatotkaca, Badang, Marcel, Chip, Faramis, Grock)
+- abang jamil (Plays: Zhuxin, Cecilion, Zetian, Selena, Valentina, Gord, Xavier, Lylia, Yve)
+- zepho / tauke / royaler / australo / ryuuna (Plays: Lancelot, Sora, Dyrroth, Paquito, Yu Zhong, Vexana, Hilda, Fredrinn, Joy, Granger, Karrie, Irithel, Leomord)
+
+ACTUAL MLBB MATCH LOGS FROM DATABASE (REAL GAME LOGS CSV):
+${mlbbLogsContext || 'No game logs imported yet.'}
 
 ACTUAL GAMES STORED IN SENTINEL AI DATABASE:
 ${savedGamesList || '• Mobile Legends: Bang Bang (MLBB)\n• Valorant\n• PUBG Mobile\n• Dota 2\n• Call of Duty: Modern Warfare\n• CS:GO\n• Fortnite\n• League of Legends\n• Overwatch\n• Rainbow Six Siege'}
 
-CRITICAL FORMATTING & TRUTH RULES:
-- DUMMY EXAMPLES vs REAL DATA: When asked for features or options, if you output example data (like dummy usernames), ALWAYS explicitly state "(Contoh sahaja / Example data)". NEVER present fake usernames as real squad members!
-- SQUAD MEMBERS: Always refer to the actual registered squad members list above when asked about squad members or lineup!
+CRITICAL TRUTH & FORMATTING RULES:
+- REAL MATCH LOGS: When asked about squad matches, win/loss records, or players like huehue, ryuu, abang jamil, ALWAYS use the REAL match logs from the database list above!
+- DUMMY EXAMPLES vs REAL DATA: NEVER invent fake esports teams (like Evos, Blacklist, TNC, ONIC) or fake player names! Use the real player names from the squad match logs (huehue, ryuu, gerakan tambahan(real), abang jamil, tauke, royaler, australo, ryuuna)!
 - TABLE FORMATTING: Whenever you present timetables, schedules, activity plans, or game/member lists, ALWAYS format them as neat Markdown Tables!
 - ALWAYS address the user as "${displayName}".
 - NEVER use 'bro' or 'kamu' if forbidden. Use 'kau' / 'aku'.
-- ALWAYS reference the exact games in the database list above when asked about games played by the squad!
-- NEVER hallucinate fake esports teams (like Evos, Blacklist, TNC, ONIC) or fake match results unless they are in the database!
 - Talk like a loyal, friendly, and witty squad member & personal assistant ("geng", "member", "kau", "aku").
 - Keep responses concise (under 2000 chars), formatted neatly with markdown.`;
 
