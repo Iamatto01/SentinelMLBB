@@ -196,10 +196,79 @@ export async function POST(req: Request) {
                 content: r.content as string
               }));
 
+              await db.execute(`
+                CREATE TABLE IF NOT EXISTS user_reminders (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  user_id TEXT, channel_id TEXT, remind_at DATETIME,
+                  reminder_text TEXT, status TEXT DEFAULT 'pending',
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+              `);
+
               const userName = data.member?.user?.username || data.user?.username || 'member';
               const displayName = savedNickname || userName;
-              const isMlbbMode = subCommand.name === 'askmlbb';
+
+              // Check Reminder Intent
+              const isCheckReminder = /do u have any reminder|any reminder|check reminder|senarai reminder|what are my reminder|ada reminder/i.test(lowerQuery);
+              if (isCheckReminder) {
+                const activeR = await db.execute({
+                  sql: "SELECT remind_at, reminder_text FROM user_reminders WHERE user_id = ? AND status = 'pending' ORDER BY remind_at ASC",
+                  args: [userId]
+                });
+                if (activeR.rows.length === 0) {
+                  return NextResponse.json({ type: 4, data: { content: `📋 **${displayName}**, kau tak ada sebarang reminder aktif sekarang!` } });
+                }
+                let listText = `📋 **${displayName}**, ini senarai reminder kau yang tengah aktif:\n`;
+                activeR.rows.forEach((r: any, idx: number) => {
+                  listText += `${idx + 1}. 🕒 \`${r.remind_at}\` — **${r.reminder_text}**\n`;
+                });
+                return NextResponse.json({ type: 4, data: { content: listText } });
+              }
+
+              // Set Reminder Intent
+              const isSetReminder = /setreminder|ingatkan|remind me|peringatan|set reminder|peringatkan/i.test(query);
+              if (isSetReminder) {
+                const timeMatch = lowerQuery.match(/(\d{1,2})[\.:](\d{2})\s*(am|pm)?/i) || lowerQuery.match(/(\d{1,2})\s*(am|pm)/i);
+                if (timeMatch) {
+                  let hours = parseInt(timeMatch[1], 10);
+                  const mins = timeMatch[2] && !isNaN(parseInt(timeMatch[2], 10)) ? parseInt(timeMatch[2], 10) : 0;
+                  const ampm = (timeMatch[3] || timeMatch[2] || '').toLowerCase();
+                  if (ampm === 'pm' && hours < 12) hours += 12;
+                  if (ampm === 'am' && hours === 12) hours = 0;
+
+                  const now = new Date();
+                  const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins, 0);
+                  if (targetDate.getTime() <= now.getTime()) {
+                    targetDate.setDate(targetDate.getDate() + 1);
+                  }
+
+                  let text = query
+                    .replace(/\/setreminder/gi, '')
+                    .replace(/ingatkan (?:aku|saya)?/gi, '')
+                    .replace(/remind me/gi, '')
+                    .replace(/\d{1,2}[\.:]\d{2}\s*(?:am|pm)?/gi, '')
+                    .replace(/harini|today|besok|tomorrow/gi, '')
+                    .replace(/<@!?\d+>/g, '')
+                    .replace(/^[\s,:-]+|[\s,:-]+$/g, '')
+                    .trim();
+
+                  if (!text) text = 'Peringatan anda';
+                  const remindAtSql = targetDate.toISOString().replace('T', ' ').substring(0, 19);
+                  const channelId = data.channel_id || '';
+
+                  await db.execute({
+                    sql: "INSERT INTO user_reminders (user_id, channel_id, remind_at, reminder_text, status) VALUES (?, ?, ?, ?, 'pending')",
+                    args: [userId, channelId, remindAtSql, text]
+                  });
+
+                  return NextResponse.json({
+                    type: 4,
+                    data: { content: `⏰ **Noted, ${displayName}!** Aku dah setkan reminder pada \`${targetDate.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}\` untuk:\n> **${text}**\n\nNanti aku ping kau kat sini bila sampai masa!` }
+                  });
+                }
+              }
               
+              const isMlbbMode = subCommand.name === 'askmlbb';
               const systemPrompt = isMlbbMode
                 ? `You are "Sentinel", a close squad member and personal MLBB coach to ${displayName} in this server.
 
