@@ -91,7 +91,7 @@ async function createChatCompletionViaGroq(params: any) {
   }
   const groqParams = {
     ...params,
-    model: process.env.GROQ_MODEL || 'llama-3.1-70b-versatile',
+    model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
   };
   let lastErr: any;
   for (const key of groqKeys) {
@@ -128,7 +128,7 @@ async function createChatCompletion(params: any) {
   if (apiKey && !apiKey.startsWith('sk-qwen-fc3294d3a1f6c6325703ead5ff8e85bc8e328aa09c0a1510')) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 1000);
+      const timer = setTimeout(() => controller.abort(), 30000); // 30 seconds for external APIs
       const res = await fetch(`${apiBase}/chat/completions`, {
         method: 'POST',
         headers: {
