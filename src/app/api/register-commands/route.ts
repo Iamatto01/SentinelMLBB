@@ -52,10 +52,10 @@ const commands = [
             type: 3, // STRING
             required: false,
             choices: [
-              { name: 'Llama 3.1 8B (Instant) - High Limits', value: 'llama-3.1-8b-instant' },
-              { name: 'Llama 3.1 70B (Versatile) - High Intelligence', value: 'llama-3.1-70b-versatile' },
-              { name: 'Gemma 2 9B (Google) - Balanced', value: 'gemma2-9b-it' },
-              { name: 'Llama 3.2 3B (Preview) - Lightweight', value: 'llama-3.2-3b-preview' },
+              { name: 'Gemini 2.0 Flash Lite (Free) - Fast', value: 'google/gemini-2.0-flash-lite-preview-02-05:free' },
+              { name: 'Llama 3.3 70B (Free) - High Intelligence', value: 'meta-llama/llama-3.3-70b-instruct:free' },
+              { name: 'DeepSeek R1 (Free) - Reasoning', value: 'deepseek/deepseek-r1:free' },
+              { name: 'Qwen 2.5 72B (Free) - Balanced', value: 'qwen/qwen-2.5-72b-instruct:free' },
             ],
           },
         ],

@@ -5,8 +5,8 @@
 const API_BASE = process.env.LLM_API_BASE || 'https://bandelbanget.xyz/v1';
 const API_KEY = process.env.LLM_API_KEY || '';
 // Use a real, valid model name. deepseek-v4-flash does not exist.
-// Groq's llama-3.1-70b-versatile is a strong default; override via env if needed.
-const DEFAULT_MODEL = process.env.LLM_MODEL || 'llama-3.1-70b-versatile';
+// OpenRouter's free Llama 3.3 is a strong default; override via env if needed.
+const DEFAULT_MODEL = process.env.LLM_MODEL || 'meta-llama/llama-3.3-70b-instruct:free';
 
 // ── Model selection (persisted in Turso) ──────────────────────
 
