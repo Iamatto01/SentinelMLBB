@@ -4,7 +4,9 @@
 
 const API_BASE = process.env.LLM_API_BASE || 'https://bandelbanget.xyz/v1';
 const API_KEY = process.env.LLM_API_KEY || '';
-const DEFAULT_MODEL = process.env.LLM_MODEL || 'deepseek-v4-flash';
+// Use a real, valid model name. deepseek-v4-flash does not exist.
+// Groq's llama-3.1-70b-versatile is a strong default; override via env if needed.
+const DEFAULT_MODEL = process.env.LLM_MODEL || 'llama-3.1-70b-versatile';
 
 // ── Model selection (persisted in Turso) ──────────────────────
 
@@ -89,7 +91,7 @@ async function createChatCompletionViaGroq(params: any) {
   }
   const groqParams = {
     ...params,
-    model: process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
+    model: process.env.GROQ_MODEL || 'llama-3.1-70b-versatile',
   };
   let lastErr: any;
   for (const key of groqKeys) {
