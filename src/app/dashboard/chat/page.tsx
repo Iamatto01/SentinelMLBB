@@ -21,6 +21,18 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Stable per-browser session ID so memory is isolated per user, not shared globally.
+  const sessionIdRef = useRef<string>('');
+  useEffect(() => {
+    const KEY = 'sentinel_chat_sid';
+    let sid = localStorage.getItem(KEY);
+    if (!sid) {
+      sid = `s_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem(KEY, sid);
+    }
+    sessionIdRef.current = sid;
+  }, []);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -43,7 +55,8 @@ export default function ChatPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: [...messages, { role: 'user', content: userMessage }]
+          messages: [...messages, { role: 'user', content: userMessage }],
+          sessionId: sessionIdRef.current,
         }),
       });
 
@@ -74,7 +87,7 @@ export default function ChatPage() {
             <h1 className="font-bold text-lg text-neutral-900 dark:text-white flex items-center gap-2">
               Sentinel AI <Sparkles className="w-4 h-4 text-purple-500" />
             </h1>
-            <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Powered by DeepSeek Flash</p>
+            <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Powered by Llama 3.3 70B</p>
           </div>
         </div>
       </div>
