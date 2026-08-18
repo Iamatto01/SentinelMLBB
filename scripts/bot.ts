@@ -6,26 +6,41 @@ import {
   GuildScheduledEventEntityType,
 } from 'discord.js';
 import dotenv from 'dotenv';
-import path from 'path';
-import fs from 'fs';
+import {
+  getUserHiraraContext,
+  recordChatMessage,
+  extractAndLearnMemories,
+  createReminder,
+  getDueReminders,
+  markReminderDone,
+  getUserPendingReminders,
+  saveUserMemory,
+  initHiraraDatabase,
+} from '../src/lib/memory';
+import { llm } from '../src/lib/groq';
+import { db } from '../src/lib/db';
 
 dotenv.config({ path: '.env.local' });
 
-async function startBot() {
-  const { llm } = await import('../src/lib/groq');
-  const { db } = await import('../src/lib/db');
+// ============================================================
+// HIRARA — AI Personal Companion & Long-Term Memory Assistant
+// ============================================================
+
+async function startHiraraBot() {
+  await initHiraraDatabase();
 
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.MessageContent,
       GatewayIntentBits.GuildScheduledEvents,
     ],
   });
 
   client.once(Events.ClientReady, (c) => {
-    console.log(`🚀 Sentinel MLBB 100% Mini PC P.A. Engine Online as ${c.user.tag}`);
-    startPAScheduler(client, db);
+    console.log(`🌸 Hirara AI Companion Online as ${c.user.tag}`);
+    startReminderScheduler(client);
   });
 
   client.on(Events.MessageCreate, async (message) => {
@@ -35,472 +50,127 @@ async function startBot() {
     if (!isMentioned) return;
 
     const prompt = message.content.replace(/<@!?\d+>/g, '').trim();
+    const userId = message.author.id;
+    const channelId = message.channel.id;
+    const rawUsername = message.author.username || 'kawan';
+
+    // Fast empty greeting
     if (!prompt) {
-      await message.reply("👋 Yo! Aku Sentinel P.A. korang. Ada apa-apa nak aku ingat, set reminder, buat event, atau susun jadual?");
+      const greetingQuotes = [
+        `Hai! Aku **Hirara**. Ada apa-apa nak sembang, tanya soalan, atau nak aku ingatkan apa-apa tak?`,
+        `Yo! Hirara kat sini. Ada apa boleh aku tolong korang harini?`,
+        `Weh! Ya aku Hirara. Nak borak pasal apa harini?`,
+      ];
+      const randomGreeting = greetingQuotes[Math.floor(Math.random() * greetingQuotes.length)];
+      await message.reply(randomGreeting);
       return;
     }
 
     try {
       await message.channel.sendTyping();
     } catch (e) {
-      // ignore typing error
+      // ignore typing indicator errors
     }
 
     try {
-      const userId = message.author.id;
-      const channelId = message.channel.id;
-      const guild = message.guild;
-
-      // ── Initialize SQLite Tables ───────────────────────────────
-      await db.execute(`
-        CREATE TABLE IF NOT EXISTS discord_chat_history (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id TEXT, role TEXT, content TEXT,
-          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      await db.execute(`
-        CREATE TABLE IF NOT EXISTS user_memories (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id TEXT, memory_key TEXT, memory_value TEXT,
-          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(user_id, memory_key)
-        )
-      `);
-
-      await db.execute(`
-        CREATE TABLE IF NOT EXISTS user_reminders (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id TEXT, channel_id TEXT, remind_at_ms INTEGER,
-          reminder_text TEXT, status TEXT DEFAULT 'pending',
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      await db.execute(`
-        CREATE TABLE IF NOT EXISTS squad_events (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          guild_id TEXT, channel_id TEXT, title TEXT,
-          description TEXT, start_time_ms INTEGER,
-          discord_event_id TEXT, notified_15m INTEGER DEFAULT 0,
-          notified_start INTEGER DEFAULT 0, created_by TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      await db.execute(`
-        CREATE TABLE IF NOT EXISTS squad_schedules (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          day_name TEXT, time_str TEXT, activity_name TEXT,
-          notes TEXT, created_by TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      await db.execute(`
-        CREATE TABLE IF NOT EXISTS squad_games (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          game_name TEXT UNIQUE,
-          category TEXT DEFAULT 'General',
-          created_by TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      await db.execute(`
-        CREATE TABLE IF NOT EXISTS squad_members (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id TEXT UNIQUE,
-          username TEXT,
-          role_name TEXT DEFAULT 'Member',
-          favorite_games TEXT DEFAULT 'MLBB',
-          status TEXT DEFAULT 'Aktif',
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      await db.execute(`
-        CREATE TABLE IF NOT EXISTS mlbb_game_logs (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          game_no INTEGER,
-          match_date TEXT,
-          mode TEXT,
-          duration INTEGER,
-          player1 TEXT, hero1 TEXT,
-          player2 TEXT, hero2 TEXT,
-          player3 TEXT, hero3 TEXT,
-          player4 TEXT, hero4 TEXT,
-          player5 TEXT, hero5 TEXT,
-          result TEXT,
-          notes TEXT
-        )
-      `);
-
-      // Seed CSV data if empty
-      const countLogs = await db.execute("SELECT COUNT(*) as count FROM mlbb_game_logs").catch(() => ({ rows: [{ count: 0 }] }));
-      const totalLogs = countLogs.rows[0]?.count || 0;
-      if (totalLogs === 0) {
-        const csvPath = path.join(process.cwd(), 'SentinelMLBB - muhammadsaifudinmj - 🎮 Game Log.csv');
-        if (fs.existsSync(csvPath)) {
-          const rawCsv = fs.readFileSync(csvPath, 'utf8');
-          const lines = rawCsv.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-
-          for (let i = 3; i < lines.length; i++) {
-            const line = lines[i];
-            if (!line || line.startsWith('#') || line.startsWith('⚔️')) continue;
-
-            const parts = line.split(',');
-            if (parts.length >= 15) {
-              const gameNo = parseInt(parts[0], 10);
-              const date = parts[1];
-              const mode = parts[2];
-              const duration = parseInt(parts[3], 10) || 0;
-              const p1 = parts[4], h1 = parts[5];
-              const p2 = parts[6], h2 = parts[7];
-              const p3 = parts[8], h3 = parts[9];
-              const p4 = parts[10], h4 = parts[11];
-              const p5 = parts[12], h5 = parts[13];
-              const result = parts[14];
-              const notes = parts.slice(15).join(',').replace(/^"|"$/g, '').trim();
-
-              await db.execute({
-                sql: "INSERT INTO mlbb_game_logs (game_no, match_date, mode, duration, player1, hero1, player2, hero2, player3, hero3, player4, hero4, player5, hero5, result, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                args: [gameNo, date, mode, duration, p1, h1, p2, h2, p3, h3, p4, h4, p5, h5, result, notes]
-              }).catch(console.error);
-            }
-          }
-        }
-      }
-
-      // Seed default squad games if empty
-      const countRes = await db.execute("SELECT COUNT(*) as count FROM squad_games").catch(() => ({ rows: [{ count: 0 }] }));
-      const totalCount = countRes.rows[0]?.count || 0;
-      if (totalCount === 0) {
-        const defaultGames = [
-          'Mobile Legends: Bang Bang (MLBB)',
-          'Valorant',
-          'PUBG Mobile / PUBG',
-          'Dota 2',
-          'Call of Duty: Modern Warfare',
-          'CS:GO',
-          'Fortnite',
-          'League of Legends',
-          'Overwatch',
-          'Rainbow Six Siege'
-        ];
-        for (const g of defaultGames) {
-          await db.execute({ sql: "INSERT OR IGNORE INTO squad_games (game_name, created_by) VALUES (?, 'System')", args: [g] }).catch(() => {});
-        }
-      }
-
       const lower = prompt.toLowerCase();
-      const isQuestion = /\?|why|kenapa|macam mana|how|can|boleh|apakah|what/i.test(prompt);
 
-      // ── 1. User Preference & Memory Auto-Saver ───────────────
-      const nickMatch = prompt.match(/(?:remember my name(?: is|,|\s+)|nama (?:panggilan )?aku|panggil (?:aku|saya)|name is|my name is|panggilan aku)\s+([A-Za-z0-9_-]+)/i);
-      if (nickMatch && nickMatch[1]) {
-        const nick = nickMatch[1].trim();
-        if (nick.length > 1 && !['siapa', 'siapakah', 'apa', 'apakah', 'siapa?', 'apa?'].includes(nick.toLowerCase())) {
-          await db.execute({
-            sql: "INSERT INTO user_memories (user_id, memory_key, memory_value) VALUES (?, 'nickname', ?) ON CONFLICT(user_id, memory_key) DO UPDATE SET memory_value = excluded.memory_value",
-            args: [userId, nick]
-          }).catch(console.error);
-        }
-      }
+      // ── 1. Fetch User Memory & Profile ───────────────────────
+      const { displayName, memoriesList, recentHistory, chatCount } =
+        await getUserHiraraContext(userId, rawUsername);
 
-      if (lower.includes('jgn guna bro') || lower.includes('jangan panggil bro') || lower.includes('bukan bro') || lower.includes('jangan guna bro')) {
-        await db.execute({
-          sql: "INSERT INTO user_memories (user_id, memory_key, memory_value) VALUES (?, 'forbidden_words', 'bro, kamu') ON CONFLICT(user_id, memory_key) DO UPDATE SET memory_value = excluded.memory_value",
-          args: [userId]
-        }).catch(console.error);
-      }
-
-      if (lower.includes('tukar kamu ke kau') || lower.includes('pakai kau') || lower.includes('guna kau') || lower.includes('pakai bahasa melayu')) {
-        await db.execute({
-          sql: "INSERT INTO user_memories (user_id, memory_key, memory_value) VALUES (?, 'preferred_pronoun', 'kau') ON CONFLICT(user_id, memory_key) DO UPDATE SET memory_value = excluded.memory_value",
-          args: [userId]
-        }).catch(console.error);
-      }
-
-      const memRes = await db.execute({
-        sql: "SELECT memory_key, memory_value FROM user_memories WHERE user_id = ?",
-        args: [userId]
-      }).catch(() => ({ rows: [] }));
-
-      let savedNickname = '';
-      const factList: string[] = [];
-      for (const r of memRes.rows) {
-        if (r.memory_key === 'nickname') savedNickname = r.memory_value;
-        factList.push(`- ${r.memory_key}: ${r.memory_value}`);
-      }
-
-      const userName = message.author.username || 'member';
-      const displayName = savedNickname || userName;
-
-      // Auto-register current user into squad_members if not present
-      await db.execute({
-        sql: "INSERT INTO squad_members (user_id, username, role_name, favorite_games) VALUES (?, ?, 'Member', 'MLBB') ON CONFLICT(user_id) DO UPDATE SET username = excluded.username",
-        args: [userId, displayName]
-      }).catch(() => {});
-
-      // ── 2. MLBB REAL MATCH LOG COMMANDS ───────────────────────
-      const isViewMatchLogs = /rekod match|rekod game|match log|keputusan tour|sejarah game|sejarah match/i.test(lower);
-      if (isViewMatchLogs) {
-        const logsRes = await db.execute("SELECT game_no, match_date, mode, result, player1, hero1, player2, hero2, player3, hero3, player4, hero4, player5, hero5, notes FROM mlbb_game_logs ORDER BY game_no DESC LIMIT 10");
-        if (logsRes.rows.length === 0) {
-          await message.reply({ content: `⚔️ **${displayName}**, tiada rekod perlawanan MLBB ditemui dalam database!` });
+      // ── 2. Explicit Memory Command: "Kau ingat apa pasal aku?" ─
+      if (
+        /apa (?:yang )?kau ingat pasal aku|senarai memori aku|tengok memori|apa kau tahu pasal aku|ingat tak aku siapa/i.test(
+          lower
+        )
+      ) {
+        if (memoriesList.length === 0) {
+          await message.reply(
+            `Aku belum ada simpan banyak fakta pasal kau lagi, **${displayName}**! Tapi setiap kali kita borak, aku akan automatik ingat details & preference kau. Cerita la apa-apa pasal diri kau!`
+          );
           return;
         }
 
-        let msgText = `⚔️ **REKOD PERLAWANAN SEBENAR SQUAD SENTINEL MLBB (10 Terkini)**\n\n`;
-        msgText += `| # | Tarikh | Mod | Keputusan | Lineup Hero Squad | Catatan |\n`;
-        msgText += `| :-: | :--- | :--- | :--- | :--- | :--- |\n`;
-        logsRes.rows.forEach((r: any) => {
-          const resEmoji = r.result === 'Win' ? '🟢 WIN' : '🔴 LOSE';
-          const lineup = `${r.player1}(${r.hero1}), ${r.player2}(${r.hero2}), ${r.player3}(${r.hero3})`;
-          msgText += `| **#${r.game_no}** | ${r.match_date} | ${r.mode} | ${resEmoji} | ${lineup} | ${r.notes || '-'} |\n`;
+        let memoryReport = `🧠 **Ini antara perkara & detail yang aku ingat pasal kau, ${displayName}:**\n\n`;
+        memoriesList.forEach((m, idx) => {
+          memoryReport += `• **${m}**\n`;
         });
+        memoryReport += `\n*Otak aku makin kenal kau setiap kali kita borak! ✨*`;
 
-        await message.reply({ content: msgText });
+        await message.reply(memoryReport);
         return;
       }
 
-      // ── 3. SQUAD MEMBER MANAGEMENT COMMANDS ───────────────────
-      const isAddMember = !isQuestion && /tambah member|add member|tambah ahli|add player/i.test(lower);
-      if (isAddMember) {
-        const targetMention = message.mentions.users.first();
-        const targetId = targetMention ? targetMention.id : userId;
-        const targetName = targetMention ? (targetMention.username) : displayName;
-
-        const roleMatch = prompt.match(/(?:role|peran)\s+([A-Za-z0-9_-]+)/i);
-        const roleName = roleMatch ? roleMatch[1] : 'Member';
-
-        const gameMatch = prompt.match(/(?:game|suka)\s+([A-Za-z0-9_,\s-]+)/i);
-        const favGames = gameMatch ? gameMatch[1].trim() : 'MLBB';
-
-        await db.execute({
-          sql: "INSERT INTO squad_members (user_id, username, role_name, favorite_games, status) VALUES (?, ?, ?, ?, 'Aktif') ON CONFLICT(user_id) DO UPDATE SET username = excluded.username, role_name = excluded.role_name, favorite_games = excluded.favorite_games",
-          args: [targetId, targetName, roleName, favGames]
-        });
-
-        await message.reply({
-          content: `👥 **Ahli Squad Berjaya Ditambah!**\n\n| Anggota | Peran | Game Utama | Status |\n| :--- | :--- | :--- | :--- |\n| **${targetName}** | ${roleName} | ${favGames} | 🟢 Aktif |`
-        });
-        return;
-      }
-
-      const isViewMembers = /senarai member|ahli squad|squad members|senarai ahli|view members|pengaturan squad/i.test(lower) && !lower.includes('contoh');
-      if (isViewMembers) {
-        const memberRes = await db.execute("SELECT username, role_name, favorite_games, status FROM squad_members ORDER BY id ASC");
-        if (memberRes.rows.length === 0) {
-          await message.reply({ content: `👥 **${displayName}**, belum ada ahli squad yang didaftarkan! Taip \`@Sentinel MLBB tambah member @User role Leader game MLBB\` untuk daftar ahli.` });
-          return;
-        }
-
-        let msgText = `👥 **SENARAI AHLI SQUAD SEBENAR (${memberRes.rows.length} Orang)**\n\n`;
-        msgText += `| Anggota | Peran | Game Utama | Status |\n`;
-        msgText += `| :--- | :--- | :--- | :--- |\n`;
-        memberRes.rows.forEach((r: any) => {
-          msgText += `| **${r.username}** | ${r.role_name || 'Member'} | ${r.favorite_games || 'MLBB'} | 🟢 ${r.status || 'Aktif'} |\n`;
-        });
-
-        await message.reply({ content: msgText });
-        return;
-      }
-
-      // ── 4. GAME MANAGEMENT COMMANDS ────────────────────────────
-      const isAddGame = !isQuestion && /tambah game|add game|masukkan game/i.test(lower);
-      if (isAddGame) {
-        const gameMatch = prompt.replace(/tambah game|add game|masukkan game/gi, '').replace(/<@!?\d+>/g, '').trim();
-        if (gameMatch) {
-          await db.execute({
-            sql: "INSERT INTO squad_games (game_name, created_by) VALUES (?, ?) ON CONFLICT(game_name) DO NOTHING",
-            args: [gameMatch, displayName]
-          });
-          await message.reply({
-            content: `🎮 **Game Berjaya Ditambah!**\nGame **"${gameMatch}"** kini disimpan secara kekal dalam database Sentinel AI oleh **${displayName}**!`
-          });
-          return;
-        }
-      }
-
-      // ── 5. REAL DISCORD EVENT CREATION ─────────────────────────
-      const isCreateEvent = !isQuestion && /create event|buat event|tambah event|set event/i.test(lower);
-      if (isCreateEvent) {
-        const parsedEvent = parseEventDetails(prompt);
-        if (guild && parsedEvent) {
-          try {
-            const scheduledEvent = await guild.scheduledEvents.create({
-              name: parsedEvent.title,
-              scheduledStartTime: parsedEvent.startTime,
-              scheduledEndTime: new Date(parsedEvent.startTime.getTime() + 2 * 60 * 60 * 1000),
-              privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
-              entityType: GuildScheduledEventEntityType.External,
-              entityMetadata: { location: 'Discord Server / Mobile Legends' },
-              description: `Dianjurkan oleh ${displayName} (Disusun oleh Sentinel P.A.)`,
-            });
-
-            await db.execute({
-              sql: "INSERT INTO squad_events (guild_id, channel_id, title, description, start_time_ms, discord_event_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
-              args: [guild.id, channelId, parsedEvent.title, parsedEvent.description, parsedEvent.startTime.getTime(), scheduledEvent.id, displayName]
-            });
-
-            await message.reply({
-              content: `🎉 **Event Berjaya Dicipta, ${displayName}!**\n\n📌 **Nama Event:** ${parsedEvent.title}\n🕒 **Waktu:** \`${parsedEvent.timeFormatted}\`\n🔗 **Link Event Discord:** ${scheduledEvent.url}\n\n*Aku akan automatik ping korang 15 minit sebelum event bermula & bila event bermula!*`
-            });
-            return;
-          } catch (eventErr: any) {
-            console.error('Failed to create Discord Event:', eventErr);
-            await db.execute({
-              sql: "INSERT INTO squad_events (guild_id, channel_id, title, description, start_time_ms, discord_event_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
-              args: [guild?.id || '', channelId, parsedEvent.title, parsedEvent.description, parsedEvent.startTime.getTime(), '', displayName]
-            });
-
-            await message.reply({
-              content: `📅 **Event P.A. Berjaya Disimpan, ${displayName}!**\n\n📌 **Nama Event:** ${parsedEvent.title}\n🕒 **Waktu:** \`${parsedEvent.timeFormatted}\`\n\n*Aku akan ingatkan korang 15 minit sebelum event bermula!*`
-            });
-            return;
-          }
-        }
-      }
-
-      // ── 6. SQUAD SCHEDULE MANAGEMENT ───────────────────────────
-      const isScheduleAdd = !isQuestion && /tambah jadual|add schedule|set jadual/i.test(lower);
-      if (isScheduleAdd) {
-        const schedMatch = prompt.match(/(?:tambah jadual|add schedule|set jadual)\s+(isnin|selasa|rabu|khamis|jumaat|sabtu|ahad|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(\d{1,2}[\.:]\d{2}\s*(?:am|pm)?|\d{1,2}\s*(?:am|pm)?)\s+(.+)/i);
-        if (schedMatch) {
-          const day = schedMatch[1];
-          const time = schedMatch[2];
-          const activity = schedMatch[3];
-
-          await db.execute({
-            sql: "INSERT INTO squad_schedules (day_name, time_str, activity_name, created_by) VALUES (?, ?, ?, ?)",
-            args: [day.toUpperCase(), time, activity, displayName]
-          });
-
-          await message.reply({
-            content: `📅 **Jadual Squad Ditambah, ${displayName}!**\n\n🗓️ **Hari:** ${day.toUpperCase()}\n⏰ **Masa:** ${time}\n🎮 **Aktiviti:** ${activity}`
-          });
-          return;
-        }
-      }
-
-      const isScheduleView = /tunjuk jadual|senarai jadual|view schedule|jadual squad|lihat jadual/i.test(lower);
-      if (isScheduleView) {
-        const schedRes = await db.execute("SELECT day_name, time_str, activity_name, created_by FROM squad_schedules ORDER BY id ASC");
-        if (schedRes.rows.length === 0) {
-          await message.reply({ content: `📅 **${displayName}**, belum ada jadual squad yang ditetapkan! Taip \`@Sentinel MLBB tambah jadual Isnin 9.00 pm Scrim MLBB\` untuk tambah.` });
-          return;
-        }
-
-        let msgText = `🗓️ **JADUAL AKTIVITI SQUAD SENTINEL (${displayName})**\n\n`;
-        msgText += `| # | Hari | Masa | Aktiviti / Match | Disusun Oleh |\n`;
-        msgText += `| :-: | :--- | :--- | :--- | :--- |\n`;
-        schedRes.rows.forEach((r: any, i: number) => {
-          msgText += `| **${i + 1}** | **${r.day_name}** | \`${r.time_str}\` | ${r.activity_name} | ${r.created_by} |\n`;
-        });
-
-        await message.reply({ content: msgText });
-        return;
-      }
-
-      // ── 7. REMINDERS & ALARMS ──────────────────────────────────
-      const isCheckReminder = /do u have any reminder|any reminder|check reminder|senarai reminder|what are my reminder|ada reminder/i.test(lower);
-      if (isCheckReminder) {
-        const activeR = await db.execute({
-          sql: "SELECT remind_at_ms, reminder_text FROM user_reminders WHERE user_id = ? AND status = 'pending' ORDER BY remind_at_ms ASC",
-          args: [userId]
-        });
-        if (activeR.rows.length === 0) {
-          await message.reply({ content: `📋 **${displayName}**, kau tak ada sebarang reminder/alarm aktif sekarang!` });
-          return;
-        }
-        let listText = `📋 **${displayName}**, ini senarai reminder/alarm kau yang tengah aktif:\n\n`;
-        listText += `| # | Masa Peringatan | Mesej Peringatan / Alarm |\n`;
-        listText += `| :-: | :--- | :--- |\n`;
-        activeR.rows.forEach((r: any, idx: number) => {
-          const dateStr = new Date(r.remind_at_ms).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' });
-          listText += `| **${idx + 1}** | \`${dateStr}\` | **${r.reminder_text}** |\n`;
-        });
-        await message.reply({ content: listText });
-        return;
-      }
-
-      const isSetReminder = !isQuestion && (
-        /\/setreminder/i.test(prompt) ||
-        /(?:ingatkan aku|ingatkan saya|set reminder|set alarm|remind me to|peringatkan aku|peringatkan saya)/i.test(prompt)
+      // ── 3. Check Reminders / Alarms ──────────────────────────
+      const isCheckReminder = /ada reminder|check reminder|senarai reminder|what are my reminder|tengok alarm|ada alarm/i.test(
+        lower
       );
+      if (isCheckReminder) {
+        const pending = await getUserPendingReminders(userId);
+        if (pending.length === 0) {
+          await message.reply(
+            `📋 **${displayName}**, kau tak ada sebarang peringatan/alarm yang aktif sekarang. Kalau nak aku ingatkan apa-apa, bagitahu je cth: *"Hirara, ingatkan aku 20 minit lagi..."*!`
+          );
+          return;
+        }
+
+        let listText = `⏰ **Senarai peringatan aktif kau, ${displayName}:**\n\n`;
+        pending.forEach((r, idx) => {
+          const dateStr = new Date(r.remind_at_ms).toLocaleTimeString('ms-MY', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+          });
+          listText += `${idx + 1}. \`${dateStr}\` — **${r.reminder_text}**\n`;
+        });
+        await message.reply(listText);
+        return;
+      }
+
+      // ── 4. Set Reminder / Alarm Intent ───────────────────────
+      const isSetReminder =
+        /^(?:ingatkan|remind me|set reminder|set alarm|tolong ingatkan)/i.test(prompt) ||
+        /(?:ingatkan aku|ingatkan saya|remind me to|peringatkan aku)/i.test(prompt);
 
       if (isSetReminder) {
         const parsed = parseReminderIntent(prompt);
         if (parsed) {
-          await db.execute({
-            sql: "INSERT INTO user_reminders (user_id, channel_id, remind_at_ms, reminder_text, status) VALUES (?, ?, ?, ?, 'pending')",
-            args: [userId, channelId, parsed.remindAtMs, parsed.text]
-          });
-          await message.reply({
-            content: `⏰ **Noted, ${displayName}!** Aku dah setkan alarm/reminder pada \`${parsed.timeFormatted}\` untuk:\n> **${parsed.text}**\n\nNanti aku ping kau kat sini bila sampai masa!`
-          });
+          await createReminder(userId, channelId, parsed.remindAtMs, parsed.text);
+          await message.reply(
+            `⏰ **Beres, ${displayName}!** Aku dah setkan peringatan pada \`${parsed.timeFormatted}\` untuk:\n> **${parsed.text}**\n\nNanti sampai masa aku terus tag kau kat sini!`
+          );
           return;
         }
       }
 
-      // ── 8. AI PERSONAL ASSISTANT CHAT WITH REAL DB DATA ───────
-      const gamesRes = await db.execute("SELECT game_name FROM squad_games ORDER BY id ASC").catch(() => ({ rows: [] }));
-      const savedGamesList = gamesRes.rows.map((r: any) => `• ${r.game_name}`).join('\n');
+      // ── 5. AI Conversational Generation with Hirara Persona ──
+      const memoriesContext =
+        memoriesList.length > 0
+          ? `DETAIL & FAKTA DIINGATI PASAL ${displayName.toUpperCase()}:\n${memoriesList.join('\n')}`
+          : `(Belum ada detail khusus pasal ${displayName}, kenali diri dia secara semulajadi semasa borak)`;
 
-      const membersRes = await db.execute("SELECT username, role_name, favorite_games, status FROM squad_members ORDER BY id ASC").catch(() => ({ rows: [] }));
-      const squadMembersList = membersRes.rows.map((r: any) => `| ${r.username} | ${r.role_name || 'Member'} | ${r.favorite_games || 'MLBB'} | ${r.status || 'Aktif'} |`).join('\n');
+      const systemPrompt = `Kau adalah "Hirara", seorang kawan borak orang Melayu dan pembantu peribadi yang pintar, mesra, santai, dan berjiwa member di Discord server ini.
 
-      const logsRes = await db.execute("SELECT game_no, match_date, mode, result, player1, hero1, player2, hero2, player3, hero3, player4, hero4, player5, hero5, notes FROM mlbb_game_logs ORDER BY game_no DESC LIMIT 20").catch(() => ({ rows: [] }));
-      let mlbbLogsContext = '';
-      if (logsRes.rows.length > 0) {
-        mlbbLogsContext = logsRes.rows.map((r: any) => 
-          `Game #${r.game_no} (${r.match_date}, ${r.mode}): Result=${r.result} | Players: ${r.player1}(${r.hero1}), ${r.player2}(${r.hero2}), ${r.player3}(${r.hero3}), ${r.player4}(${r.hero4}), ${r.player5}(${r.hero5}) | Notes: ${r.notes || 'N/A'}`
-        ).join('\n');
-      }
+IDENTITI & PERSONALITI HIRARA:
+- Nama: Hirara (Orang Melayu, peramah, ada sense of humor, supportive, bijak, peka).
+- Bahasa: Bahasa Melayu santai harian (casual & conversational). Guna 'aku' untuk diri sendiri dan 'kau' / 'korang' untuk kawan. Boleh selit slanga harian yang biasa (cth: "weh", "geng", "padu", "relax", "jap", "jom") tapi jangan melebih-lebih sampai cringe.
+- Kamu BUKAN robot yang skema. Kamu bercakap macam kawan rapat yang ceria dan memahami.
+- Fleksibel: Kamu boleh borak pasal apa sahaja — hal harian, kerja, belajar, coding, gaming, luahan perasaan, idea projek, atau sembang santai.
+- Ingatan & Memori: Kamu mempunyai ingatan jangka panjang. Manfaatkan fakta yang kamu ingat tentang pengguna secara semulajadi bila relevan.
 
-      const historyRes = await db.execute({
-        sql: "SELECT role, content FROM discord_chat_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 16",
-        args: [userId],
-      });
+${memoriesContext}
+JUMLAH PERBUALAN TERDAHULU DENGAN ${displayName.toUpperCase()}: ${chatCount} kali.
 
-      const pastMessages = historyRes.rows.reverse().map((r) => ({
-        role: r.role as 'user' | 'assistant',
-        content: r.content as string,
-      }));
-
-      const systemPrompt = `You are "Sentinel", a dedicated 24/7 Personal Assistant and Squad Coordinator running 100% locally on the Mini PC for ${displayName} and their squad in this Discord server.
-
-SAVED FACTS ABOUT THIS USER (${displayName}):
-${factList.length > 0 ? factList.join('\n') : '- Primary Nickname: ' + displayName}
-
-REAL SQUAD PLAYERS FROM MATCH LOGS:
-- huehue (Plays: Hanabi, Ixia, Aulus, Karrie, Popol & Kupa, Minsitthar, Freya, Julian)
-- ryuu (Plays: Chou, Arlott, Gatotkaca, Gloo, Irithel, Belerick, Akai, Phoveus)
-- gerakan tambahan(real) (Plays: Phoveus, Lolita, Gatotkaca, Badang, Marcel, Chip, Faramis, Grock)
-- abang jamil (Plays: Zhuxin, Cecilion, Zetian, Selena, Valentina, Gord, Xavier, Lylia, Yve)
-- zepho / tauke / royaler / australo / ryuuna (Plays: Lancelot, Sora, Dyrroth, Paquito, Yu Zhong, Vexana, Hilda, Fredrinn, Joy, Granger, Karrie, Irithel, Leomord)
-
-ACTUAL MLBB MATCH LOGS FROM DATABASE (REAL GAME LOGS CSV):
-${mlbbLogsContext || 'No game logs imported yet.'}
-
-ACTUAL GAMES STORED IN SENTINEL AI DATABASE:
-${savedGamesList || '• Mobile Legends: Bang Bang (MLBB)\n• Valorant\n• PUBG Mobile\n• Dota 2\n• Call of Duty: Modern Warfare\n• CS:GO\n• Fortnite\n• League of Legends\n• Overwatch\n• Rainbow Six Siege'}
-
-CRITICAL TRUTH & FORMATTING RULES:
-- REAL MATCH LOGS: When asked about squad matches, win/loss records, or players like huehue, ryuu, abang jamil, ALWAYS use the REAL match logs from the database list above!
-- DUMMY EXAMPLES vs REAL DATA: NEVER invent fake esports teams (like Evos, Blacklist, TNC, ONIC) or fake player names! Use the real player names from the squad match logs (huehue, ryuu, gerakan tambahan(real), abang jamil, tauke, royaler, australo, ryuuna)!
-- TABLE FORMATTING: Whenever you present timetables, schedules, activity plans, or game/member lists, ALWAYS format them as neat Markdown Tables!
-- ALWAYS address the user as "${displayName}".
-- NEVER use 'bro' or 'kamu' if forbidden. Use 'kau' / 'aku'.
-- Talk like a loyal, friendly, and witty squad member & personal assistant ("geng", "member", "kau", "aku").
-- Keep responses concise (under 2000 chars), formatted neatly with markdown.`;
+PANDUAN MENJAWAB:
+1. Panggil pengguna dengan nama "${displayName}".
+2. Jawab secara ringkas, padat, dan natural (bawah 1500 aksara).
+3. Jika ditanya soalan teknikal atau serius, bantu dengan bijak dan tepat dalam nada santai yang mudah difahami.
+4. Jangan berpura-pura tahu apa yang kau tak tahu, jujur macam kawan.`;
 
       const messages = [
         { role: 'system', content: systemPrompt },
-        ...pastMessages,
+        ...recentHistory,
         { role: 'user', content: prompt },
       ];
 
@@ -508,208 +178,163 @@ CRITICAL TRUTH & FORMATTING RULES:
       const chatCompletion = await llm.chat.completions.create({
         messages,
         model: activeModel,
-        temperature: 0.7,
-        max_tokens: 1000,
+        temperature: 0.75,
+        max_tokens: 800,
       });
 
-      const finalResponse =
+      const responseText =
         chatCompletion.choices[0]?.message?.content ||
         chatCompletion.choices[0]?.message?.reasoning_content ||
         chatCompletion.choices[0]?.message?.reasoning ||
-        'Aku tak dapat jawapan dari enjin P.A.';
+        'Alamak weh, sekejap ya line aku macam lagging sikit tadi.';
 
-      try {
-        await db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'user', prompt] });
-        await db.execute({ sql: "INSERT INTO discord_chat_history (user_id, role, content) VALUES (?, ?, ?)", args: [userId, 'assistant', finalResponse] });
-      } catch (e) {
-        console.warn('[DB] History insert warning:', e);
-      }
+      // Record chat turn in conversation log
+      await recordChatMessage(userId, 'user', prompt, message.guild?.id, channelId);
+      await recordChatMessage(userId, 'assistant', responseText, message.guild?.id, channelId);
 
-      await message.reply({ content: finalResponse });
+      // Reply to Discord user
+      await message.reply({ content: responseText });
+
+      // Run background memory extraction (makes Hirara continuously smarter)
+      extractAndLearnMemories(userId, displayName, prompt, responseText).catch((err) =>
+        console.warn('[Hirara Memory Background Task] Notice:', err)
+      );
     } catch (err: any) {
-      console.error('Error replying to P.A. request:', err);
-      await message.reply({ content: `*Ralat P.A. Mini PC: ${err.message || err}*` });
+      console.error('[Hirara Bot Error]:', err);
+      await message.reply({
+        content: `*Ralat Hirara: ${err.message || 'Ada sedikit masalah teknikal, cuba lagi jap lagi!'}*`,
+      });
     }
   });
 
   const token = process.env.DISCORD_BOT_TOKEN;
   if (!token) {
-    console.error("Missing DISCORD_BOT_TOKEN");
+    console.error('Missing DISCORD_BOT_TOKEN in .env.local');
     process.exit(1);
   }
 
   client.login(token);
 }
 
-// ── 24/7 BACKGROUND SCHEDULER (MINI PC) ──────────────────────────
-function startPAScheduler(client: Client, db: any) {
+// ── Background Reminder Scheduler (Checks every 10 seconds) ───
+function startReminderScheduler(client: Client) {
   setInterval(async () => {
     try {
-      const nowMs = Date.now();
+      const dueReminders = await getDueReminders();
 
-      // 1. Check Due User Reminders & Alarms (Timezone-agnostic Unix Epoch ms)
-      const dueReminders = await db.execute({
-        sql: "SELECT id, user_id, channel_id, reminder_text FROM user_reminders WHERE status = 'pending' AND remind_at_ms <= ?",
-        args: [nowMs]
-      });
-
-      for (const r of dueReminders.rows) {
+      for (const item of dueReminders) {
         try {
-          const channel = await client.channels.fetch(r.channel_id) as any;
+          const channel = (await client.channels.fetch(item.channel_id)) as any;
           if (channel && channel.send) {
-            await channel.send(`🚨 <@${r.user_id}> **ALARM / P.A. REMINDER!**\n> **${r.reminder_text}**`);
+            await channel.send(
+              `🔔 <@${item.user_id}> **Peringatan daripada Hirara!**\n> 📌 **${item.reminder_text}**\n*Masa dah sampai geng!*`
+            );
           }
         } catch (err) {
-          console.error('[Scheduler] Failed to send reminder:', err);
+          console.error('[Hirara Scheduler] Send reminder error:', err);
         }
 
-        await db.execute({
-          sql: "UPDATE user_reminders SET status = 'completed' WHERE id = ?",
-          args: [r.id]
-        }).catch(console.error);
-      }
-
-      // 2. Check Upcoming Guild Events (15m warning & start ping)
-      const upcomingEvents = await db.execute({
-        sql: "SELECT id, channel_id, title, start_time_ms, notified_15m, notified_start, created_by FROM squad_events WHERE notified_start = 0"
-      });
-
-      for (const ev of upcomingEvents.rows) {
-        const diffMins = (ev.start_time_ms - nowMs) / (1000 * 60);
-
-        // 15-minute warning ping
-        if (diffMins <= 15 && diffMins > 0 && ev.notified_15m === 0) {
-          try {
-            const channel = await client.channels.fetch(ev.channel_id) as any;
-            if (channel && channel.send) {
-              await channel.send(`📣 @everyone **P.A. EVENT WARNING!**\n> Event **${ev.title}** (dicipta oleh ${ev.created_by}) akan bermula dalam **15 MINIT lagi**! Sedia geng!`);
-            }
-          } catch (e) {
-            console.error('Failed to send 15m event warning:', e);
-          }
-          await db.execute({ sql: "UPDATE squad_events SET notified_15m = 1 WHERE id = ?", args: [ev.id] });
-        }
-
-        // Event started ping
-        if (diffMins <= 0 && ev.notified_start === 0) {
-          try {
-            const channel = await client.channels.fetch(ev.channel_id) as any;
-            if (channel && channel.send) {
-              await channel.send(`🚨 @everyone **EVENT BERMULA SEKARANG!**\n> Event **${ev.title}** dah bermula! Jom masuk!`);
-            }
-          } catch (e) {
-            console.error('Failed to send event start ping:', e);
-          }
-          await db.execute({ sql: "UPDATE squad_events SET notified_start = 1 WHERE id = ?", args: [ev.id] });
+        if (item.id) {
+          await markReminderDone(item.id);
         }
       }
     } catch (e) {
-      // ignore tick errors
+      // Ignore background interval errors
     }
-  }, 10000); // Check every 10 seconds
+  }, 10000);
 }
 
-// ── PARSERS FOR EVENTS & REMINDERS ────────────────────────────────
-function parseEventDetails(prompt: string) {
+// ── Helper: Parse Reminder Intent ─────────────────────────────
+function parseReminderIntent(prompt: string): {
+  remindAtMs: number;
+  text: string;
+  timeFormatted: string;
+} | null {
   const lower = prompt.toLowerCase();
 
-  let title = prompt
-    .replace(/create event|buat event|tambah event|set event/gi, '')
-    .replace(/\d{1,2}[\.:]\d{2}\s*(?:am|pm)?/gi, '')
-    .replace(/\d{1,2}\s*(?:am|pm)/gi, '')
-    .replace(/harini|today|besok|tomorrow|malam ni|pagi ni/gi, '')
-    .replace(/<@!?\d+>/g, '')
-    .replace(/^[\s,:-]+|[\s,:-]+$/g, '')
-    .trim();
+  // Pattern A: "dalam X minit/jam" / "in X minutes"
+  const minMatch =
+    lower.match(/(?:dalam|lagi|in)\s*(\d+)\s*(?:minit|minutes|min)/i) ||
+    lower.match(/(\d+)\s*(?:minit|minutes|min)\s*(?:lagi|later)/i);
 
-  if (!title) title = 'Squad Activity / Match';
-
-  const timeMatch = lower.match(/(\d{1,2})[\.:](\d{2})\s*(am|pm)?/i) || lower.match(/(\d{1,2})\s*(am|pm)/i);
-  let hours = 20;
-  let mins = 0;
-
-  if (timeMatch) {
-    hours = parseInt(timeMatch[1], 10);
-    mins = timeMatch[2] && !isNaN(parseInt(timeMatch[2], 10)) ? parseInt(timeMatch[2], 10) : 0;
-    const ampm = (timeMatch[3] || timeMatch[2] || '').toLowerCase();
-    if (ampm === 'pm' && hours < 12) hours += 12;
-    if (ampm === 'am' && hours === 12) hours = 0;
-  }
-
-  const now = new Date();
-  const startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins, 0);
-
-  if (lower.includes('besok') || lower.includes('tomorrow')) {
-    startTime.setDate(startTime.getDate() + 1);
-  } else if (startTime.getTime() <= now.getTime()) {
-    startTime.setDate(startTime.getDate() + 1);
-  }
-
-  const timeFormatted = startTime.toLocaleString('ms-MY', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-
-  return {
-    title,
-    description: `Aktiviti Squad: ${title}`,
-    startTime,
-    timeFormatted,
-  };
-}
-
-function parseReminderIntent(prompt: string) {
-  const lower = prompt.toLowerCase();
-
-  const minMatch = lower.match(/(?:in|lagi|dalam)\s*(\d+)\s*(?:minit|minutes|min)/i) || lower.match(/(\d+)\s*(?:minit|minutes|min)\s*(?:lagi|later)/i);
   if (minMatch) {
     const mins = parseInt(minMatch[1], 10);
     const remindAtMs = Date.now() + mins * 60 * 1000;
     const targetDate = new Date(remindAtMs);
-    const text = prompt
-      .replace(/\/setreminder/gi, '')
-      .replace(/ingatkan|remind me to|remind me|set reminder|peringatan|set alarm|alarm/gi, '')
-      .replace(/(?:in|lagi|dalam)\s*\d+\s*(?:minit|minutes|min)/gi, '')
+    const cleanText = prompt
+      .replace(/^(?:hirara|weh hirara|eh hirara)[,\s]*/gi, '')
+      .replace(/(?:ingatkan aku|ingatkan saya|remind me to|set reminder|set alarm)/gi, '')
+      .replace(/(?:dalam|lagi|in)\s*\d+\s*(?:minit|minutes|min)/gi, '')
       .replace(/\d+\s*(?:minit|minutes|min)\s*(?:lagi|later)/gi, '')
       .replace(/<@!?\d+>/g, '')
       .replace(/^[\s,:-]+|[\s,:-]+$/g, '')
-      .trim() || 'Peringatan / Alarm anda';
+      .trim() || 'Peringatan anda';
 
-    return { remindAtMs, text, timeFormatted: `dalam ${mins} minit lagi (${targetDate.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })})` };
+    return {
+      remindAtMs,
+      text: cleanText,
+      timeFormatted: `dalam ${mins} minit lagi (${targetDate.toLocaleTimeString('ms-MY', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      })})`,
+    };
   }
 
-  const timeMatch = lower.match(/(\d{1,2})[\.:](\d{2})\s*(am|pm)?/i) || lower.match(/(\d{1,2})\s*(am|pm)/i);
+  // Pattern B: Specific time "pukul 10.30 pm" / "at 9.00 am"
+  const timeMatch =
+    lower.match(/(?:pukul|jam|at)\s*(\d{1,2})[\.:](\d{2})\s*(am|pm)?/i) ||
+    lower.match(/(\d{1,2})[\.:](\d{2})\s*(am|pm)/i) ||
+    lower.match(/(?:pukul|jam|at)\s*(\d{1,2})\s*(am|pm|pagi|malam|petang|tengahari)/i);
+
   if (timeMatch) {
     let hours = parseInt(timeMatch[1], 10);
     const mins = timeMatch[2] && !isNaN(parseInt(timeMatch[2], 10)) ? parseInt(timeMatch[2], 10) : 0;
-    const ampm = (timeMatch[3] || timeMatch[2] || '').toLowerCase();
+    const period = (timeMatch[3] || timeMatch[2] || '').toLowerCase();
 
-    if (ampm === 'pm' && hours < 12) hours += 12;
-    if (ampm === 'am' && hours === 12) hours = 0;
+    if ((period === 'pm' || period === 'malam' || period === 'petang') && hours < 12) hours += 12;
+    if ((period === 'am' || period === 'pagi') && hours === 12) hours = 0;
 
     const now = new Date();
     const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins, 0);
     if (targetDate.getTime() <= now.getTime()) {
-      targetDate.setDate(targetDate.getDate() + 1);
+      targetDate.setDate(targetDate.getDate() + 1); // Next day if time already passed
     }
 
-    let text = prompt
-      .replace(/\/setreminder/gi, '')
-      .replace(/ingatkan (?:aku|saya)?/gi, '')
-      .replace(/remind me to|remind me/gi, '')
-      .replace(/set alarm|alarm/gi, '')
-      .replace(/\d{1,2}[\.:]\d{2}\s*(?:am|pm)?/gi, '')
-      .replace(/\d{1,2}\s*(?:am|pm)/gi, '')
-      .replace(/harini|today|besok|tomorrow/gi, '')
+    const cleanText = prompt
+      .replace(/^(?:hirara|weh hirara|eh hirara)[,\s]*/gi, '')
+      .replace(/(?:ingatkan aku|ingatkan saya|remind me to|set reminder|set alarm)/gi, '')
+      .replace(/(?:pukul|jam|at)\s*\d{1,2}[\.:]\d{2}\s*(?:am|pm)?/gi, '')
+      .replace(/(?:pukul|jam|at)\s*\d{1,2}\s*(?:am|pm|pagi|malam|petang|tengahari)/gi, '')
       .replace(/<@!?\d+>/g, '')
       .replace(/^[\s,:-]+|[\s,:-]+$/g, '')
-      .trim();
+      .trim() || 'Peringatan anda';
 
-    if (!text) text = 'Peringatan / Alarm anda';
-
-    return { remindAtMs: targetDate.getTime(), text, timeFormatted: targetDate.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' }) };
+    return {
+      remindAtMs: targetDate.getTime(),
+      text: cleanText,
+      timeFormatted: targetDate.toLocaleTimeString('ms-MY', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      }),
+    };
   }
 
-  const remindAtMs = Date.now() + 15 * 60 * 1000;
-  const text = prompt.replace(/\/setreminder/gi, '').replace(/ingatkan|remind me|set reminder|alarm/gi, '').replace(/<@!?\d+>/g, '').trim() || 'Peringatan / Alarm anda';
-  return { remindAtMs, text, timeFormatted: 'dalam 15 minit lagi' };
+  // Fallback: 10 minutes from now
+  const remindAtMs = Date.now() + 10 * 60 * 1000;
+  const cleanText = prompt
+    .replace(/^(?:hirara|weh hirara|eh hirara)[,\s]*/gi, '')
+    .replace(/(?:ingatkan aku|ingatkan saya|remind me to|set reminder|set alarm)/gi, '')
+    .replace(/<@!?\d+>/g, '')
+    .replace(/^[\s,:-]+|[\s,:-]+$/g, '')
+    .trim() || 'Peringatan anda';
+
+  return {
+    remindAtMs,
+    text: cleanText,
+    timeFormatted: 'dalam 10 minit lagi',
+  };
 }
 
-startBot().catch(console.error);
+startHiraraBot().catch(console.error);
