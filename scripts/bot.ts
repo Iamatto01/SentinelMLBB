@@ -515,6 +515,7 @@ CRITICAL TRUTH & FORMATTING RULES:
       const finalResponse =
         chatCompletion.choices[0]?.message?.content ||
         chatCompletion.choices[0]?.message?.reasoning_content ||
+        chatCompletion.choices[0]?.message?.reasoning ||
         'Aku tak dapat jawapan dari enjin P.A.';
 
       try {

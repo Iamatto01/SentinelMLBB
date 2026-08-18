@@ -52,10 +52,10 @@ const commands = [
             type: 3, // STRING
             required: false,
             choices: [
-              { name: 'Gemini 2.0 Flash Lite (Free) - Fast', value: 'google/gemini-2.0-flash-lite-preview-02-05:free' },
-              { name: 'Llama 3.3 70B (Free) - High Intelligence', value: 'meta-llama/llama-3.3-70b-instruct:free' },
-              { name: 'DeepSeek R1 (Free) - Reasoning', value: 'deepseek/deepseek-r1:free' },
-              { name: 'Qwen 2.5 72B (Free) - Balanced', value: 'qwen/qwen-2.5-72b-instruct:free' },
+              { name: 'Nemotron 3.5 Lightning (Free) - Fast', value: 'nvidia/nemotron-3.5-lightning:free' },
+              { name: 'Nemotron 3 Nano 30B (Free) - Balanced', value: 'nvidia/nemotron-3-nano-30b-a3b:free' },
+              { name: 'Gemma 4 31B (Free) - Google', value: 'google/gemma-4-31b-it:free' },
+              { name: 'Nemotron 3 Super 120B (Free) - High IQ', value: 'nvidia/nemotron-3-super-120b-a12b:free' },
             ],
           },
         ],

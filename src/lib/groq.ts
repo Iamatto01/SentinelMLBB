@@ -1,14 +1,21 @@
 // ============================================================
-// LLM Client — Mini Server (OpenAI-compatible) + Turso Memory
+// LLM Client — OpenRouter (primary) + multi-model fallback
 // ============================================================
 
-const API_BASE = process.env.LLM_API_BASE || 'https://bandelbanget.xyz/v1';
-const API_KEY = process.env.LLM_API_KEY || '';
-// Use a real, valid model name. deepseek-v4-flash does not exist.
-// OpenRouter's free Llama 3.3 is a strong default; override via env if needed.
-const DEFAULT_MODEL = process.env.LLM_MODEL || 'meta-llama/llama-3.3-70b-instruct:free';
+// ── Available free models on OpenRouter (verified working Aug 2026) ──
+const FREE_MODELS = [
+  'nvidia/nemotron-3.5-lightning:free',
+  'nvidia/nemotron-3-nano-30b-a3b:free',
+  'google/gemma-4-31b-it:free',
+  'nvidia/nemotron-3-super-120b-a12b:free',
+  'openai/gpt-oss-20b:free',
+];
 
-// ── Model selection (persisted in Turso) ──────────────────────
+const API_BASE = process.env.LLM_API_BASE || 'https://openrouter.ai/api/v1';
+const API_KEY = process.env.LLM_API_KEY || '';
+const DEFAULT_MODEL = process.env.LLM_MODEL || FREE_MODELS[0];
+
+// ── Model selection (persisted in DB) ──────────────────────────
 
 export async function getActiveModel(): Promise<string> {
   try {
@@ -35,7 +42,7 @@ export async function setActiveModel(modelName: string): Promise<void> {
   });
 }
 
-// ── Conversation Memory (Turso) ───────────────────────────────
+// ── Conversation Memory ───────────────────────────────────────
 
 export async function getConversationMemory(sessionId: string, limit = 10) {
   try {
@@ -51,7 +58,7 @@ export async function getConversationMemory(sessionId: string, limit = 10) {
     });
     return res.rows.reverse().map(r => ({ role: r.role as string, content: r.content as string }));
   } catch (e) {
-    console.warn('[Memory] Turso unavailable, returning empty:', e);
+    console.warn('[Memory] DB unavailable, returning empty:', e);
     return [];
   }
 }
@@ -64,98 +71,93 @@ export async function saveConversationMemory(sessionId: string, role: string, co
       args: [sessionId, role, content]
     });
   } catch (e) {
-    console.warn('[Memory] Turso unavailable, skipping save:', e);
+    console.warn('[Memory] DB unavailable, skipping save:', e);
   }
 }
 
-// ── Groq fallback keys ────────────────────────────────────────
+// ── OpenRouter chat completion with automatic model fallback ──
 
-function getGroqKeys(): string[] {
-  const k1 = 'gsk_C22V3AzTrPPUe';
-  const k2 = 'SY5eng9WGdyb3FYxsBb';
-  const k3 = 'cmj46xG1f1BG8sgmXf63';
-  const defaultKey = k1 + k2 + k3;
-  const keys = [
-    process.env.GROQ_API_KEY || defaultKey,
-    ...(process.env.GROQ_API_KEYS?.split(',').map(k => k.trim()) || []),
-    defaultKey
-  ].filter((k): k is string => !!k);
-  return [...new Set(keys)];
-}
+async function callOpenRouter(body: any, apiKey: string, apiBase: string): Promise<any> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60000); // 60 seconds
 
-async function createChatCompletionViaGroq(params: any) {
-  const { default: Groq } = await import('groq-sdk');
-  const groqKeys = getGroqKeys();
-  if (groqKeys.length === 0) {
-    throw new Error("No GROQ_API_KEY found in environment variables");
+  const res = await fetch(`${apiBase}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+    signal: controller.signal,
+  });
+  clearTimeout(timer);
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`OpenRouter ${res.status}: ${errText}`);
   }
-  const groqParams = {
-    ...params,
-    model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-  };
-  let lastErr: any;
-  for (const key of groqKeys) {
-    try {
-      const client = new Groq({ apiKey: key });
-      return await client.chat.completions.create(groqParams as any);
-    } catch (e: any) {
-      console.warn(`[Groq] Key call failed: ${e.message}`);
-      lastErr = e;
-    }
-  }
-  throw lastErr || new Error("All Groq keys failed");
+  return res.json();
 }
-
-// ── OpenAI-compatible chat completion (mini server, fallback Groq) ──
 
 async function createChatCompletion(params: any) {
-  const model = params.model || DEFAULT_MODEL;
-  const body: any = {
-    model,
+  const requestedModel = params.model || DEFAULT_MODEL;
+  const apiBase = process.env.LLM_API_BASE || 'https://openrouter.ai/api/v1';
+  const apiKey = process.env.LLM_API_KEY || '';
+
+  if (!apiKey) {
+    throw new Error('No LLM_API_KEY configured. Set your OpenRouter API key in .env.local');
+  }
+
+  const baseBody: any = {
     messages: params.messages,
     temperature: params.temperature ?? 0.7,
     max_tokens: params.max_tokens ?? 1024,
   };
   if (params.tools) {
-    body.tools = params.tools;
-    body.tool_choice = params.tool_choice ?? 'auto';
+    baseBody.tools = params.tools;
+    baseBody.tool_choice = params.tool_choice ?? 'auto';
   }
 
-  const apiBase = process.env.LLM_API_BASE || 'https://bandelbanget.xyz/v1';
-  const apiKey = process.env.LLM_API_KEY || '';
+  // Build list of models to try: requested model first, then all free fallbacks
+  const modelsToTry = [requestedModel, ...FREE_MODELS.filter(m => m !== requestedModel)];
 
-  // Only try primary server if apiKey is non-empty and not the expired default key
-  if (apiKey && !apiKey.startsWith('sk-qwen-fc3294d3a1f6c6325703ead5ff8e85bc8e328aa09c0a1510')) {
+  let lastErr: any;
+  for (const model of modelsToTry) {
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 30000); // 30 seconds for external APIs
-      const res = await fetch(`${apiBase}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      if (res.ok) return res.json();
-      console.warn(`[LLM] Primary server (${apiBase}) returned ${res.status}, falling back to Groq`);
-    } catch (e) {
-      console.warn('[LLM] Primary server unreachable or timed out, falling back to Groq');
+      console.log(`[LLM] Trying model: ${model}`);
+      const result = await callOpenRouter({ ...baseBody, model }, apiKey, apiBase);
+
+      // Handle reasoning models that put content in reasoning instead of content
+      if (result.choices?.[0]?.message) {
+        const msg = result.choices[0].message;
+        if (!msg.content && msg.reasoning) {
+          msg.content = msg.reasoning;
+        }
+        if (!msg.content && msg.reasoning_content) {
+          msg.content = msg.reasoning_content;
+        }
+      }
+
+      console.log(`[LLM] Success with model: ${model}`);
+      return result;
+    } catch (e: any) {
+      console.warn(`[LLM] Model ${model} failed: ${e.message}`);
+      lastErr = e;
+      // If rate limited (429) or model not found (404), try next model
+      if (e.message.includes('429') || e.message.includes('404') || e.message.includes('unavailable')) {
+        continue;
+      }
+      // For other errors (auth, network), don't bother trying more models
+      if (e.message.includes('401') || e.message.includes('403')) {
+        throw e;
+      }
     }
   }
 
-  // Fast Groq Fallback (~700ms)
-  const groqKeys = getGroqKeys();
-  if (groqKeys.length > 0) {
-    return createChatCompletionViaGroq(params);
-  }
-
-  throw new Error('No LLM provider available (mini server down + no Groq keys)');
+  throw lastErr || new Error('All LLM models failed. Check your OpenRouter API key.');
 }
 
-// ── Default export (same interface as old groq) ───────────────
+// ── Default export ────────────────────────────────────────────
 
 const llm = {
   chat: { completions: { create: createChatCompletion } },
@@ -163,6 +165,7 @@ const llm = {
   setActiveModel,
   getConversationMemory,
   saveConversationMemory,
+  FREE_MODELS,
 } as any;
 
 export { llm };
