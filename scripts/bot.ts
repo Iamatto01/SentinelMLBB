@@ -29,7 +29,7 @@ import { db } from '../src/lib/db';
 dotenv.config({ path: '.env.local' });
 
 // ============================================================
-// HIRARA — AI Personal Companion & Smart Assistant
+// HIRARA — Dynamic AI Personal Companion & Brain
 // ============================================================
 
 // ── Clean reasoning/thinking artifacts from model output ──────
@@ -126,7 +126,7 @@ async function safeDiscordReply(message: any, rawText: string): Promise<void> {
   }
 }
 
-// ── Smart Multi-Language Timer / Reminder Parser ──────────────
+// ── Smart Natural Timer / Reminder Parser ─────────────────────
 function parseSmartReminder(rawPrompt: string): {
   remindAtMs: number;
   reminderText: string;
@@ -134,7 +134,18 @@ function parseSmartReminder(rawPrompt: string): {
 } | null {
   const text = rawPrompt.toLowerCase();
 
-  // Words to numbers dictionary
+  // Explicit timer trigger words required to avoid false positives
+  const isExplicitTimer =
+    /^(?:set timer|set time|timer|set alarm|alarm|set reminder|ingatkan|remind me|tolong ingatkan)/i.test(
+      text
+    ) ||
+    /(?:set timer|set time|set alarm|set reminder|tolong ingatkan)\s+/i.test(text) ||
+    /(?:dalam|lagi|lepas)\s+(?:\d+|satu|dua|tiga|empat|lima|enam|tujuh|lapan|sembilan|sepuluh|setengah)\s*(?:saat|sec|minit|min|jam|hour)\s+(?:nanti|lepas tu|ingatkan|tag|mention)/i.test(
+      text
+    );
+
+  if (!isExplicitTimer) return null;
+
   const wordMap: Record<string, number> = {
     setengah: 0.5,
     separuh: 0.5,
@@ -161,7 +172,6 @@ function parseSmartReminder(rawPrompt: string): {
   let durationMs = 0;
   let timeFormatted = '';
 
-  // Pattern 1: Word idioms "sejam", "seminit", "setengah jam"
   if (/\bsejam\b/i.test(text)) {
     durationMs = 60 * 60 * 1000;
     timeFormatted = '1 jam';
@@ -173,7 +183,6 @@ function parseSmartReminder(rawPrompt: string): {
     timeFormatted = '30 minit';
   }
 
-  // Pattern 2: [digit or word] [saat/minit/jam/hari]
   if (durationMs === 0) {
     const durationRegex =
       /(?:(\d+(?:\.\d+)?)|(satu|dua|tiga|empat|lima|enam|tujuh|lapan|sembilan|sepuluh|sebelas|dua belas|lima belas|dua puluh|tiga puluh|empat puluh|lima puluh|setengah))\s*(saat|sec|second|seconds|minit|min|minute|minutes|jam|hour|hours|hari|day|days)/i;
@@ -203,7 +212,6 @@ function parseSmartReminder(rawPrompt: string): {
     }
   }
 
-  // Pattern 3: Absolute time "pukul 10.30 pm", "jam 9 malam", "at 8:00 am"
   if (durationMs === 0) {
     const absTimeRegex =
       /(?:pukul|jam|at)\s*(\d{1,2})(?:[\.:](\d{2}))?\s*(am|pm|pagi|malam|petang|tengahari)?/i;
@@ -227,7 +235,7 @@ function parseSmartReminder(rawPrompt: string): {
         0
       );
       if (targetDate.getTime() <= now.getTime()) {
-        targetDate.setDate(targetDate.getDate() + 1); // Tomorrow if already passed
+        targetDate.setDate(targetDate.getDate() + 1);
       }
 
       durationMs = targetDate.getTime() - now.getTime();
@@ -243,7 +251,6 @@ function parseSmartReminder(rawPrompt: string): {
 
   const remindAtMs = Date.now() + durationMs;
 
-  // Clean the action text from the prompt
   let actionText = rawPrompt
     .replace(/^(?:hirara|weh hirara|eh hirara)[,\s]*/gi, '')
     .replace(
@@ -262,7 +269,6 @@ function parseSmartReminder(rawPrompt: string): {
     .replace(/^[,:\s-]+|[,:\s-]+$/g, '')
     .trim();
 
-  // If user said "lepas tu mention @user", format cleanly
   if (
     !actionText ||
     actionText.toLowerCase() === 'lepas tu' ||
@@ -336,41 +342,27 @@ async function startHiraraBot() {
       const { displayName, memoriesList, recentHistory, chatCount, pronoun } =
         await getUserHiraraContext(userId, rawUsername);
 
-      // ── 2. Explicit Memory Command: "Kau ingat apa pasal aku?" ─
-      if (
-        /apa (?:yang )?(?:kau|awak) ingat pasal (?:aku|saya)|senarai memori|tengok memori|apa (?:kau|awak) tahu pasal (?:aku|saya)|ingat tak (?:aku|saya) siapa/i.test(
-          lower
-        )
-      ) {
-        if (memoriesList.length === 0) {
-          const userPronoun = pronoun === 'awak_saya' ? 'awak' : 'kau';
-          await message.reply(
-            `Saya belum ada simpan banyak fakta pasal ${userPronoun} lagi, **${displayName}**! Tapi setiap kali kita borak, saya akan automatik ingat details & preference ${userPronoun}. Cerita la apa-apa pasal diri ${userPronoun}! ✨`
-          );
-          return;
-        }
+      const defaultUser = getDefaultGitHubUsername();
+      const hasGitHubToken = Boolean(process.env.GITHUB_TOKEN);
 
-        let memoryReport = `🧠 **Ini antara perkara & detail yang saya ingat pasal ${pronoun === 'awak_saya' ? 'awak' : 'kau'}, ${displayName}:**\n\n`;
-        memoriesList.forEach((m) => {
-          memoryReport += `• **${m}**\n`;
-        });
-        memoryReport += `\n*Otak saya makin kenal ${pronoun === 'awak_saya' ? 'awak' : 'kau'} setiap kali kita borak! ✨*`;
-
-        await safeDiscordReply(message, memoryReport);
+      // ── 2. Explicit Command: Set Timer / Alarm ────────────────
+      const parsedTimer = parseSmartReminder(prompt);
+      if (parsedTimer) {
+        await createReminder(userId, channelId, parsedTimer.remindAtMs, parsedTimer.reminderText);
+        const tagWord = pronoun === 'awak_saya' ? 'awak' : 'kau';
+        await message.reply(
+          `⏰ **Beres, ${displayName}!** Saya dah setkan pemasa/peringatan untuk **${parsedTimer.timeFormatted}**!\n> 📌 **${parsedTimer.reminderText}**\n\nNanti cukup masa saya terus tag ${tagWord} kat sini! ✨`
+        );
         return;
       }
 
-      // ── 3. Check Reminders / Alarms ──────────────────────────
-      const isCheckReminder =
-        /ada reminder|check reminder|senarai reminder|what are my reminder|tengok alarm|ada alarm/i.test(
-          lower
-        );
-      if (isCheckReminder) {
+      // ── 3. Explicit Command: Check Reminders List ─────────────
+      if (/^(?:check reminder|senarai reminder|ada reminder|tengok alarm|list reminder)$/i.test(lower.trim())) {
         const pending = await getUserPendingReminders(userId);
         if (pending.length === 0) {
           const userPronoun = pronoun === 'awak_saya' ? 'awak' : 'kau';
           await message.reply(
-            `📋 **${displayName}**, ${userPronoun} tak ada sebarang peringatan/alarm yang aktif sekarang. Kalau nak saya ingatkan apa-apa, bagitahu je cth: *"Hirara, set timer 1 minit..."*!`
+            `📋 **${displayName}**, ${userPronoun} tak ada sebarang peringatan/alarm yang aktif sekarang.`
           );
           return;
         }
@@ -388,27 +380,15 @@ async function startHiraraBot() {
         return;
       }
 
-      // ── 4. Smart Timer & Reminder Detection ──────────────────
-      const parsedTimer = parseSmartReminder(prompt);
-      if (parsedTimer) {
-        await createReminder(userId, channelId, parsedTimer.remindAtMs, parsedTimer.reminderText);
-        const tagWord = pronoun === 'awak_saya' ? 'awak' : 'kau';
-        await message.reply(
-          `⏰ **Beres, ${displayName}!** Saya dah setkan pemasa/peringatan untuk **${parsedTimer.timeFormatted}**!\n> 📌 **${parsedTimer.reminderText}**\n\nNanti cukup masa saya terus tag ${tagWord} kat sini! ✨`
-        );
-        return;
-      }
-
-      // ── 5. GitHub Repository Listing ─────────────────────────
-      const isListRepo =
-        /(?:senarai|list|listkan|tunjuk|tunjukkan|tengok|ada apa|buka|check)?.*(?:repo|repos|repository|repositories)/i.test(
-          lower
+      // ── 4. Explicit Command: List GitHub Repositories ─────────
+      // ONLY trigger list when user explicitly asks to list/show them, NOT when asking a question about repos
+      const isExplicitListRequest =
+        /^(?:list|listkan|senarai|senaraikan|tunjuk|tunjukkan)\s+(?:semua\s+)?(?:repo|repos|repository|repositories|projek github)/i.test(
+          lower.trim()
         ) ||
-        /(?:senarai|list|listkan)\s+(?:semua\s+)?(?:projek|project)/i.test(lower) ||
-        /(?:projek|repo)\s+(?:kat|di|dalam)?\s*github/i.test(lower);
+        /^(?:senarai|list|tunjuk)\s+(?:projek|repo)$/i.test(lower.trim());
 
-      if (isListRepo) {
-        const defaultUser = getDefaultGitHubUsername();
+      if (isExplicitListRequest) {
         const repos = await listUserRepositories(defaultUser);
         if (repos.length === 0) {
           await message.reply(
@@ -424,30 +404,29 @@ async function startHiraraBot() {
           const desc = r.description ? `\n   > *${r.description}*` : '';
           repoMsg += `${idx + 1}. **[${r.name}](${r.html_url})**${lang}${stars}${desc}\n`;
         });
-        repoMsg += `\n💡 *Tip: Tanya saya cth: "@Sentinel MLBB terangkan pasal projek ${repos[0]?.name}" untuk penerangan kod & fungsi projek!*`;
+        repoMsg += `\n💡 *Tip: Tanya saya cth: "@Sentinel MLBB terangkan pasal projek ${repos[0]?.name}" untuk penerangan fungsi kod!*`;
 
         await safeDiscordReply(message, repoMsg);
         return;
       }
 
-      // ── 6. GitHub Repository Explainer ───────────────────────
+      // ── 5. Explicit Command: Explain Specific Repository ──────
       const explainMatch =
         prompt.match(
-          /(?:terangkan|explain|apa fungsi|ceritakan pasal|penerangan pasal|detail pasal|apa itu)\s+(?:projek|repo|project|repository)?\s*([a-zA-Z0-9_-]+)/i
+          /^(?:terangkan|explain|apa fungsi|ceritakan pasal|penerangan pasal|detail pasal)\s+(?:projek|repo|project|repository)?\s*([a-zA-Z0-9_-]+)$/i
         ) ||
         prompt.match(
-          /(?:projek|repo)\s+([a-zA-Z0-9_-]+)\s+(?:pasal apa|fungsi apa|tentang apa|buat apa|macam mana)/i
+          /^(?:projek|repo)\s+([a-zA-Z0-9_-]+)\s+(?:pasal apa|fungsi apa|tentang apa|buat apa)$/i
         );
 
       if (
         explainMatch &&
         explainMatch[1] &&
-        !['aku', 'saya', 'dia', 'awak', 'kau', 'kita', 'apa', 'ini', 'tu', 'siapa', 'mana'].includes(
+        !['aku', 'saya', 'dia', 'awak', 'kau', 'kita', 'apa', 'ini', 'tu', 'siapa', 'mana', 'private', 'public'].includes(
           explainMatch[1].toLowerCase()
         )
       ) {
         const targetRepo = explainMatch[1].trim();
-        const defaultUser = getDefaultGitHubUsername();
         const explanation = await explainRepositoryWithHirara(
           targetRepo,
           prompt,
@@ -467,8 +446,7 @@ async function startHiraraBot() {
         return;
       }
 
-      // ── 7. AI Conversational Generation with Hirara Persona ──
-      const defaultUser = getDefaultGitHubUsername();
+      // ── 6. DYNAMIC AI CONVERSATION (Handles ALL other questions) ─
       const realGitHubContext = await getGitHubReposContext(defaultUser);
 
       const memoriesContext =
@@ -482,15 +460,18 @@ async function startHiraraBot() {
           ? `GANTI NAMA: Gunakan panggilan 'Awak' untuk ${displayName} dan 'Saya' untuk diri kamu (BUKAN aku/kau).`
           : `GANTI NAMA: Boleh gunakan 'aku' untuk diri sendiri dan 'kau' / 'korang' untuk kawan (santai & mesra).`;
 
+      const githubAccessStatus = hasGitHubToken
+        ? `STATUS AKSES GITHUB: Pengguna (${defaultUser}) SUDAH menyambungkan Personal Access Token. Jadi kamu MEMPUNYAI AKSES PENUH untuk membaca kedua-dua repository PUBLIC dan PRIVATE miliknya!`
+        : `STATUS AKSES GITHUB: Token belum dimasukkan, kamu hanya boleh akses repository PUBLIC.`;
+
       const systemPrompt = `Kau adalah "Hirara", seorang kawan borak orang Melayu dan pembantu peribadi yang pintar, mesra, santai, dan berjiwa member di Discord server ini.
 
 IDENTITI & PERSONALITI HIRARA:
-- Nama: Hirara (Orang Melayu, peramah, ada sense of humor, supportive, bijak, peka).
+- Nama: Hirara (Orang Melayu, peramah, ada sense of humor, supportive, bijak, peka, memahami pelbagai dialek dan gaya bahasa Melayu/Manglish).
 - Bahasa: Bahasa Melayu santai harian (casual & conversational).
 - ${pronounRule}
-- Fleksibel: Boleh borak pasal apa sahaja — hal harian, kerja, belajar, coding, gaming, luahan perasaan, idea projek, GitHub, atau sembang santai.
-- Integrasi GitHub: Kamu boleh membaca repository GitHub pengguna (${defaultUser}) dan menerangkan projek kod mereka bila ditanya.
-- Ingatan: Manfaatkan fakta yang diingati tentang pengguna secara semulajadi.
+- Fleksibel & Dinamik: Kamu faham soalan semulajadi dalam Bahasa Melayu. Jika ditanya soalan seperti "repo private boleh baca ke?", jawab secara cerdas berdasarkan status akses kamu di bawah.
+- ${githubAccessStatus}
 
 ${realGitHubContext}
 
@@ -498,9 +479,9 @@ ${memoriesContext}
 JUMLAH PERBUALAN TERDAHULU DENGAN ${displayName.toUpperCase()}: ${chatCount} kali.
 
 PERATURAN PENTING:
-1. JANGAN SESEKALI keluarkan monolog bahasa Inggeris, analisis pemikiran ("Actually, parsing more naturally...", "Here's a thinking process...").
-2. JANGAN REKA/HALUSINASI nama projek GitHub palsu. Rujuk senarai projek sebenar ${defaultUser} di atas.
-3. Sentiasa balas TERUS kepada ${displayName} dalam Bahasa Melayu yang mesra dan natural.
+1. JANGAN SESEKALI keluarkan monolog bahasa Inggeris atau analisis pemikiran ("Actually, parsing more naturally...").
+2. Jawab soalan pengguna secara cerdas, tepat, dan mesra dalam Bahasa Melayu.
+3. Rujuk senarai projek sebenar di atas bila berbincang tentang projek ${defaultUser}.
 4. Jawab secara ringkas, padat, dan bersahaja.`;
 
       const messages = [
