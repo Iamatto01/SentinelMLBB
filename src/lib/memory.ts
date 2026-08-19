@@ -93,25 +93,28 @@ export async function getUserHiraraContext(userId: string, username: string): Pr
   memoriesList: string[];
   recentHistory: { role: 'user' | 'assistant'; content: string }[];
   chatCount: number;
+  pronoun: string;
 }> {
   await initHiraraDatabase();
 
   // Get or initialize profile
   const profRes = await db.execute({
-    sql: 'SELECT nickname, chat_count FROM hirara_user_profiles WHERE user_id = ?',
+    sql: 'SELECT nickname, chat_count, pronoun FROM hirara_user_profiles WHERE user_id = ?',
     args: [userId],
   }).catch(() => ({ rows: [] }));
 
   let displayName = username;
   let chatCount = 0;
+  let pronoun = 'kau';
 
   if (profRes.rows.length > 0) {
     const row = profRes.rows[0];
     displayName = row.nickname || username;
     chatCount = row.chat_count || 0;
+    pronoun = row.pronoun || 'kau';
   } else {
     await db.execute({
-      sql: 'INSERT OR IGNORE INTO hirara_user_profiles (user_id, nickname, chat_count) VALUES (?, ?, 0)',
+      sql: 'INSERT OR IGNORE INTO hirara_user_profiles (user_id, nickname, chat_count, pronoun) VALUES (?, ?, 0, "kau")',
       args: [userId, username],
     }).catch(() => {});
   }
@@ -127,6 +130,9 @@ export async function getUserHiraraContext(userId: string, username: string): Pr
     if (m.memory_key === 'nickname') {
       displayName = m.memory_value;
     }
+    if (m.memory_key === 'ganti_nama' || m.memory_key === 'panggilan') {
+      pronoun = m.memory_value;
+    }
     memoriesList.push(`[${m.category}] ${m.memory_key}: ${m.memory_value}`);
   }
 
@@ -141,7 +147,7 @@ export async function getUserHiraraContext(userId: string, username: string): Pr
     content: r.content as string,
   }));
 
-  return { displayName, memoriesList, recentHistory, chatCount };
+  return { displayName, memoriesList, recentHistory, chatCount, pronoun };
 }
 
 // ── 3. Save Chat Message ──────────────────────────────────────
@@ -215,6 +221,20 @@ export async function extractAndLearnMemories(
 
     if (lower.includes('jgn guna bro') || lower.includes('jangan panggil bro') || lower.includes('bukan bro')) {
       await saveUserMemory(userId, 'larangan_kata', 'Jangan panggil bro', 'preference', 4);
+    }
+
+    if (/pakai awak saya|guna awak saya|panggil awak saya|pakai saya awak|guna saya awak|tukar ke awak saya/i.test(lower)) {
+      await saveUserMemory(userId, 'ganti_nama', 'awak_saya', 'preference', 5);
+      await db.execute({
+        sql: "UPDATE hirara_user_profiles SET pronoun = 'awak_saya' WHERE user_id = ?",
+        args: [userId],
+      });
+    } else if (/pakai kau aku|guna kau aku|panggil kau aku|tukar ke kau aku/i.test(lower)) {
+      await saveUserMemory(userId, 'ganti_nama', 'kau_aku', 'preference', 5);
+      await db.execute({
+        sql: "UPDATE hirara_user_profiles SET pronoun = 'kau_aku' WHERE user_id = ?",
+        args: [userId],
+      });
     }
 
     // Check if the user shared personal facts, preferences, hobbies, job, study, feelings

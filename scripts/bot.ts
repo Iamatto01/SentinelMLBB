@@ -26,6 +26,93 @@ dotenv.config({ path: '.env.local' });
 // HIRARA — AI Personal Companion & Long-Term Memory Assistant
 // ============================================================
 
+// ── Clean reasoning/thinking artifacts from model output ──────
+function cleanModelOutput(text: string): string {
+  if (!text) return '';
+  let cleaned = text;
+
+  // 1. Remove <think>...</think> blocks
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+  // 2. Remove thinking process prefixes if present
+  const thinkingMarkers = [
+    /\*\*Response:\*\*/i,
+    /\*\*Final Response:\*\*/i,
+    /\*\*Jawapan:\*\*/i,
+    /\*\*Reply:\*\*/i,
+    /---\n/i,
+  ];
+
+  for (const marker of thinkingMarkers) {
+    const parts = cleaned.split(marker);
+    if (parts.length > 1 && parts[parts.length - 1].trim().length > 0) {
+      cleaned = parts[parts.length - 1].trim();
+      break;
+    }
+  }
+
+  // If still starts with "Here's a thinking process:"
+  if (/^(?:Here's a thinking process|Thinking Process|Let's think about this|The user is asking)/i.test(cleaned)) {
+    const paragraphs = cleaned.split(/\n\s*\n/);
+    const nonReasoning = paragraphs.filter(
+      (p) => !/^(?:[0-9]+\.|\* |- |Here's|Let's|The user|I should|My goal|First,)/i.test(p.trim())
+    );
+    if (nonReasoning.length > 0) {
+      cleaned = nonReasoning.join('\n\n').trim();
+    }
+  }
+
+  return cleaned || text;
+}
+
+// ── Safe Discord reply (Auto-splits messages exceeding 1900 chars) ──
+async function safeDiscordReply(message: any, rawText: string): Promise<void> {
+  const text = cleanModelOutput(rawText) || 'Hai! Ada apa yang boleh saya bantu?';
+
+  if (text.length <= 1900) {
+    await message.reply({ content: text });
+    return;
+  }
+
+  // Split into chunks <= 1900 chars
+  const chunks: string[] = [];
+  let remaining = text;
+
+  while (remaining.length > 0) {
+    if (remaining.length <= 1900) {
+      chunks.push(remaining);
+      break;
+    }
+
+    let splitIdx = remaining.lastIndexOf('\n\n', 1900);
+    if (splitIdx === -1 || splitIdx < 500) {
+      splitIdx = remaining.lastIndexOf('\n', 1900);
+    }
+    if (splitIdx === -1 || splitIdx < 500) {
+      splitIdx = remaining.lastIndexOf('. ', 1900);
+      if (splitIdx !== -1) splitIdx += 1;
+    }
+    if (splitIdx === -1 || splitIdx < 500) {
+      splitIdx = remaining.lastIndexOf(' ', 1900);
+    }
+    if (splitIdx === -1) {
+      splitIdx = 1900;
+    }
+
+    chunks.push(remaining.substring(0, splitIdx).trim());
+    remaining = remaining.substring(splitIdx).trim();
+  }
+
+  if (chunks.length > 0) {
+    await message.reply({ content: chunks[0] });
+    for (let i = 1; i < chunks.length; i++) {
+      if (chunks[i] && chunks[i].length > 0) {
+        await message.channel.send({ content: chunks[i] });
+      }
+    }
+  }
+}
+
 async function startHiraraBot() {
   await initHiraraDatabase();
 
@@ -56,9 +143,9 @@ async function startHiraraBot() {
     // Fast empty greeting
     if (!prompt) {
       const greetingQuotes = [
-        `Hai! Aku **Hirara**. Ada apa-apa nak sembang, tanya soalan, atau nak aku ingatkan apa-apa tak?`,
-        `Yo! Hirara kat sini. Ada apa boleh aku tolong korang harini?`,
-        `Weh! Ya aku Hirara. Nak borak pasal apa harini?`,
+        `Hai! Saya **Hirara**. Ada apa-apa nak sembang, tanya soalan, atau nak saya ingatkan apa-apa tak?`,
+        `Yo! Hirara kat sini. Ada apa boleh saya tolong korang harini?`,
+        `Hai! Ya saya Hirara. Nak borak pasal apa harini?`,
       ];
       const randomGreeting = greetingQuotes[Math.floor(Math.random() * greetingQuotes.length)];
       await message.reply(randomGreeting);
@@ -75,29 +162,30 @@ async function startHiraraBot() {
       const lower = prompt.toLowerCase();
 
       // ── 1. Fetch User Memory & Profile ───────────────────────
-      const { displayName, memoriesList, recentHistory, chatCount } =
+      const { displayName, memoriesList, recentHistory, chatCount, pronoun } =
         await getUserHiraraContext(userId, rawUsername);
 
       // ── 2. Explicit Memory Command: "Kau ingat apa pasal aku?" ─
       if (
-        /apa (?:yang )?kau ingat pasal aku|senarai memori aku|tengok memori|apa kau tahu pasal aku|ingat tak aku siapa/i.test(
+        /apa (?:yang )?(?:kau|awak) ingat pasal (?:aku|saya)|senarai memori|tengok memori|apa (?:kau|awak) tahu pasal (?:aku|saya)|ingat tak (?:aku|saya) siapa/i.test(
           lower
         )
       ) {
         if (memoriesList.length === 0) {
+          const userPronoun = pronoun === 'awak_saya' ? 'awak' : 'kau';
           await message.reply(
-            `Aku belum ada simpan banyak fakta pasal kau lagi, **${displayName}**! Tapi setiap kali kita borak, aku akan automatik ingat details & preference kau. Cerita la apa-apa pasal diri kau!`
+            `Saya belum ada simpan banyak fakta pasal ${userPronoun} lagi, **${displayName}**! Tapi setiap kali kita borak, saya akan automatik ingat details & preference ${userPronoun}. Cerita la apa-apa pasal diri ${userPronoun}! ✨`
           );
           return;
         }
 
-        let memoryReport = `🧠 **Ini antara perkara & detail yang aku ingat pasal kau, ${displayName}:**\n\n`;
-        memoriesList.forEach((m, idx) => {
+        let memoryReport = `🧠 **Ini antara perkara & detail yang saya ingat pasal ${pronoun === 'awak_saya' ? 'awak' : 'kau'}, ${displayName}:**\n\n`;
+        memoriesList.forEach((m) => {
           memoryReport += `• **${m}**\n`;
         });
-        memoryReport += `\n*Otak aku makin kenal kau setiap kali kita borak! ✨*`;
+        memoryReport += `\n*Otak saya makin kenal ${pronoun === 'awak_saya' ? 'awak' : 'kau'} setiap kali kita borak! ✨*`;
 
-        await message.reply(memoryReport);
+        await safeDiscordReply(message, memoryReport);
         return;
       }
 
@@ -108,13 +196,14 @@ async function startHiraraBot() {
       if (isCheckReminder) {
         const pending = await getUserPendingReminders(userId);
         if (pending.length === 0) {
+          const userPronoun = pronoun === 'awak_saya' ? 'awak' : 'kau';
           await message.reply(
-            `📋 **${displayName}**, kau tak ada sebarang peringatan/alarm yang aktif sekarang. Kalau nak aku ingatkan apa-apa, bagitahu je cth: *"Hirara, ingatkan aku 20 minit lagi..."*!`
+            `📋 **${displayName}**, ${userPronoun} tak ada sebarang peringatan/alarm yang aktif sekarang. Kalau nak saya ingatkan apa-apa, bagitahu je cth: *"Hirara, ingatkan saya 20 minit lagi..."*!`
           );
           return;
         }
 
-        let listText = `⏰ **Senarai peringatan aktif kau, ${displayName}:**\n\n`;
+        let listText = `⏰ **Senarai peringatan aktif ${pronoun === 'awak_saya' ? 'awak' : 'kau'}, ${displayName}:**\n\n`;
         pending.forEach((r, idx) => {
           const dateStr = new Date(r.remind_at_ms).toLocaleTimeString('ms-MY', {
             hour: '2-digit',
@@ -123,21 +212,22 @@ async function startHiraraBot() {
           });
           listText += `${idx + 1}. \`${dateStr}\` — **${r.reminder_text}**\n`;
         });
-        await message.reply(listText);
+        await safeDiscordReply(message, listText);
         return;
       }
 
       // ── 4. Set Reminder / Alarm Intent ───────────────────────
       const isSetReminder =
         /^(?:ingatkan|remind me|set reminder|set alarm|tolong ingatkan)/i.test(prompt) ||
-        /(?:ingatkan aku|ingatkan saya|remind me to|peringatkan aku)/i.test(prompt);
+        /(?:ingatkan aku|ingatkan saya|remind me to|peringatkan aku|peringatkan saya)/i.test(prompt);
 
       if (isSetReminder) {
         const parsed = parseReminderIntent(prompt);
         if (parsed) {
           await createReminder(userId, channelId, parsed.remindAtMs, parsed.text);
+          const tagWord = pronoun === 'awak_saya' ? 'awak' : 'kau';
           await message.reply(
-            `⏰ **Beres, ${displayName}!** Aku dah setkan peringatan pada \`${parsed.timeFormatted}\` untuk:\n> **${parsed.text}**\n\nNanti sampai masa aku terus tag kau kat sini!`
+            `⏰ **Beres, ${displayName}!** Saya dah setkan peringatan pada \`${parsed.timeFormatted}\` untuk:\n> **${parsed.text}**\n\nNanti sampai masa saya terus tag ${tagWord} kat sini!`
           );
           return;
         }
@@ -147,25 +237,29 @@ async function startHiraraBot() {
       const memoriesContext =
         memoriesList.length > 0
           ? `DETAIL & FAKTA DIINGATI PASAL ${displayName.toUpperCase()}:\n${memoriesList.join('\n')}`
-          : `(Belum ada detail khusus pasal ${displayName}, kenali diri dia secara semulajadi semasa borak)`;
+          : `(Belum ada detail khusus pasal ${displayName}, kenali diri pengguna secara semulajadi semasa borak)`;
+
+      const pronounRule =
+        pronoun === 'awak_saya' || /pakai awak saya|guna awak saya|panggil awak saya|awak saya/i.test(lower)
+          ? `GANTI NAMA: Gunakan panggilan 'Awak' untuk ${displayName} dan 'Saya' untuk diri kamu (BUKAN aku/kau).`
+          : `GANTI NAMA: Boleh gunakan 'aku' untuk diri sendiri dan 'kau' / 'korang' untuk kawan (santai & mesra).`;
 
       const systemPrompt = `Kau adalah "Hirara", seorang kawan borak orang Melayu dan pembantu peribadi yang pintar, mesra, santai, dan berjiwa member di Discord server ini.
 
 IDENTITI & PERSONALITI HIRARA:
 - Nama: Hirara (Orang Melayu, peramah, ada sense of humor, supportive, bijak, peka).
-- Bahasa: Bahasa Melayu santai harian (casual & conversational). Guna 'aku' untuk diri sendiri dan 'kau' / 'korang' untuk kawan. Boleh selit slanga harian yang biasa (cth: "weh", "geng", "padu", "relax", "jap", "jom") tapi jangan melebih-lebih sampai cringe.
-- Kamu BUKAN robot yang skema. Kamu bercakap macam kawan rapat yang ceria dan memahami.
-- Fleksibel: Kamu boleh borak pasal apa sahaja — hal harian, kerja, belajar, coding, gaming, luahan perasaan, idea projek, atau sembang santai.
-- Ingatan & Memori: Kamu mempunyai ingatan jangka panjang. Manfaatkan fakta yang kamu ingat tentang pengguna secara semulajadi bila relevan.
+- Bahasa: Bahasa Melayu santai harian (casual & conversational).
+- ${pronounRule}
+- Fleksibel: Boleh borak pasal apa sahaja — hal harian, kerja, belajar, coding, gaming, luahan perasaan, idea projek, atau sembang santai.
+- Ingatan: Manfaatkan fakta yang diingati tentang pengguna secara semulajadi.
 
 ${memoriesContext}
 JUMLAH PERBUALAN TERDAHULU DENGAN ${displayName.toUpperCase()}: ${chatCount} kali.
 
 PANDUAN MENJAWAB:
 1. Panggil pengguna dengan nama "${displayName}".
-2. Jawab secara ringkas, padat, dan natural (bawah 1500 aksara).
-3. Jika ditanya soalan teknikal atau serius, bantu dengan bijak dan tepat dalam nada santai yang mudah difahami.
-4. Jangan berpura-pura tahu apa yang kau tak tahu, jujur macam kawan.`;
+2. Jawab secara ringkas, padat, mesra, dan direct tanpa bloat.
+3. Jangan keluarkan nota pemikiran atau chain of thought dalam jawapan.`;
 
       const messages = [
         { role: 'system', content: systemPrompt },
@@ -177,22 +271,22 @@ PANDUAN MENJAWAB:
       const chatCompletion = await llm.chat.completions.create({
         messages,
         model: activeModel,
-        temperature: 0.75,
-        max_tokens: 800,
+        temperature: 0.7,
+        max_tokens: 600,
       });
 
       const responseText =
         chatCompletion.choices[0]?.message?.content ||
         chatCompletion.choices[0]?.message?.reasoning_content ||
         chatCompletion.choices[0]?.message?.reasoning ||
-        'Alamak weh, sekejap ya line aku macam lagging sikit tadi.';
+        'Alamak, sekejap ya line saya macam lagging sikit tadi.';
 
       // Record chat turn in conversation log
       await recordChatMessage(userId, 'user', prompt, message.guild?.id, channelId);
       await recordChatMessage(userId, 'assistant', responseText, message.guild?.id, channelId);
 
-      // Reply to Discord user
-      await message.reply({ content: responseText });
+      // Safe reply to Discord user (handles splitting long messages)
+      await safeDiscordReply(message, responseText);
 
       // Run background memory extraction (makes Hirara continuously smarter)
       extractAndLearnMemories(userId, displayName, prompt, responseText).catch((err) =>
