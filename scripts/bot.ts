@@ -33,7 +33,6 @@ async function startHiraraBot() {
     intents: [
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
-      GatewayIntentBits.MessageContent,
       GatewayIntentBits.GuildScheduledEvents,
     ],
   });
