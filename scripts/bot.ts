@@ -23,7 +23,7 @@ import { db } from '../src/lib/db';
 dotenv.config({ path: '.env.local' });
 
 // ============================================================
-// HIRARA — AI Personal Companion & Long-Term Memory Assistant
+// HIRARA — AI Personal Companion & Smart Assistant
 // ============================================================
 
 // ── Clean reasoning/thinking artifacts from model output ──────
@@ -51,11 +51,11 @@ function cleanModelOutput(text: string): string {
     }
   }
 
-  // If still starts with "Here's a thinking process:"
-  if (/^(?:Here's a thinking process|Thinking Process|Let's think about this|The user is asking)/i.test(cleaned)) {
+  // 3. Remove English meta-analysis ("Actually, parsing more naturally...", "Here's a thinking process...")
+  if (/^(?:Here's a thinking process|Thinking Process|Let's think about this|The user is asking|Actually,\s*parsing)/i.test(cleaned)) {
     const paragraphs = cleaned.split(/\n\s*\n/);
     const nonReasoning = paragraphs.filter(
-      (p) => !/^(?:[0-9]+\.|\* |- |Here's|Let's|The user|I should|My goal|First,)/i.test(p.trim())
+      (p) => !/^(?:[0-9]+\.|\* |- |Here's|Let's|The user|I should|My goal|First,|Actually,|Given the AI)/i.test(p.trim())
     );
     if (nonReasoning.length > 0) {
       cleaned = nonReasoning.join('\n\n').trim();
@@ -113,6 +113,150 @@ async function safeDiscordReply(message: any, rawText: string): Promise<void> {
   }
 }
 
+// ── Smart Multi-Language Timer / Reminder Parser ──────────────
+function parseSmartReminder(rawPrompt: string): {
+  remindAtMs: number;
+  reminderText: string;
+  timeFormatted: string;
+} | null {
+  const text = rawPrompt.toLowerCase();
+
+  // Words to numbers dictionary
+  const wordMap: Record<string, number> = {
+    'setengah': 0.5,
+    'separuh': 0.5,
+    'se': 1,
+    'satu': 1,
+    'dua': 2,
+    'tiga': 3,
+    'empat': 4,
+    'lima': 5,
+    'enam': 6,
+    'tujuh': 7,
+    'lapan': 8,
+    'sembilan': 9,
+    'sepuluh': 10,
+    'sebelas': 11,
+    'dua belas': 12,
+    'lima belas': 15,
+    'dua puluh': 20,
+    'tiga puluh': 30,
+    'empat puluh': 40,
+    'lima puluh': 50,
+  };
+
+  let durationMs = 0;
+  let timeFormatted = '';
+
+  // Pattern 1: Word idioms "sejam", "seminit", "setengah jam"
+  if (/\bsejam\b/i.test(text)) {
+    durationMs = 60 * 60 * 1000;
+    timeFormatted = '1 jam';
+  } else if (/\bseminit\b/i.test(text)) {
+    durationMs = 60 * 1000;
+    timeFormatted = '1 minit';
+  } else if (/\bsetengah jam\b|\bseparuh jam\b/i.test(text)) {
+    durationMs = 30 * 60 * 1000;
+    timeFormatted = '30 minit';
+  }
+
+  // Pattern 2: [digit or word] [saat/minit/jam/hari]
+  if (durationMs === 0) {
+    const durationRegex =
+      /(?:(\d+(?:\.\d+)?)|(satu|dua|tiga|empat|lima|enam|tujuh|lapan|sembilan|sepuluh|sebelas|dua belas|lima belas|dua puluh|tiga puluh|empat puluh|lima puluh|setengah))\s*(saat|sec|second|seconds|minit|min|minute|minutes|jam|hour|hours|hari|day|days)/i;
+    const match = text.match(durationRegex);
+    if (match) {
+      let num = 1;
+      if (match[1]) {
+        num = parseFloat(match[1]);
+      } else if (match[2] && wordMap[match[2].toLowerCase()] !== undefined) {
+        num = wordMap[match[2].toLowerCase()];
+      }
+
+      const unit = match[3].toLowerCase();
+      if (unit.startsWith('saat') || unit.startsWith('sec')) {
+        durationMs = num * 1000;
+        timeFormatted = `${num} saat`;
+      } else if (unit.startsWith('min')) {
+        durationMs = num * 60 * 1000;
+        timeFormatted = `${num} minit`;
+      } else if (unit.startsWith('jam') || unit.startsWith('hour')) {
+        durationMs = num * 60 * 60 * 1000;
+        timeFormatted = `${num} jam`;
+      } else if (unit.startsWith('hari') || unit.startsWith('day')) {
+        durationMs = num * 24 * 60 * 60 * 1000;
+        timeFormatted = `${num} hari`;
+      }
+    }
+  }
+
+  // Pattern 3: Absolute time "pukul 10.30 pm", "jam 9 malam", "at 8:00 am"
+  if (durationMs === 0) {
+    const absTimeRegex = /(?:pukul|jam|at)\s*(\d{1,2})(?:[\.:](\d{2}))?\s*(am|pm|pagi|malam|petang|tengahari)?/i;
+    const absMatch = text.match(absTimeRegex);
+    if (absMatch) {
+      let hours = parseInt(absMatch[1], 10);
+      const mins = absMatch[2] ? parseInt(absMatch[2], 10) : 0;
+      const period = (absMatch[3] || '').toLowerCase();
+
+      if ((period === 'pm' || period === 'malam' || period === 'petang') && hours < 12) hours += 12;
+      if ((period === 'am' || period === 'pagi') && hours === 12) hours = 0;
+
+      const now = new Date();
+      const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins, 0);
+      if (targetDate.getTime() <= now.getTime()) {
+        targetDate.setDate(targetDate.getDate() + 1); // Tomorrow if already passed
+      }
+
+      durationMs = targetDate.getTime() - now.getTime();
+      timeFormatted = targetDate.toLocaleTimeString('ms-MY', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+    }
+  }
+
+  if (durationMs <= 0) return null;
+
+  const remindAtMs = Date.now() + durationMs;
+
+  // Clean the action text from the prompt
+  let actionText = rawPrompt
+    .replace(/^(?:hirara|weh hirara|eh hirara)[,\s]*/gi, '')
+    .replace(
+      /(?:set time|set timer|timer|set alarm|alarm|set reminder|reminder|ingatkan aku|ingatkan saya|ingatkan|remind me to|remind me|tolong ingatkan)/gi,
+      ''
+    )
+    .replace(
+      /(?:dalam|lagi|in|selepas|lepas)\s*(?:\d+|satu|dua|tiga|empat|lima|enam|tujuh|lapan|sembilan|sepuluh|setengah)\s*(?:saat|sec|second|seconds|minit|min|minute|minutes|jam|hour|hours|hari|day|days)/gi,
+      ''
+    )
+    .replace(
+      /(?:\d+|satu|dua|tiga|empat|lima|enam|tujuh|lapan|sembilan|sepuluh|setengah)\s*(?:saat|sec|second|seconds|minit|min|minute|minutes|jam|hour|hours|hari|day|days)\s*(?:lagi|later)/gi,
+      ''
+    )
+    .replace(/(?:pukul|jam|at)\s*\d{1,2}(?:[\.:]\d{2})?\s*(?:am|pm|pagi|malam|petang|tengahari)?/gi, '')
+    .replace(/^[,:\s-]+|[,:\s-]+$/g, '')
+    .trim();
+
+  // If user said "lepas tu mention @user", format cleanly
+  if (
+    !actionText ||
+    actionText.toLowerCase() === 'lepas tu' ||
+    actionText.toLowerCase() === 'nanti' ||
+    actionText.toLowerCase() === 'lepas ni'
+  ) {
+    actionText = `Masa ${timeFormatted} dah tamat!`;
+  }
+
+  return {
+    remindAtMs,
+    reminderText: actionText,
+    timeFormatted,
+  };
+}
+
 async function startHiraraBot() {
   await initHiraraDatabase();
 
@@ -135,7 +279,12 @@ async function startHiraraBot() {
     const isMentioned = client.user && message.mentions.has(client.user);
     if (!isMentioned) return;
 
-    const prompt = message.content.replace(/<@!?\d+>/g, '').trim();
+    // Remove ONLY the bot's own mention so other mentions (like target users) are preserved!
+    const botId = client.user?.id;
+    const prompt = message.content
+      .replace(new RegExp(`<@!?${botId}>`, 'gi'), '')
+      .trim();
+
     const userId = message.author.id;
     const channelId = message.channel.id;
     const rawUsername = message.author.username || 'kawan';
@@ -198,7 +347,7 @@ async function startHiraraBot() {
         if (pending.length === 0) {
           const userPronoun = pronoun === 'awak_saya' ? 'awak' : 'kau';
           await message.reply(
-            `📋 **${displayName}**, ${userPronoun} tak ada sebarang peringatan/alarm yang aktif sekarang. Kalau nak saya ingatkan apa-apa, bagitahu je cth: *"Hirara, ingatkan saya 20 minit lagi..."*!`
+            `📋 **${displayName}**, ${userPronoun} tak ada sebarang peringatan/alarm yang aktif sekarang. Kalau nak saya ingatkan apa-apa, bagitahu je cth: *"Hirara, set timer 1 minit..."*!`
           );
           return;
         }
@@ -216,21 +365,15 @@ async function startHiraraBot() {
         return;
       }
 
-      // ── 4. Set Reminder / Alarm Intent ───────────────────────
-      const isSetReminder =
-        /^(?:ingatkan|remind me|set reminder|set alarm|tolong ingatkan)/i.test(prompt) ||
-        /(?:ingatkan aku|ingatkan saya|remind me to|peringatkan aku|peringatkan saya)/i.test(prompt);
-
-      if (isSetReminder) {
-        const parsed = parseReminderIntent(prompt);
-        if (parsed) {
-          await createReminder(userId, channelId, parsed.remindAtMs, parsed.text);
-          const tagWord = pronoun === 'awak_saya' ? 'awak' : 'kau';
-          await message.reply(
-            `⏰ **Beres, ${displayName}!** Saya dah setkan peringatan pada \`${parsed.timeFormatted}\` untuk:\n> **${parsed.text}**\n\nNanti sampai masa saya terus tag ${tagWord} kat sini!`
-          );
-          return;
-        }
+      // ── 4. Smart Timer & Reminder Detection ──────────────────
+      const parsedTimer = parseSmartReminder(prompt);
+      if (parsedTimer) {
+        await createReminder(userId, channelId, parsedTimer.remindAtMs, parsedTimer.reminderText);
+        const tagWord = pronoun === 'awak_saya' ? 'awak' : 'kau';
+        await message.reply(
+          `⏰ **Beres, ${displayName}!** Saya dah setkan pemasa/peringatan untuk **${parsedTimer.timeFormatted}**!\n> 📌 **${parsedTimer.reminderText}**\n\nNanti cukup masa saya terus tag ${tagWord} kat sini! ✨`
+        );
+        return;
       }
 
       // ── 5. AI Conversational Generation with Hirara Persona ──
@@ -256,10 +399,10 @@ IDENTITI & PERSONALITI HIRARA:
 ${memoriesContext}
 JUMLAH PERBUALAN TERDAHULU DENGAN ${displayName.toUpperCase()}: ${chatCount} kali.
 
-PANDUAN MENJAWAB:
-1. Panggil pengguna dengan nama "${displayName}".
-2. Jawab secara ringkas, padat, mesra, dan direct tanpa bloat.
-3. Jangan keluarkan nota pemikiran atau chain of thought dalam jawapan.`;
+PERATURAN PENTING:
+1. JANGAN SESEKALI keluarkan monolog bahasa Inggeris, analisis pemikiran ("Actually, parsing more naturally...", "Here's a thinking process...").
+2. Sentiasa balas TERUS kepada ${displayName} dalam Bahasa Melayu yang mesra dan natural.
+3. Jawab secara ringkas, padat, dan bersahaja.`;
 
       const messages = [
         { role: 'system', content: systemPrompt },
@@ -285,7 +428,7 @@ PANDUAN MENJAWAB:
       await recordChatMessage(userId, 'user', prompt, message.guild?.id, channelId);
       await recordChatMessage(userId, 'assistant', responseText, message.guild?.id, channelId);
 
-      // Safe reply to Discord user (handles splitting long messages)
+      // Safe reply to Discord user (handles clean formatting & splitting long messages)
       await safeDiscordReply(message, responseText);
 
       // Run background memory extraction (makes Hirara continuously smarter)
@@ -309,7 +452,7 @@ PANDUAN MENJAWAB:
   client.login(token);
 }
 
-// ── Background Reminder Scheduler (Checks every 10 seconds) ───
+// ── Background Reminder Scheduler (Checks every 5 seconds) ────
 function startReminderScheduler(client: Client) {
   setInterval(async () => {
     try {
@@ -320,7 +463,7 @@ function startReminderScheduler(client: Client) {
           const channel = (await client.channels.fetch(item.channel_id)) as any;
           if (channel && channel.send) {
             await channel.send(
-              `🔔 <@${item.user_id}> **Peringatan daripada Hirara!**\n> 📌 **${item.reminder_text}**\n*Masa dah sampai geng!*`
+              `🔔 <@${item.user_id}> **Peringatan daripada Hirara!**\n> 📌 **${item.reminder_text}**\n*Masa dah sampai! ✨*`
             );
           }
         } catch (err) {
@@ -334,100 +477,7 @@ function startReminderScheduler(client: Client) {
     } catch (e) {
       // Ignore background interval errors
     }
-  }, 10000);
-}
-
-// ── Helper: Parse Reminder Intent ─────────────────────────────
-function parseReminderIntent(prompt: string): {
-  remindAtMs: number;
-  text: string;
-  timeFormatted: string;
-} | null {
-  const lower = prompt.toLowerCase();
-
-  // Pattern A: "dalam X minit/jam" / "in X minutes"
-  const minMatch =
-    lower.match(/(?:dalam|lagi|in)\s*(\d+)\s*(?:minit|minutes|min)/i) ||
-    lower.match(/(\d+)\s*(?:minit|minutes|min)\s*(?:lagi|later)/i);
-
-  if (minMatch) {
-    const mins = parseInt(minMatch[1], 10);
-    const remindAtMs = Date.now() + mins * 60 * 1000;
-    const targetDate = new Date(remindAtMs);
-    const cleanText = prompt
-      .replace(/^(?:hirara|weh hirara|eh hirara)[,\s]*/gi, '')
-      .replace(/(?:ingatkan aku|ingatkan saya|remind me to|set reminder|set alarm)/gi, '')
-      .replace(/(?:dalam|lagi|in)\s*\d+\s*(?:minit|minutes|min)/gi, '')
-      .replace(/\d+\s*(?:minit|minutes|min)\s*(?:lagi|later)/gi, '')
-      .replace(/<@!?\d+>/g, '')
-      .replace(/^[\s,:-]+|[\s,:-]+$/g, '')
-      .trim() || 'Peringatan anda';
-
-    return {
-      remindAtMs,
-      text: cleanText,
-      timeFormatted: `dalam ${mins} minit lagi (${targetDate.toLocaleTimeString('ms-MY', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      })})`,
-    };
-  }
-
-  // Pattern B: Specific time "pukul 10.30 pm" / "at 9.00 am"
-  const timeMatch =
-    lower.match(/(?:pukul|jam|at)\s*(\d{1,2})[\.:](\d{2})\s*(am|pm)?/i) ||
-    lower.match(/(\d{1,2})[\.:](\d{2})\s*(am|pm)/i) ||
-    lower.match(/(?:pukul|jam|at)\s*(\d{1,2})\s*(am|pm|pagi|malam|petang|tengahari)/i);
-
-  if (timeMatch) {
-    let hours = parseInt(timeMatch[1], 10);
-    const mins = timeMatch[2] && !isNaN(parseInt(timeMatch[2], 10)) ? parseInt(timeMatch[2], 10) : 0;
-    const period = (timeMatch[3] || timeMatch[2] || '').toLowerCase();
-
-    if ((period === 'pm' || period === 'malam' || period === 'petang') && hours < 12) hours += 12;
-    if ((period === 'am' || period === 'pagi') && hours === 12) hours = 0;
-
-    const now = new Date();
-    const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins, 0);
-    if (targetDate.getTime() <= now.getTime()) {
-      targetDate.setDate(targetDate.getDate() + 1); // Next day if time already passed
-    }
-
-    const cleanText = prompt
-      .replace(/^(?:hirara|weh hirara|eh hirara)[,\s]*/gi, '')
-      .replace(/(?:ingatkan aku|ingatkan saya|remind me to|set reminder|set alarm)/gi, '')
-      .replace(/(?:pukul|jam|at)\s*\d{1,2}[\.:]\d{2}\s*(?:am|pm)?/gi, '')
-      .replace(/(?:pukul|jam|at)\s*\d{1,2}\s*(?:am|pm|pagi|malam|petang|tengahari)/gi, '')
-      .replace(/<@!?\d+>/g, '')
-      .replace(/^[\s,:-]+|[\s,:-]+$/g, '')
-      .trim() || 'Peringatan anda';
-
-    return {
-      remindAtMs: targetDate.getTime(),
-      text: cleanText,
-      timeFormatted: targetDate.toLocaleTimeString('ms-MY', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      }),
-    };
-  }
-
-  // Fallback: 10 minutes from now
-  const remindAtMs = Date.now() + 10 * 60 * 1000;
-  const cleanText = prompt
-    .replace(/^(?:hirara|weh hirara|eh hirara)[,\s]*/gi, '')
-    .replace(/(?:ingatkan aku|ingatkan saya|remind me to|set reminder|set alarm)/gi, '')
-    .replace(/<@!?\d+>/g, '')
-    .replace(/^[\s,:-]+|[\s,:-]+$/g, '')
-    .trim() || 'Peringatan anda';
-
-  return {
-    remindAtMs,
-    text: cleanText,
-    timeFormatted: 'dalam 10 minit lagi',
-  };
+  }, 5000);
 }
 
 startHiraraBot().catch(console.error);
