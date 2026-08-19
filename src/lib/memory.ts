@@ -81,10 +81,86 @@ export async function initHiraraDatabase(): Promise<void> {
       )
     `);
 
+    // GitHub Whitelist Access Control Table
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS hirara_github_access (
+        user_id TEXT PRIMARY KEY,
+        username TEXT,
+        role TEXT DEFAULT 'authorized',
+        added_by TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log('[Hirara DB] Schema successfully verified & initialized.');
   } catch (err) {
     console.error('[Hirara DB] Initialization error:', err);
   }
+}
+
+// ── GitHub Access Control System ──────────────────────────────
+export async function isUserAuthorizedForGitHub(
+  userId: string,
+  username: string
+): Promise<{ authorized: boolean; isOwner: boolean }> {
+  await initHiraraDatabase();
+
+  const ownerEnvId = process.env.BOT_OWNER_ID || '';
+  const ownerEnvUser = (process.env.GITHUB_USERNAME || 'iamatto01').toLowerCase();
+  const lowerUser = (username || '').toLowerCase();
+
+  // 1. Owner check
+  const isOwner =
+    (ownerEnvId && userId === ownerEnvId) ||
+    lowerUser === 'iamatto01' ||
+    lowerUser.includes('iamatto') ||
+    lowerUser === ownerEnvUser;
+
+  if (isOwner) {
+    return { authorized: true, isOwner: true };
+  }
+
+  // 2. Database whitelist check
+  const res = await db.execute({
+    sql: 'SELECT role FROM hirara_github_access WHERE user_id = ?',
+    args: [userId],
+  }).catch(() => ({ rows: [] }));
+
+  if (res.rows.length > 0) {
+    return { authorized: true, isOwner: false };
+  }
+
+  return { authorized: false, isOwner: false };
+}
+
+export async function grantGitHubAccess(
+  targetUserId: string,
+  targetUsername: string,
+  addedBy: string
+): Promise<void> {
+  await initHiraraDatabase();
+  await db.execute({
+    sql: `INSERT INTO hirara_github_access (user_id, username, role, added_by, created_at)
+          VALUES (?, ?, 'authorized', ?, CURRENT_TIMESTAMP)
+          ON CONFLICT(user_id) DO UPDATE SET username = excluded.username, added_by = excluded.added_by`,
+    args: [targetUserId, targetUsername, addedBy],
+  });
+}
+
+export async function revokeGitHubAccess(targetUserId: string): Promise<boolean> {
+  await initHiraraDatabase();
+  const res = await db.execute({
+    sql: 'DELETE FROM hirara_github_access WHERE user_id = ?',
+    args: [targetUserId],
+  }).catch(() => ({ rows: [] }));
+  return true;
+}
+
+export async function listAuthorizedGitHubUsers(): Promise<{ user_id: string; username: string; role: string }[]> {
+  await initHiraraDatabase();
+  const res = await db.execute('SELECT user_id, username, role FROM hirara_github_access ORDER BY created_at ASC')
+    .catch(() => ({ rows: [] }));
+  return res.rows as any[];
 }
 
 // ── 2. Memory Retrieval for AI Context ────────────────────────

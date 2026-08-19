@@ -16,6 +16,10 @@ import {
   getUserPendingReminders,
   saveUserMemory,
   initHiraraDatabase,
+  isUserAuthorizedForGitHub,
+  grantGitHubAccess,
+  revokeGitHubAccess,
+  listAuthorizedGitHubUsers,
 } from '../src/lib/memory';
 import {
   listUserRepositories,
@@ -30,6 +34,7 @@ dotenv.config({ path: '.env.local' });
 
 // ============================================================
 // HIRARA — Dynamic AI Personal Companion & Brain
+// With Role-Based GitHub Access Control
 // ============================================================
 
 // ── Clean reasoning/thinking artifacts from model output ──────
@@ -134,7 +139,6 @@ function parseSmartReminder(rawPrompt: string): {
 } | null {
   const text = rawPrompt.toLowerCase();
 
-  // Explicit timer trigger words required to avoid false positives
   const isExplicitTimer =
     /^(?:set timer|set time|timer|set alarm|alarm|set reminder|ingatkan|remind me|tolong ingatkan)/i.test(
       text
@@ -338,14 +342,93 @@ async function startHiraraBot() {
     try {
       const lower = prompt.toLowerCase();
 
-      // ── 1. Fetch User Memory & Profile ───────────────────────
+      // ── 1. Fetch User Memory, Profile & Access Permissions ─────
       const { displayName, memoriesList, recentHistory, chatCount, pronoun } =
         await getUserHiraraContext(userId, rawUsername);
 
       const defaultUser = getDefaultGitHubUsername();
       const hasGitHubToken = Boolean(process.env.GITHUB_TOKEN);
+      const { authorized: isGitHubAuthorized, isOwner } = await isUserAuthorizedForGitHub(
+        userId,
+        rawUsername
+      );
 
-      // ── 2. Explicit Command: Set Timer / Alarm ────────────────
+      // ── 2. ACCESS MANAGEMENT COMMANDS (Owner Only) ────────────
+      // A: Grant Access to a user
+      if (
+        /(?:benarkan|bagi|grant|add)\s+(?:akses|access|kebenaran)?\s*(?:github)?/i.test(lower) &&
+        message.mentions.users.size > 0
+      ) {
+        if (!isOwner) {
+          await message.reply(
+            `🔒 **Akses Ditolak:** Hanya pemilik bot (${defaultUser}) sahaja yang boleh memberi kebenaran akses GitHub kepada orang lain.`
+          );
+          return;
+        }
+
+        const targetUsers = Array.from(message.mentions.users.values()).filter(
+          (u) => u.id !== client.user?.id
+        );
+
+        for (const target of targetUsers) {
+          await grantGitHubAccess(target.id, target.username, rawUsername);
+        }
+
+        const names = targetUsers.map((u) => `<@${u.id}>`).join(', ');
+        await message.reply(
+          `✅ **Beres!** ${names} kini telah diberikan kebenaran untuk mengakses dan bertanyakan tentang projek GitHub **${defaultUser}**! ✨`
+        );
+        return;
+      }
+
+      // B: Revoke Access from a user
+      if (
+        /(?:tarik|revoke|remove|buang|padam)\s+(?:akses|access|kebenaran)?\s*(?:github)?/i.test(lower) &&
+        message.mentions.users.size > 0
+      ) {
+        if (!isOwner) {
+          await message.reply(
+            `🔒 **Akses Ditolak:** Hanya pemilik bot (${defaultUser}) sahaja yang boleh menarik kebenaran akses.`
+          );
+          return;
+        }
+
+        const targetUsers = Array.from(message.mentions.users.values()).filter(
+          (u) => u.id !== client.user?.id
+        );
+
+        for (const target of targetUsers) {
+          await revokeGitHubAccess(target.id);
+        }
+
+        const names = targetUsers.map((u) => `<@${u.id}>`).join(', ');
+        await message.reply(`🗑️ **Akses Ditarik:** Kebenaran akses GitHub untuk ${names} telah ditarik balik.`);
+        return;
+      }
+
+      // C: List Authorized Users
+      if (/(?:senarai|list)\s+(?:akses|access|whitelist|kebenaran)\s*(?:github)?/i.test(lower)) {
+        const authList = await listAuthorizedGitHubUsers();
+        let authMsg = `🔐 **Senarai Ahli Yang Dibenarkan Akses GitHub (${defaultUser}):**\n\n`;
+        authMsg += `👑 **Pemilik Utama:** ${defaultUser}\n`;
+
+        if (authList.length === 0) {
+          authMsg += `\n*Tiada ahli tambahan dalam senarai kebenaran.*`;
+        } else {
+          authList.forEach((u, i) => {
+            authMsg += `${i + 1}. <@${u.user_id}> (\`${u.username}\`)\n`;
+          });
+        }
+
+        if (isOwner) {
+          authMsg += `\n💡 *Tip: Untuk tambah orang lain, sebut: "@Sentinel MLBB benarkan @user akses github"*`;
+        }
+
+        await safeDiscordReply(message, authMsg);
+        return;
+      }
+
+      // ── 3. Explicit Command: Set Timer / Alarm ────────────────
       const parsedTimer = parseSmartReminder(prompt);
       if (parsedTimer) {
         await createReminder(userId, channelId, parsedTimer.remindAtMs, parsedTimer.reminderText);
@@ -356,8 +439,12 @@ async function startHiraraBot() {
         return;
       }
 
-      // ── 3. Explicit Command: Check Reminders List ─────────────
-      if (/^(?:check reminder|senarai reminder|ada reminder|tengok alarm|list reminder)$/i.test(lower.trim())) {
+      // ── 4. Explicit Command: Check Reminders List ─────────────
+      if (
+        /^(?:check reminder|senarai reminder|ada reminder|tengok alarm|list reminder)$/i.test(
+          lower.trim()
+        )
+      ) {
         const pending = await getUserPendingReminders(userId);
         if (pending.length === 0) {
           const userPronoun = pronoun === 'awak_saya' ? 'awak' : 'kau';
@@ -380,8 +467,7 @@ async function startHiraraBot() {
         return;
       }
 
-      // ── 4. Explicit Command: List GitHub Repositories ─────────
-      // ONLY trigger list when user explicitly asks to list/show them, NOT when asking a question about repos
+      // ── 5. Explicit Command: List GitHub Repositories ─────────
       const isExplicitListRequest =
         /^(?:list|listkan|senarai|senaraikan|tunjuk|tunjukkan)\s+(?:semua\s+)?(?:repo|repos|repository|repositories|projek github)/i.test(
           lower.trim()
@@ -389,10 +475,17 @@ async function startHiraraBot() {
         /^(?:senarai|list|tunjuk)\s+(?:projek|repo)$/i.test(lower.trim());
 
       if (isExplicitListRequest) {
+        if (!isGitHubAuthorized) {
+          await message.reply(
+            `🔒 **Akses Terhad:** Maaf, senarai repository GitHub **${defaultUser}** ini terhad kepada pemilik dan ahli yang dibenarkan sahaja. Sila minta ${defaultUser} untuk berikan kebenaran!`
+          );
+          return;
+        }
+
         const repos = await listUserRepositories(defaultUser);
         if (repos.length === 0) {
           await message.reply(
-            `Saya belum dapat tarik sebarang repository dari GitHub **${defaultUser}** lagi. Pastikan akaun GitHub wujud!`
+            `Saya belum dapat tarik sebarang repository dari GitHub **${defaultUser}** lagi.`
           );
           return;
         }
@@ -410,7 +503,7 @@ async function startHiraraBot() {
         return;
       }
 
-      // ── 5. Explicit Command: Explain Specific Repository ──────
+      // ── 6. Explicit Command: Explain Specific Repository ──────
       const explainMatch =
         prompt.match(
           /^(?:terangkan|explain|apa fungsi|ceritakan pasal|penerangan pasal|detail pasal)\s+(?:projek|repo|project|repository)?\s*([a-zA-Z0-9_-]+)$/i
@@ -426,6 +519,13 @@ async function startHiraraBot() {
           explainMatch[1].toLowerCase()
         )
       ) {
+        if (!isGitHubAuthorized) {
+          await message.reply(
+            `🔒 **Akses Terhad:** Maaf, penerangan kod repository **${defaultUser}** dihadkan kepada pemilik dan ahli yang dibenarkan sahaja.`
+          );
+          return;
+        }
+
         const targetRepo = explainMatch[1].trim();
         const explanation = await explainRepositoryWithHirara(
           targetRepo,
@@ -435,7 +535,6 @@ async function startHiraraBot() {
         );
         await safeDiscordReply(message, explanation);
 
-        // Save into memory that user has interest in this project
         await saveUserMemory(
           userId,
           `minat_projek_${targetRepo}`,
@@ -446,8 +545,8 @@ async function startHiraraBot() {
         return;
       }
 
-      // ── 6. DYNAMIC AI CONVERSATION (Handles ALL other questions) ─
-      const realGitHubContext = await getGitHubReposContext(defaultUser);
+      // ── 7. DYNAMIC AI CONVERSATION (Handles ALL other questions) ─
+      const realGitHubContext = isGitHubAuthorized ? await getGitHubReposContext(defaultUser) : '';
 
       const memoriesContext =
         memoriesList.length > 0
@@ -460,9 +559,9 @@ async function startHiraraBot() {
           ? `GANTI NAMA: Gunakan panggilan 'Awak' untuk ${displayName} dan 'Saya' untuk diri kamu (BUKAN aku/kau).`
           : `GANTI NAMA: Boleh gunakan 'aku' untuk diri sendiri dan 'kau' / 'korang' untuk kawan (santai & mesra).`;
 
-      const githubAccessStatus = hasGitHubToken
-        ? `STATUS AKSES GITHUB: Pengguna (${defaultUser}) SUDAH menyambungkan Personal Access Token. Jadi kamu MEMPUNYAI AKSES PENUH untuk membaca kedua-dua repository PUBLIC dan PRIVATE miliknya!`
-        : `STATUS AKSES GITHUB: Token belum dimasukkan, kamu hanya boleh akses repository PUBLIC.`;
+      const githubAccessInstruction = isGitHubAuthorized
+        ? `STATUS AKSES GITHUB: Pengguna ini (${displayName}) MEMPUNYAI KEBENARAN AKSES ke GitHub (${defaultUser}). Kamu boleh membincangkan projek kod dan repository public & private miliknya dengan bebas.`
+        : `STATUS AKSES GITHUB: Pengguna ini (${displayName}) TIDAK MEMPUNYAI KEBENARAN untuk melihat kod atau projek peribadi ${defaultUser}. Jika mereka bertanya tentang projek private atau repo peribadi ${defaultUser}, tolak dengan sopan atas faktor keselamatan dan privasi.`;
 
       const systemPrompt = `Kau adalah "Hirara", seorang kawan borak orang Melayu dan pembantu peribadi yang pintar, mesra, santai, dan berjiwa member di Discord server ini.
 
@@ -470,8 +569,8 @@ IDENTITI & PERSONALITI HIRARA:
 - Nama: Hirara (Orang Melayu, peramah, ada sense of humor, supportive, bijak, peka, memahami pelbagai dialek dan gaya bahasa Melayu/Manglish).
 - Bahasa: Bahasa Melayu santai harian (casual & conversational).
 - ${pronounRule}
-- Fleksibel & Dinamik: Kamu faham soalan semulajadi dalam Bahasa Melayu. Jika ditanya soalan seperti "repo private boleh baca ke?", jawab secara cerdas berdasarkan status akses kamu di bawah.
-- ${githubAccessStatus}
+- ${githubAccessInstruction}
+- Fleksibel & Dinamik: Kamu faham soalan semulajadi dalam Bahasa Melayu.
 
 ${realGitHubContext}
 
@@ -481,8 +580,7 @@ JUMLAH PERBUALAN TERDAHULU DENGAN ${displayName.toUpperCase()}: ${chatCount} kal
 PERATURAN PENTING:
 1. JANGAN SESEKALI keluarkan monolog bahasa Inggeris atau analisis pemikiran ("Actually, parsing more naturally...").
 2. Jawab soalan pengguna secara cerdas, tepat, dan mesra dalam Bahasa Melayu.
-3. Rujuk senarai projek sebenar di atas bila berbincang tentang projek ${defaultUser}.
-4. Jawab secara ringkas, padat, dan bersahaja.`;
+3. Jawab secara ringkas, padat, dan bersahaja.`;
 
       const messages = [
         { role: 'system', content: systemPrompt },
