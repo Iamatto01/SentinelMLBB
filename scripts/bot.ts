@@ -17,6 +17,11 @@ import {
   saveUserMemory,
   initHiraraDatabase,
 } from '../src/lib/memory';
+import {
+  listUserRepositories,
+  explainRepositoryWithHirara,
+  getDefaultGitHubUsername,
+} from '../src/lib/github';
 import { llm } from '../src/lib/groq';
 import { db } from '../src/lib/db';
 
@@ -52,10 +57,17 @@ function cleanModelOutput(text: string): string {
   }
 
   // 3. Remove English meta-analysis ("Actually, parsing more naturally...", "Here's a thinking process...")
-  if (/^(?:Here's a thinking process|Thinking Process|Let's think about this|The user is asking|Actually,\s*parsing)/i.test(cleaned)) {
+  if (
+    /^(?:Here's a thinking process|Thinking Process|Let's think about this|The user is asking|Actually,\s*parsing)/i.test(
+      cleaned
+    )
+  ) {
     const paragraphs = cleaned.split(/\n\s*\n/);
     const nonReasoning = paragraphs.filter(
-      (p) => !/^(?:[0-9]+\.|\* |- |Here's|Let's|The user|I should|My goal|First,|Actually,|Given the AI)/i.test(p.trim())
+      (p) =>
+        !/^(?:[0-9]+\.|\* |- |Here's|Let's|The user|I should|My goal|First,|Actually,|Given the AI)/i.test(
+          p.trim()
+        )
     );
     if (nonReasoning.length > 0) {
       cleaned = nonReasoning.join('\n\n').trim();
@@ -123,20 +135,20 @@ function parseSmartReminder(rawPrompt: string): {
 
   // Words to numbers dictionary
   const wordMap: Record<string, number> = {
-    'setengah': 0.5,
-    'separuh': 0.5,
-    'se': 1,
-    'satu': 1,
-    'dua': 2,
-    'tiga': 3,
-    'empat': 4,
-    'lima': 5,
-    'enam': 6,
-    'tujuh': 7,
-    'lapan': 8,
-    'sembilan': 9,
-    'sepuluh': 10,
-    'sebelas': 11,
+    setengah: 0.5,
+    separuh: 0.5,
+    se: 1,
+    satu: 1,
+    dua: 2,
+    tiga: 3,
+    empat: 4,
+    lima: 5,
+    enam: 6,
+    tujuh: 7,
+    lapan: 8,
+    sembilan: 9,
+    sepuluh: 10,
+    sebelas: 11,
     'dua belas': 12,
     'lima belas': 15,
     'dua puluh': 20,
@@ -192,18 +204,27 @@ function parseSmartReminder(rawPrompt: string): {
 
   // Pattern 3: Absolute time "pukul 10.30 pm", "jam 9 malam", "at 8:00 am"
   if (durationMs === 0) {
-    const absTimeRegex = /(?:pukul|jam|at)\s*(\d{1,2})(?:[\.:](\d{2}))?\s*(am|pm|pagi|malam|petang|tengahari)?/i;
+    const absTimeRegex =
+      /(?:pukul|jam|at)\s*(\d{1,2})(?:[\.:](\d{2}))?\s*(am|pm|pagi|malam|petang|tengahari)?/i;
     const absMatch = text.match(absTimeRegex);
     if (absMatch) {
       let hours = parseInt(absMatch[1], 10);
       const mins = absMatch[2] ? parseInt(absMatch[2], 10) : 0;
       const period = (absMatch[3] || '').toLowerCase();
 
-      if ((period === 'pm' || period === 'malam' || period === 'petang') && hours < 12) hours += 12;
+      if ((period === 'pm' || period === 'malam' || period === 'petang') && hours < 12)
+        hours += 12;
       if ((period === 'am' || period === 'pagi') && hours === 12) hours = 0;
 
       const now = new Date();
-      const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins, 0);
+      const targetDate = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        hours,
+        mins,
+        0
+      );
       if (targetDate.getTime() <= now.getTime()) {
         targetDate.setDate(targetDate.getDate() + 1); // Tomorrow if already passed
       }
@@ -339,9 +360,10 @@ async function startHiraraBot() {
       }
 
       // ── 3. Check Reminders / Alarms ──────────────────────────
-      const isCheckReminder = /ada reminder|check reminder|senarai reminder|what are my reminder|tengok alarm|ada alarm/i.test(
-        lower
-      );
+      const isCheckReminder =
+        /ada reminder|check reminder|senarai reminder|what are my reminder|tengok alarm|ada alarm/i.test(
+          lower
+        );
       if (isCheckReminder) {
         const pending = await getUserPendingReminders(userId);
         if (pending.length === 0) {
@@ -376,14 +398,80 @@ async function startHiraraBot() {
         return;
       }
 
-      // ── 5. AI Conversational Generation with Hirara Persona ──
+      // ── 5. GitHub Repository Listing ─────────────────────────
+      if (
+        /(?:senarai|list|tunjuk|tengok)\s+(?:repo|projek|project|repository)(?:\s+(?:aku|kat|di|github))?/i.test(
+          lower
+        ) ||
+        /(?:projek|repo)\s+(?:kat|di|dalam)?\s*github/i.test(lower)
+      ) {
+        const defaultUser = getDefaultGitHubUsername();
+        const repos = await listUserRepositories(defaultUser);
+        if (repos.length === 0) {
+          await message.reply(
+            `Saya belum dapat tarik sebarang repository dari GitHub **${defaultUser}** lagi. Pastikan akaun GitHub wujud dan ada repository public!`
+          );
+          return;
+        }
+
+        let repoMsg = `🐙 **Senarai Repository GitHub (${defaultUser}):**\n\n`;
+        repos.slice(0, 10).forEach((r, idx) => {
+          const stars = r.stars > 0 ? ` ⭐${r.stars}` : '';
+          const lang = r.language ? ` • \`${r.language}\`` : '';
+          repoMsg += `${idx + 1}. **[${r.name}](${r.html_url})**${lang}${stars}\n   > *${r.description}* (Kemaskini: ${r.updated_at})\n`;
+        });
+        repoMsg += `\n💡 *Tip: Tanya saya cth: "@Sentinel MLBB terangkan pasal projek ${repos[0]?.name}" untuk penerangan kod & fungsi projek!*`;
+
+        await safeDiscordReply(message, repoMsg);
+        return;
+      }
+
+      // ── 6. GitHub Repository Explainer ───────────────────────
+      const explainMatch =
+        prompt.match(
+          /(?:terangkan|explain|apa fungsi|ceritakan pasal|penerangan pasal|detail pasal|apa itu)\s+(?:projek|repo|project|repository)?\s*([a-zA-Z0-9_-]+)/i
+        ) ||
+        prompt.match(
+          /(?:projek|repo)\s+([a-zA-Z0-9_-]+)\s+(?:pasal apa|fungsi apa|tentang apa|buat apa|macam mana)/i
+        );
+
+      if (
+        explainMatch &&
+        explainMatch[1] &&
+        !['aku', 'saya', 'dia', 'awak', 'kau', 'kita', 'apa', 'ini', 'tu', 'siapa', 'mana'].includes(
+          explainMatch[1].toLowerCase()
+        )
+      ) {
+        const targetRepo = explainMatch[1].trim();
+        const defaultUser = getDefaultGitHubUsername();
+        const explanation = await explainRepositoryWithHirara(
+          targetRepo,
+          prompt,
+          defaultUser,
+          pronoun
+        );
+        await safeDiscordReply(message, explanation);
+
+        // Save into memory that user has interest in this project
+        await saveUserMemory(
+          userId,
+          `minat_projek_${targetRepo}`,
+          `Pengguna bertanya tentang projek GitHub ${targetRepo}`,
+          'project',
+          3
+        );
+        return;
+      }
+
+      // ── 7. AI Conversational Generation with Hirara Persona ──
       const memoriesContext =
         memoriesList.length > 0
           ? `DETAIL & FAKTA DIINGATI PASAL ${displayName.toUpperCase()}:\n${memoriesList.join('\n')}`
           : `(Belum ada detail khusus pasal ${displayName}, kenali diri pengguna secara semulajadi semasa borak)`;
 
       const pronounRule =
-        pronoun === 'awak_saya' || /pakai awak saya|guna awak saya|panggil awak saya|awak saya/i.test(lower)
+        pronoun === 'awak_saya' ||
+        /pakai awak saya|guna awak saya|panggil awak saya|awak saya/i.test(lower)
           ? `GANTI NAMA: Gunakan panggilan 'Awak' untuk ${displayName} dan 'Saya' untuk diri kamu (BUKAN aku/kau).`
           : `GANTI NAMA: Boleh gunakan 'aku' untuk diri sendiri dan 'kau' / 'korang' untuk kawan (santai & mesra).`;
 
@@ -393,7 +481,8 @@ IDENTITI & PERSONALITI HIRARA:
 - Nama: Hirara (Orang Melayu, peramah, ada sense of humor, supportive, bijak, peka).
 - Bahasa: Bahasa Melayu santai harian (casual & conversational).
 - ${pronounRule}
-- Fleksibel: Boleh borak pasal apa sahaja — hal harian, kerja, belajar, coding, gaming, luahan perasaan, idea projek, atau sembang santai.
+- Fleksibel: Boleh borak pasal apa sahaja — hal harian, kerja, belajar, coding, gaming, luahan perasaan, idea projek, GitHub, atau sembang santai.
+- Integrasi GitHub: Kamu boleh membaca repository GitHub pengguna (${getDefaultGitHubUsername()}) dan menerangkan projek kod mereka bila ditanya.
 - Ingatan: Manfaatkan fakta yang diingati tentang pengguna secara semulajadi.
 
 ${memoriesContext}
