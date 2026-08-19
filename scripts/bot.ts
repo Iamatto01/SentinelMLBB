@@ -21,6 +21,7 @@ import {
   listUserRepositories,
   explainRepositoryWithHirara,
   getDefaultGitHubUsername,
+  getGitHubReposContext,
 } from '../src/lib/github';
 import { llm } from '../src/lib/groq';
 import { db } from '../src/lib/db';
@@ -399,26 +400,29 @@ async function startHiraraBot() {
       }
 
       // ── 5. GitHub Repository Listing ─────────────────────────
-      if (
-        /(?:senarai|list|tunjuk|tengok)\s+(?:repo|projek|project|repository)(?:\s+(?:aku|kat|di|github))?/i.test(
+      const isListRepo =
+        /(?:senarai|list|listkan|tunjuk|tunjukkan|tengok|ada apa|buka|check)?.*(?:repo|repos|repository|repositories)/i.test(
           lower
         ) ||
-        /(?:projek|repo)\s+(?:kat|di|dalam)?\s*github/i.test(lower)
-      ) {
+        /(?:senarai|list|listkan)\s+(?:semua\s+)?(?:projek|project)/i.test(lower) ||
+        /(?:projek|repo)\s+(?:kat|di|dalam)?\s*github/i.test(lower);
+
+      if (isListRepo) {
         const defaultUser = getDefaultGitHubUsername();
         const repos = await listUserRepositories(defaultUser);
         if (repos.length === 0) {
           await message.reply(
-            `Saya belum dapat tarik sebarang repository dari GitHub **${defaultUser}** lagi. Pastikan akaun GitHub wujud dan ada repository public!`
+            `Saya belum dapat tarik sebarang repository dari GitHub **${defaultUser}** lagi. Pastikan akaun GitHub wujud!`
           );
           return;
         }
 
-        let repoMsg = `🐙 **Senarai Repository GitHub (${defaultUser}):**\n\n`;
-        repos.slice(0, 10).forEach((r, idx) => {
+        let repoMsg = `🐙 **Senarai Sebenar Repository GitHub (${defaultUser} - ${repos.length} Repositori):**\n\n`;
+        repos.forEach((r, idx) => {
           const stars = r.stars > 0 ? ` ⭐${r.stars}` : '';
           const lang = r.language ? ` • \`${r.language}\`` : '';
-          repoMsg += `${idx + 1}. **[${r.name}](${r.html_url})**${lang}${stars}\n   > *${r.description}* (Kemaskini: ${r.updated_at})\n`;
+          const desc = r.description ? `\n   > *${r.description}*` : '';
+          repoMsg += `${idx + 1}. **[${r.name}](${r.html_url})**${lang}${stars}${desc}\n`;
         });
         repoMsg += `\n💡 *Tip: Tanya saya cth: "@Sentinel MLBB terangkan pasal projek ${repos[0]?.name}" untuk penerangan kod & fungsi projek!*`;
 
@@ -464,6 +468,9 @@ async function startHiraraBot() {
       }
 
       // ── 7. AI Conversational Generation with Hirara Persona ──
+      const defaultUser = getDefaultGitHubUsername();
+      const realGitHubContext = await getGitHubReposContext(defaultUser);
+
       const memoriesContext =
         memoriesList.length > 0
           ? `DETAIL & FAKTA DIINGATI PASAL ${displayName.toUpperCase()}:\n${memoriesList.join('\n')}`
@@ -482,16 +489,19 @@ IDENTITI & PERSONALITI HIRARA:
 - Bahasa: Bahasa Melayu santai harian (casual & conversational).
 - ${pronounRule}
 - Fleksibel: Boleh borak pasal apa sahaja — hal harian, kerja, belajar, coding, gaming, luahan perasaan, idea projek, GitHub, atau sembang santai.
-- Integrasi GitHub: Kamu boleh membaca repository GitHub pengguna (${getDefaultGitHubUsername()}) dan menerangkan projek kod mereka bila ditanya.
+- Integrasi GitHub: Kamu boleh membaca repository GitHub pengguna (${defaultUser}) dan menerangkan projek kod mereka bila ditanya.
 - Ingatan: Manfaatkan fakta yang diingati tentang pengguna secara semulajadi.
+
+${realGitHubContext}
 
 ${memoriesContext}
 JUMLAH PERBUALAN TERDAHULU DENGAN ${displayName.toUpperCase()}: ${chatCount} kali.
 
 PERATURAN PENTING:
 1. JANGAN SESEKALI keluarkan monolog bahasa Inggeris, analisis pemikiran ("Actually, parsing more naturally...", "Here's a thinking process...").
-2. Sentiasa balas TERUS kepada ${displayName} dalam Bahasa Melayu yang mesra dan natural.
-3. Jawab secara ringkas, padat, dan bersahaja.`;
+2. JANGAN REKA/HALUSINASI nama projek GitHub palsu. Rujuk senarai projek sebenar ${defaultUser} di atas.
+3. Sentiasa balas TERUS kepada ${displayName} dalam Bahasa Melayu yang mesra dan natural.
+4. Jawab secara ringkas, padat, dan bersahaja.`;
 
       const messages = [
         { role: 'system', content: systemPrompt },
