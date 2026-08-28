@@ -1,6 +1,7 @@
 import {
   Client,
   GatewayIntentBits,
+  Partials,
   Events,
   EmbedBuilder,
   ActionRowBuilder,
@@ -713,6 +714,13 @@ async function startHiraraBot() {
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.GuildScheduledEvents,
       GatewayIntentBits.GuildMessagePolls,
+      GatewayIntentBits.DirectMessages,
+      GatewayIntentBits.MessageContent,
+    ],
+    partials: [
+      Partials.Channel,
+      Partials.Message,
+      Partials.User,
     ],
   });
 
@@ -1191,8 +1199,11 @@ async function startHiraraBot() {
   client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot) return;
 
+    const isDM = !message.guild;
     const isMentioned = client.user && message.mentions.has(client.user);
-    if (!isMentioned) return;
+
+    // In servers, require bot mention. In DMs (personal chat), reply to every message!
+    if (!isDM && !isMentioned) return;
 
     // Remove the bot's own mention and convert other user/bot mentions to readable text (@Username)
     const botId = client.user?.id;
@@ -1215,9 +1226,9 @@ async function startHiraraBot() {
     // Fast empty greeting
     if (!prompt) {
       const greetingQuotes = [
-        `Hai! Saya **Sentinel**. Ada apa-apa nak sembang? Bisa tanya apa-apa, bukan MLBB je.`,
-        `Yo! Sentinel kat sini. Nak borak apa hari ni?`,
-        `Hai! Sentinel sedia. Ada benda nak tanya atau nak sembang?`,
+        `Hai ${rawUsername}! Baby Hirara kat sini. Ada apa-apa nak sembang atau nak saya bantu? ✨`,
+        `Yo! Hirara kat sini. Nak borak pasal apa hari ni? 🌸`,
+        `Hai! Baby Hirara sedia. Ada benda nak tanya atau nak sembang santai? 😊`,
       ];
       const randomGreeting = greetingQuotes[Math.floor(Math.random() * greetingQuotes.length)];
       await message.reply({ content: randomGreeting, allowedMentions: { repliedUser: true, parse: [] } });
@@ -1423,10 +1434,15 @@ async function startHiraraBot() {
         ? `GitHub: ${displayName} ada akses ke repo ${defaultUser}. Kalau dia tanya pasal coding/project, boleh bantu.`
         : `GitHub: ${displayName} tak ada akses ke repo private ${defaultUser}. Kalau dia tanya pasal repo private, cakap tak boleh dengan sopan.`;
 
-      const systemPrompt = `Kau ni Sentinel, kawan AI yang serba boleh kat Discord. Bisa borak apa saja — bukan setakat MLBB je.
+      const chatModeContext = isDM
+        ? `SITUASI: Sembang 1-on-1 secara peribadi (Direct Message/DM personal). Berbual mesra, akrab dan santai berdua.`
+        : `SITUASI: Sembang dalam server/group Discord bersama ${displayName}.`;
+
+      const systemPrompt = `Kau ni Baby Hirara (Sentinel AI), kawan AI yang serba boleh dan pintar kat Discord.
+${chatModeContext}
 
 MACAM NAK CAKAP:
-- Bahasa: Melayu santai macam orang Malaysia sembang harian. Relaks, jangan kaku atau formal.
+- Bahasa: Melayu santai macam orang Malaysia sembang harian. Relaks, mesra, jangan kaku atau formal.
 - ${pronounRule}
 - ${githubAccessInstruction}
 
