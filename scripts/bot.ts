@@ -225,76 +225,174 @@ function parseSmartReminder(rawPrompt: string): {
   };
 }
 
+// ── Target Channel Resolver (For Polls, Announcements, etc.) ─
+async function resolveTargetChannel(
+  client: Client,
+  message: any,
+  channelHint?: string | null
+): Promise<any> {
+  // 1. Direct channel mention in message.mentions.channels
+  if (message.mentions && message.mentions.channels && message.mentions.channels.size > 0) {
+    const firstMentioned = message.mentions.channels.first();
+    if (firstMentioned && firstMentioned.isTextBased()) {
+      return firstMentioned;
+    }
+  }
+
+  // 2. If channelHint is provided (e.g. ID or channel name like "lepak-base")
+  if (channelHint) {
+    const cleanHint = channelHint.replace(/^[#<@!&>]+|[>]+$/g, '').toLowerCase().trim();
+
+    // Check if channelHint is a snowflake ID
+    if (/^\d{17,20}$/.test(cleanHint)) {
+      try {
+        const fetched = await client.channels.fetch(cleanHint);
+        if (fetched && (fetched as any).isTextBased?.()) return fetched;
+      } catch (e) {
+        // channel fetch fallback
+      }
+    }
+
+    // Check by name in guild
+    if (message.guild) {
+      const byName = message.guild.channels.cache.find(
+        (c: any) =>
+          c.isTextBased &&
+          c.isTextBased() &&
+          (c.name.toLowerCase() === cleanHint ||
+            c.name.toLowerCase().replace(/[-_ ]/g, '') === cleanHint.replace(/[-_ ]/g, ''))
+      );
+      if (byName) return byName;
+
+      // Try fetching guild channels if not in cache
+      try {
+        const guildChannels = await message.guild.channels.fetch();
+        const found = guildChannels.find(
+          (c: any) =>
+            c &&
+            c.isTextBased &&
+            c.isTextBased() &&
+            (c.name.toLowerCase() === cleanHint ||
+              c.name.toLowerCase().replace(/[-_ ]/g, '') === cleanHint.replace(/[-_ ]/g, ''))
+        );
+        if (found) return found;
+      } catch (e) {
+        // guild fetch fallback
+      }
+    }
+  }
+
+  // Fallback to current message channel
+  return message.channel;
+}
+
 // ── Natural Poll Parser (Detect poll creation from mention) ───
 function parseNaturalPoll(rawPrompt: string): {
   question: string;
   options: string[];
   duration: number;
   multiselect: boolean;
+  channelHint: string | null;
 } | null {
   const text = rawPrompt.trim();
   const lower = text.toLowerCase();
 
   // Check if this is a poll request
   const isPollRequest =
-    /\b(?:buat|create|make|bikin|tolong\s*buat|boleh\s*buat|buatkan)\s+(?:a\s+)?(?:poll|undian|voting|undi|vote)\b/i.test(lower) ||
-    /\b(?:poll|undian)\s+(?:kat|di|in|untuk|dekat)\b/i.test(lower) ||
-    /\b(?:start|mulakan|open)\s+(?:a\s+)?(?:poll|undian|vote|voting)\b/i.test(lower);
+    /\b(?:buat|create|make|bikin|tolong\s*buat|boleh\s*buat|buatkan|start|mulakan|open|post|set)\s+(?:a\s+|an\s+)?(?:poll|undian|voting|undi|vote)\b/i.test(lower) ||
+    /\b(?:poll|undian|vote|voting)\s+(?:kat|di|in|untuk|dekat|dalam|to)\b/i.test(lower);
 
   if (!isPollRequest) return null;
 
-  // Remove the poll trigger phrase to extract the rest
-  let remaining = text
-    .replace(
-      /(?:tolong\s*)?(?:buat(?:kan)?|create|make|bikin|start|mulakan|open)\s+(?:a\s+)?(?:poll|undian|voting|undi|vote)\s*/i,
-      ''
-    )
-    .replace(/\b(?:poll|undian)\s+(?:kat|di|in|untuk|dekat)\s+(?:#\S+|<#\d+>)\s*/i, '')
-    .replace(/^[,\s:.-]+/, '')
-    .trim();
+  let remaining = text;
 
-  // Try to extract channel mention (we'll still create in current channel)
-  remaining = remaining.replace(/<#\d+>/g, '').trim();
-
-  // Parse duration if mentioned
-  let duration = 24; // default 24 hours
-  const durationMatch = remaining.match(
-    /(?:duration|masa|lama|tempoh)\s*[:=]?\s*(\d+)\s*(?:jam|hour|h|hours)/i
-  );
-  if (durationMatch) {
-    duration = Math.min(Math.max(parseInt(durationMatch[1], 10), 1), 168);
-    remaining = remaining.replace(durationMatch[0], '').trim();
+  // 1. Extract channel hint (e.g. <#123456> or in #lepak-base or kat #general)
+  let channelHint: string | null = null;
+  const channelMentionMatch = remaining.match(/<#(\d+)>/);
+  if (channelMentionMatch) {
+    channelHint = channelMentionMatch[1];
+    remaining = remaining.replace(channelMentionMatch[0], ' ');
   }
 
-  // Parse multiselect
+  const channelTextMatch = remaining.match(/\b(?:in|kat|di|dalam|dekat|pada|to)\s+#([a-zA-Z0-9_\-]+)\b/i);
+  if (channelTextMatch && !channelHint) {
+    channelHint = channelTextMatch[1];
+    remaining = remaining.replace(channelTextMatch[0], ' ');
+  }
+
+  // 2. Parse duration if mentioned (e.g. 12 hours / 2 days)
+  let duration = 24; // default 24 hours
+  const durationMatch = remaining.match(
+    /\b(?:duration|masa|lama|tempoh|for)\s*[:=]?\s*(\d+)\s*(?:jam|hour|h|hours|hari|days|day)\b/i
+  );
+  if (durationMatch) {
+    let val = parseInt(durationMatch[1], 10);
+    if (/hari|days|day/i.test(durationMatch[0])) val = val * 24;
+    duration = Math.min(Math.max(val, 1), 168);
+    remaining = remaining.replace(durationMatch[0], ' ');
+  }
+
+  // 3. Parse multiselect
   let multiselect = false;
   if (/\b(?:multi(?:ple)?|boleh\s*pilih\s*banyak|multi.?select|pelbagai\s*pilihan)\b/i.test(remaining)) {
     multiselect = true;
-    remaining = remaining
-      .replace(/\b(?:multi(?:ple)?|boleh\s*pilih\s*banyak|multi.?select|pelbagai\s*pilihan)\b/i, '')
-      .trim();
+    remaining = remaining.replace(/\b(?:multi(?:ple)?|boleh\s*pilih\s*banyak|multi.?select|pelbagai\s*pilihan)\b/gi, ' ');
   }
 
-  // Now parse question and options
-  // Pattern 1: "question, option1, option2, option3" or "question , option1 , option2"
-  // Pattern 2: "ask them who want to play mro tonight, n make it yes or no option"
-  // Pattern 3: "soalan\noption1\noption2"
+  // 4. Remove leading trigger phrases:
+  // e.g. "can u make a poll in", "tolong buat poll kat", "please make a poll", etc.
+  remaining = remaining
+    .replace(
+      /^(?:can\s+(?:you|u)\s+(?:please\s+)?|could\s+(?:you|u)\s+(?:please\s+)?|please\s+|tolong\s+(?:lah\s+)?|boleh\s+(?:tak|ke)\s+(?:kau|awak|u)?\s*|bisa\s+(?:tak|gak)?\s*|cuba\s+)?(?:buat(?:kan)?|create|make|bikin|start|mulakan|open|post|set)\s+(?:a\s+|an\s+)?(?:poll|undian|voting|undi|vote)\s*(?:in|kat|di|dalam|dekat|to)?\s*/i,
+      ''
+    )
+    .replace(/^(?:poll|undian)\s+(?:kat|di|in|untuk|dekat|dalam|to)?\s*/i, '')
+    .replace(/^[,\s:.-]+/, '')
+    .trim();
+
+  // If there's a channel name leftover at the front (e.g. "in lepak-base , ask them...")
+  const leadChannel = remaining.match(/^(?:in|kat|di|dalam|dekat|pada|to)\s+#?([a-zA-Z0-9_\-]+)\s*[,\s:.-]*/i);
+  if (leadChannel) {
+    if (!channelHint) channelHint = leadChannel[1];
+    remaining = remaining.replace(leadChannel[0], '').trim();
+  }
+
+  // 5. Remove question prefixes: "ask them ...", "tanya diorang ...", etc.
+  remaining = remaining
+    .replace(
+      /^(?:and\s+|n\s+|then\s+)?(?:ask\s+them\s+(?:if|whether|who|what|where|when|which|how)?|ask\s+(?:who|what|where|when|which|how|if|whether)|tanya(?:kan)?\s+(?:diorang|mereka|member|korang|semua)?\s*(?:siapa|apa|bila|mana|macam mana|ada|kalau)?|suruh\s+(?:diorang|korang)\s+vote|tanya\s+)/i,
+      (match) => {
+        const questionWord = match.match(/\b(who|what|where|when|which|how|siapa|apa|bila|mana|macam mana|ada)\b/i);
+        return questionWord ? questionWord[1] + ' ' : '';
+      }
+    )
+    .replace(/^[,\s:.-]+/, '')
+    .trim();
 
   let question = '';
   let options: string[] = [];
 
-  // Check for explicit "yes or no" / "yes no" pattern
+  // 6. Check for explicit "yes or no" option pattern:
+  // e.g. "n make it yes or no option", "pilihan yes / no", "make options yes or no"
   const yesNoMatch = remaining.match(
-    /[,.]?\s*(?:n\s+)?(?:make\s+it|buat|letak|jadikan|pilihan)\s+(?:it\s+)?(?:yes\s*(?:or|dan|&|,)\s*no|ya\s*(?:atau|dan|&|,)\s*tidak)\s*(?:option|pilihan)?/i
+    /[,.]?\s*(?:and\s+|n\s+)?(?:make\s+it|set\s+it\s+as|with|buat|letak|jadikan|pilihan)\s+(?:it\s+)?(?:yes\s*(?:or|dan|&|\/|,)\s*no|ya\s*(?:atau|dan|&|\/|,)\s*tidak|yes\s*no|ya\s*tidak)\s*(?:option|options|pilihan)?/i
   );
   if (yesNoMatch) {
-    question = remaining.replace(yesNoMatch[0], '').replace(/^[,\s:.-]+|[,\s:.-]+$/g, '').trim();
+    question = remaining.replace(yesNoMatch[0], '').trim();
     options = ['Yes', 'No'];
   }
 
-  // Check for explicit option separator patterns
+  // 7. Check for explicit "options:" / "pilihan:" syntax
   if (options.length === 0) {
-    // Pattern: "question | option1 | option2"
+    const optLabelMatch = remaining.match(/[,;]?\s*(?:options|pilihan|choices|answers)\s*[:=]\s*(.+)$/i);
+    if (optLabelMatch) {
+      question = remaining.replace(optLabelMatch[0], '').trim();
+      options = optLabelMatch[1].split(/[,|]/).map(s => s.trim()).filter(s => s.length > 0);
+    }
+  }
+
+  // 8. Pipe separation: "Soalan | Option 1 | Option 2"
+  if (options.length === 0) {
     const pipeSplit = remaining.split('|').map((s) => s.trim()).filter((s) => s.length > 0);
     if (pipeSplit.length >= 3) {
       question = pipeSplit[0];
@@ -302,18 +400,15 @@ function parseNaturalPoll(rawPrompt: string): {
     }
   }
 
+  // 9. Comma separation: "Soalan, Option 1, Option 2, Option 3"
   if (options.length === 0) {
-    // Pattern: question followed by comma-separated options
-    // Try to detect: "ask them X, option1, option2, option3"
     const parts = remaining.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
     if (parts.length >= 3) {
       question = parts[0];
       options = parts.slice(1);
     } else if (parts.length === 2) {
-      // Could be "question, and yes or no"
       question = parts[0];
       options = parts.slice(1);
-      // If second part doesn't look like options, treat whole thing as question
       if (options[0] && options[0].length > 55) {
         question = remaining;
         options = [];
@@ -321,10 +416,10 @@ function parseNaturalPoll(rawPrompt: string): {
     }
   }
 
-  // If no options extracted, default to Yes/No
+  // 10. Fallback options to Yes / No if none provided
   if (options.length < 2) {
     if (!question) question = remaining;
-    options = ['Yes ✅', 'No ❌'];
+    options = ['Yes', 'No'];
   }
 
   // Clean up question
@@ -337,10 +432,18 @@ function parseNaturalPoll(rawPrompt: string): {
     return null;
   }
 
-  // Ensure at least 2 options, max 10
+  // Capitalize first letter
+  question = question.charAt(0).toUpperCase() + question.slice(1);
+
+  // Add question mark if appropriate
+  if (!/[?!.]$/.test(question)) {
+    question += '?';
+  }
+
+  // Limit to max 10 options
   options = options.slice(0, 10);
   if (options.length < 2) {
-    options = ['Yes ✅', 'No ❌'];
+    options = ['Yes', 'No'];
   }
 
   return {
@@ -348,6 +451,7 @@ function parseNaturalPoll(rawPrompt: string): {
     options,
     duration,
     multiselect,
+    channelHint,
   };
 }
 
@@ -885,6 +989,7 @@ async function startHiraraBot() {
       if (subCommand === 'poll') {
         const question = interaction.options.getString('question', true);
         const optionsRaw = interaction.options.getString('options', true);
+        const targetChannelOption = interaction.options.getChannel('channel');
         const duration = interaction.options.getInteger('duration') || 24;
         const multichoice = interaction.options.getBoolean('multichoice') ?? false;
 
@@ -927,9 +1032,21 @@ async function startHiraraBot() {
           layoutType: PollLayoutType.Default,
         };
 
-        await interaction.reply({
-          poll: pollData,
-        });
+        const targetChannel = (targetChannelOption as any) || interaction.channel;
+        if (targetChannel && targetChannel.id !== interaction.channelId && targetChannel.send) {
+          await targetChannel.send({
+            content: `📊 **Poll dibuat oleh ${rawUsername}:**`,
+            poll: pollData,
+          });
+          await interaction.reply({
+            content: `✅ **Beres!** Poll dah berjaya dihantar ke <#${targetChannel.id}>! 📊`,
+            ephemeral: true,
+          });
+        } else {
+          await interaction.reply({
+            poll: pollData,
+          });
+        }
         return;
       }
 
@@ -1159,6 +1276,16 @@ async function startHiraraBot() {
       const parsedPoll = parseNaturalPoll(prompt);
       if (parsedPoll) {
         try {
+          const targetChannel = await resolveTargetChannel(client, message, parsedPoll.channelHint);
+
+          if (!targetChannel || !targetChannel.send) {
+            await message.reply({
+              content: `❌ Tidak dapat menjumpai channel sasaran atau saya tiada kebenaran menghantar mesej di situ.`,
+              allowedMentions: { repliedUser: true, parse: [] },
+            });
+            return;
+          }
+
           const pollData: PollData = {
             question: { text: parsedPoll.question.length > 300 ? parsedPoll.question.substring(0, 300) : parsedPoll.question },
             answers: parsedPoll.options.map((opt, idx) => {
@@ -1173,15 +1300,22 @@ async function startHiraraBot() {
             layoutType: PollLayoutType.Default,
           };
 
-          await message.channel.send({
+          await targetChannel.send({
             content: `📊 **Poll dibuat oleh ${displayName}:**`,
             poll: pollData,
           });
+
+          if (targetChannel.id !== message.channel.id) {
+            await message.reply({
+              content: `✅ **Beres, ${displayName}!** Poll dah berjaya dihantar ke <#${targetChannel.id}>! 📊`,
+              allowedMentions: { repliedUser: true, parse: [] },
+            });
+          }
           return;
         } catch (pollErr: any) {
           console.error('[Poll Create Error]:', pollErr);
           await message.reply({
-            content: `❌ Maaf, ada masalah buat poll tu. ${pollErr.message || 'Sila cuba lagi.'}`,
+            content: `❌ Maaf, ada masalah buat poll tu: ${pollErr.message || 'Sila pastikan bot mempunyai kebenaran View Channel, Send Messages, & Create Polls.'}`,
             allowedMentions: { repliedUser: true, parse: [] },
           });
           return;

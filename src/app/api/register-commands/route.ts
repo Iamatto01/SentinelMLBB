@@ -97,7 +97,7 @@ const commands = [
       },
       {
         name: 'poll',
-        description: 'Create a Discord poll in the current channel',
+        description: 'Create a Discord poll in this channel or another channel',
         type: 1, // SUB_COMMAND
         options: [
           {
@@ -111,6 +111,13 @@ const commands = [
             description: 'Poll options separated by commas (e.g. Yes, No, Maybe)',
             type: 3, // STRING
             required: true,
+          },
+          {
+            name: 'channel',
+            description: 'Channel to send the poll to (default: current channel)',
+            type: 7, // CHANNEL
+            required: false,
+            channel_types: [0], // 0 = GUILD_TEXT
           },
           {
             name: 'duration',

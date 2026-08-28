@@ -128,6 +128,46 @@ const commands = [
         ],
       },
       {
+        name: 'poll',
+        description: '📊 Buat undian (poll) rasmi di channel ini atau channel pilihan',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'question',
+            description: 'Soalan undian / poll yang ingin ditanya',
+            type: 3, // STRING
+            required: true,
+          },
+          {
+            name: 'options',
+            description: 'Pilihan jawapan dipisahkan dengan koma (cth: Yes, No, Mungkin)',
+            type: 3, // STRING
+            required: true,
+          },
+          {
+            name: 'channel',
+            description: 'Channel untuk hantar poll (lalai: channel semasa)',
+            type: 7, // CHANNEL
+            required: false,
+            channel_types: [0], // 0 = GUILD_TEXT
+          },
+          {
+            name: 'duration',
+            description: 'Tempoh undian dalam jam (lalai: 24, maks: 168)',
+            type: 4, // INTEGER
+            required: false,
+            min_value: 1,
+            max_value: 168,
+          },
+          {
+            name: 'multichoice',
+            description: 'Bolehkan pilihan berganda? (lalai: Tidak)',
+            type: 5, // BOOLEAN
+            required: false,
+          },
+        ],
+      },
+      {
         name: 'launch',
         description: '🚀 Buka Web Dashboard Aktiviti Sentinel MLBB',
         type: 1, // SUB_COMMAND
