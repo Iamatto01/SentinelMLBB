@@ -96,6 +96,39 @@ const commands = [
         ]
       },
       {
+        name: 'poll',
+        description: 'Create a Discord poll in the current channel',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'question',
+            description: 'The poll question to ask',
+            type: 3, // STRING
+            required: true,
+          },
+          {
+            name: 'options',
+            description: 'Poll options separated by commas (e.g. Yes, No, Maybe)',
+            type: 3, // STRING
+            required: true,
+          },
+          {
+            name: 'duration',
+            description: 'Poll duration in hours (default: 24, max: 168)',
+            type: 4, // INTEGER
+            required: false,
+            min_value: 1,
+            max_value: 168,
+          },
+          {
+            name: 'multichoice',
+            description: 'Allow multiple selections? (default: No)',
+            type: 5, // BOOLEAN
+            required: false,
+          },
+        ],
+      },
+      {
         name: 'help',
         description: 'Show all available Sentinel commands',
         type: 1, // SUB_COMMAND

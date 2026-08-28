@@ -7,39 +7,89 @@ dotenv.config({ path: '.env.local' });
 const commands = [
   {
     name: 'sentinel',
-    description: 'Sentinel MLBB AI Assistant and Tools',
+    description: '🛡️ Sentinel MLBB AI Assistant & Pro Gaming Tools',
     options: [
       {
-        name: 'launch',
-        description: 'Launch the Sentinel MLBB Dashboard Activity',
-        type: 1, // SUB_COMMAND
-      },
-      {
         name: 'hero',
-        description: 'Get information about a specific MLBB hero',
+        description: '🔍 Dapatkan info terperinci hero, counter-pick, skill & build',
         type: 1, // SUB_COMMAND
         options: [
           {
             name: 'name',
-            description: 'Name of the hero',
+            description: 'Nama hero (taip untuk carian auto-lengkap)',
             type: 3, // STRING
             required: true,
+            autocomplete: true,
           },
         ],
       },
       {
         name: 'draft',
-        description: 'Get drafting tips or launch the draft simulator',
+        description: '🎯 Pembantu drafting pintar, cadangan pick/ban & counter lawan',
         type: 1, // SUB_COMMAND
       },
       {
+        name: 'meta',
+        description: '🔥 Senarai hero meta terkini, ban priority & top tier mengikut role',
+        type: 1, // SUB_COMMAND
+      },
+      {
+        name: 'stats',
+        description: '📊 Lihat statistik perlawanan squad/pemain, winrate & rekod game',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'user',
+            description: 'Tag pemain (pilihan, lalai: diri sendiri)',
+            type: 6, // USER
+            required: false,
+          },
+        ],
+      },
+      {
+        name: 'addgame',
+        description: '🎮 Rekod perlawanan MLBB baru ke dalam pangkalan data',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'result',
+            description: 'Keputusan perlawanan (Win / Loss)',
+            type: 3, // STRING
+            required: true,
+            choices: [
+              { name: '🏆 Win (Menang)', value: 'Win' },
+              { name: '💀 Loss (Kalah)', value: 'Loss' },
+            ],
+          },
+          {
+            name: 'hero',
+            description: 'Hero yang anda mainkan',
+            type: 3, // STRING
+            required: true,
+            autocomplete: true,
+          },
+          {
+            name: 'duration',
+            description: 'Tempoh perlawanan (dalam minit)',
+            type: 4, // INTEGER
+            required: true,
+          },
+          {
+            name: 'notes',
+            description: 'Nota tambahan (MVP, item, squad, dll)',
+            type: 3, // STRING
+            required: false,
+          },
+        ],
+      },
+      {
         name: 'ask',
-        description: 'Ask Sentinel AI any general question (General AI Assistant)',
+        description: '💬 Tanya Sentinel AI sebarang soalan peribadi atau am',
         type: 1, // SUB_COMMAND
         options: [
           {
             name: 'question',
-            description: 'Your question for the AI assistant',
+            description: 'Soalan anda',
             type: 3, // STRING
             required: true,
           },
@@ -47,12 +97,12 @@ const commands = [
       },
       {
         name: 'askmlbb',
-        description: 'Ask Sentinel AI specifically for MLBB coaching, counters, or meta advice',
+        description: '⚔️ Tanya AI Coach khusus untuk strategi MLBB, counter-pick & gameplay',
         type: 1, // SUB_COMMAND
         options: [
           {
             name: 'question',
-            description: 'Your MLBB question for the AI coach',
+            description: 'Soalan strategi atau counter hero MLBB',
             type: 3, // STRING
             required: true,
           },
@@ -60,61 +110,31 @@ const commands = [
       },
       {
         name: 'model',
-        description: 'Manage or view the active AI model and limits',
+        description: '⚙️ Urus atau tukar model AI pintar yang digunakan oleh Sentinel',
         type: 1, // SUB_COMMAND
         options: [
           {
             name: 'select',
-            description: 'Select a new AI model',
+            description: 'Pilih model AI',
             type: 3, // STRING
             required: false,
             choices: [
-              { name: 'Auto (DeepSeek Flash)', value: 'auto' },
-              { name: 'DeepSeek V3', value: 'deepseek-v3' },
-              { name: 'DeepSeek R1', value: 'deepseek-r1' },
-              { name: 'Qwen 2.5 72B', value: 'qwen-2.5-72b' },
+              { name: '🚀 Auto (Gemma 4 31B Flash)', value: 'auto' },
+              { name: '🧠 DeepSeek V3 (Reasoning)', value: 'deepseek-v3' },
+              { name: '⚡ Qwen 2.5 72B (Versatile)', value: 'qwen-2.5-72b' },
+              { name: '🎯 Nemotron 3.5 Lightning', value: 'nvidia/nemotron-3.5-lightning:free' },
             ],
           },
         ],
       },
       {
-        name: 'addgame',
-        description: 'Record a new MLBB game match into the database',
+        name: 'launch',
+        description: '🚀 Buka Web Dashboard Aktiviti Sentinel MLBB',
         type: 1, // SUB_COMMAND
-        options: [
-          {
-            name: 'result',
-            description: 'Match result (Win or Loss)',
-            type: 3, // STRING
-            required: true,
-            choices: [
-              { name: 'Win', value: 'Win' },
-              { name: 'Loss', value: 'Loss' }
-            ]
-          },
-          {
-            name: 'hero',
-            description: 'The hero you played',
-            type: 3, // STRING
-            required: true
-          },
-          {
-            name: 'duration',
-            description: 'Game duration in minutes',
-            type: 4, // INTEGER
-            required: true
-          },
-          {
-            name: 'notes',
-            description: 'Optional notes about the game',
-            type: 3, // STRING
-            required: false
-          }
-        ]
       },
       {
         name: 'help',
-        description: 'Show all available Sentinel commands',
+        description: '📖 Paparkan panduan lengkap semua arahan Sentinel',
         type: 1, // SUB_COMMAND
       },
     ],

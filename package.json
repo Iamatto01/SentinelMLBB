@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "register-commands": "ts-node scripts/register-commands.ts"
+    "register-commands": "ts-node scripts/register-commands.ts",
+    "bot": "ts-node scripts/bot.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

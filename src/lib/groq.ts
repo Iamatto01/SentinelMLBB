@@ -4,11 +4,14 @@
 
 // ── Available free models on OpenRouter (verified working Aug 2026) ──
 const FREE_MODELS = [
+  'dots-studio/dots-3-note-preview:free',
+  'liquid/lfm-2.5-2.6b:free',
   'google/gemma-4-31b-it:free',
   'google/gemma-4-26b-a4b-it:free',
-  'nvidia/nemotron-3.5-lightning:free',
+  'nvidia/nemotron-nano-12b-v2-vl:free',
+  'nvidia/nemotron-nano-9b-v2:free',
   'nvidia/nemotron-3-nano-30b-a3b:free',
-  'openai/gpt-oss-20b:free',
+  'nvidia/nemotron-3.5-lightning:free',
 ];
 
 const API_BASE = process.env.LLM_API_BASE || 'https://openrouter.ai/api/v1';

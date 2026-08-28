@@ -26,6 +26,38 @@ export interface HiraraReminder {
   created_at?: string;
 }
 
+// ── Clean reasoning/thinking artifacts from model output ──────
+export function cleanModelOutput(text: string): string {
+  if (!text) return '';
+  let cleaned = text;
+
+  // 1. Remove <think>...</think> blocks (reasoning models)
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+  // 2. Remove unclosed <think> blocks
+  cleaned = cleaned.replace(/<think>[\s\S]*$/gi, '').trim();
+
+  // 3. Remove stray closing </think> tags
+  cleaned = cleaned.replace(/^[\s\S]*?<\/think>/gi, '').trim();
+
+  // 4. If model prefixed output with "Response:" or "Jawapan:", take everything after
+  const prefixMatch = cleaned.match(/(?:\*\*(?:Response|Jawapan|Reply|Final Response)\*\*|Response:|Jawapan:|Reply:)\s*:?\s*([\s\S]+)/i);
+  if (prefixMatch && prefixMatch[1] && prefixMatch[1].trim().length > 0) {
+    cleaned = prefixMatch[1].trim();
+  }
+
+  // 5. If model leaked a quoted trial response like: I'll respond: "hello there"
+  const quoteMatch = cleaned.match(/(?:I'll respond|I will respond|respond simply|Something like|Possible response|Try|Response|Draft Response):\s*["“]([^"”]+)["”]/i);
+  if (quoteMatch && quoteMatch[1] && quoteMatch[1].trim().length > 5) {
+    cleaned = quoteMatch[1].trim();
+  }
+
+  // 6. Clean leading/trailing garbage
+  cleaned = cleaned.replace(/^[,\s:\-—"“]+|["”\s]+$/g, '').trim();
+
+  return cleaned || text;
+}
+
 // ── 1. Database Schema Initialization ─────────────────────────
 export async function initHiraraDatabase(): Promise<void> {
   try {
@@ -220,7 +252,7 @@ export async function getUserHiraraContext(userId: string, username: string): Pr
 
   const recentHistory = histRes.rows.reverse().map((r) => ({
     role: r.role as 'user' | 'assistant',
-    content: r.content as string,
+    content: (r.role === 'assistant' ? cleanModelOutput(r.content as string) : (r.content as string)),
   }));
 
   return { displayName, memoriesList, recentHistory, chatCount, pronoun };
@@ -340,7 +372,7 @@ Balas HANYA JSON tanpa teks lain.`;
     const res = await llm.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.2,
-      max_tokens: 250,
+      max_tokens: 600,
     });
 
     const raw = res.choices[0]?.message?.content || res.choices[0]?.message?.reasoning || '[]';
