@@ -715,7 +715,6 @@ async function startHiraraBot() {
       GatewayIntentBits.GuildScheduledEvents,
       GatewayIntentBits.GuildMessagePolls,
       GatewayIntentBits.DirectMessages,
-      GatewayIntentBits.MessageContent,
     ],
     partials: [
       Partials.Channel,
