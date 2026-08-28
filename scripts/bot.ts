@@ -564,6 +564,82 @@ function buildHeroEmbed(heroName: string): { embed: EmbedBuilder; row: ActionRow
   return { embed, row };
 }
 
+// ── Welcome Card Builder & Channel Finder ─────────────────────
+function buildWelcomeMessage(member: any, guild: any): { embed: EmbedBuilder; row: ActionRowBuilder<ButtonBuilder> } {
+  const memberName = member.displayName || member.user?.username || 'Kawan Baharu';
+  const avatarUrl = member.user?.displayAvatarURL?.({ size: 256 }) || member.displayAvatarURL?.({ size: 256 }) || '';
+
+  const embed = new EmbedBuilder()
+    .setTitle(`🌸 Selamat Datang ke ${guild.name}, ${memberName}! 🎉`)
+    .setDescription(
+      `Hai <@${member.id}>! Gembira sangat dapat menyambut kedatangan awak ke dalam komuniti **${guild.name}**! 💖\n\nKenali kawan-kawan baharu, lepak santai dan jangan segan untuk bertegur sapa di chat!`
+    )
+    .setColor(0xe91e63)
+    .addFields(
+      {
+        name: '🎮 MLBB Pro Coaching & Info',
+        value: 'Gunakan `/sentinel hero`, `/sentinel draft` & `/sentinel meta` untuk semak counter-pick & build hero.',
+        inline: false,
+      },
+      {
+        name: '📊 Undian & Sembang Santai',
+        value: 'Boleh buat poll guna `/sentinel poll` atau tag `@Baby Hirara` untuk tanya apa-apa topik.',
+        inline: false,
+      },
+      {
+        name: '💬 Chat Peribadi (DM)',
+        value: 'Awak boleh terus DM saya bila-bila masa untuk sembang peribadi atau set peringatan masa! ✨',
+        inline: false,
+      }
+    )
+    .setFooter({
+      text: `Sentinel MLBB Community Helper • Ahli ke-${guild.memberCount || 'komuniti'}`,
+      iconURL: guild.iconURL?.() || undefined,
+    })
+    .setTimestamp();
+
+  if (avatarUrl) {
+    embed.setThumbnail(avatarUrl);
+  }
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('welcome_help')
+      .setLabel('📖 Panduan Pantas Bot')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setLabel('🌐 Buka Dashboard')
+      .setStyle(ButtonStyle.Link)
+      .setURL('https://sentinel-mlbb.vercel.app/dashboard')
+  );
+
+  return { embed, row };
+}
+
+function findWelcomeChannel(guild: any) {
+  if (!guild || !guild.channels) return null;
+
+  // 1. Look for dedicated welcome channels
+  const welcomeChannelNames = ['welcome', 'selamat-datang', 'selamat_datang', 'greetings', 'lobby', 'general', 'utama', 'chat', 'lepak-base'];
+  for (const name of welcomeChannelNames) {
+    const ch = guild.channels.cache.find(
+      (c: any) => c.isTextBased && c.isTextBased() && c.name.toLowerCase().includes(name)
+    );
+    if (ch) return ch;
+  }
+
+  // 2. Fallback to systemChannel
+  if (guild.systemChannel && guild.systemChannel.isTextBased()) {
+    return guild.systemChannel;
+  }
+
+  // 3. First text channel bot can send to
+  const firstText = guild.channels.cache.find(
+    (c: any) => c.isTextBased && c.isTextBased()
+  );
+  return firstText || null;
+}
+
 // ── Match Stats Calculator ────────────────────────────────────
 async function getPlayerStatsEmbed(playerName: string): Promise<EmbedBuilder> {
   await ensureBotTables();
@@ -726,6 +802,27 @@ async function startHiraraBot() {
   client.once(Events.ClientReady, (c) => {
     console.log(`🛡️ Sentinel MLBB Specialized Discord Bot Online as ${c.user.tag}`);
     startReminderScheduler(client);
+  });
+
+  // ============================================================
+  // AUTO-WELCOME HANDLER (Welcomes new members to the server)
+  // ============================================================
+  client.on(Events.GuildMemberAdd, async (member) => {
+    try {
+      const guild = member.guild;
+      const targetChannel = findWelcomeChannel(guild);
+      if (!targetChannel || !targetChannel.send) return;
+
+      const card = buildWelcomeMessage(member, guild);
+      await targetChannel.send({
+        content: `🎉 **Selamat Datang <@${member.id}>!**`,
+        embeds: [card.embed],
+        components: [card.row],
+      });
+      console.log(`[Auto Welcome] Welcomed ${member.displayName || member.user?.tag} in #${targetChannel.name} (${guild.name})`);
+    } catch (err) {
+      console.warn('[Auto Welcome Error]:', err);
+    }
   });
 
   // ============================================================
@@ -1057,6 +1154,46 @@ async function startHiraraBot() {
         return;
       }
 
+      // ── Subcommand: /sentinel welcome [user] [channel] ─────
+      if (subCommand === 'welcome') {
+        const targetUser = interaction.options.getUser('user') || interaction.user;
+        const targetChannelOption = interaction.options.getChannel('channel');
+
+        let targetMember = null;
+        if (interaction.guild) {
+          try {
+            targetMember = await interaction.guild.members.fetch(targetUser.id);
+          } catch (e) {
+            targetMember = { id: targetUser.id, displayName: targetUser.username, user: targetUser };
+          }
+        } else {
+          targetMember = { id: targetUser.id, displayName: targetUser.username, user: targetUser };
+        }
+
+        const guild = interaction.guild || { name: 'Komuniti Sentinel', memberCount: 1 };
+        const card = buildWelcomeMessage(targetMember, guild);
+
+        const targetChannel = (targetChannelOption as any) || interaction.channel;
+        if (targetChannel && targetChannel.id !== interaction.channelId && targetChannel.send) {
+          await targetChannel.send({
+            content: `🎉 **Selamat Datang <@${targetUser.id}>!**`,
+            embeds: [card.embed],
+            components: [card.row],
+          });
+          await interaction.reply({
+            content: `✅ **Beres!** Kad alu-aluan untuk **${targetUser.username}** telah dihantar ke <#${targetChannel.id}>! 🌸`,
+            ephemeral: true,
+          });
+        } else {
+          await interaction.reply({
+            content: `🎉 **Selamat Datang <@${targetUser.id}>!**`,
+            embeds: [card.embed],
+            components: [card.row],
+          });
+        }
+        return;
+      }
+
       // ── Subcommand: /sentinel launch ────────────────────────
       if (subCommand === 'launch') {
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -1097,15 +1234,15 @@ async function startHiraraBot() {
               inline: false,
             },
             {
-              name: '📊 Poll / Undian',
+              name: '📊 Poll & Alu-aluan (Welcome)',
               value:
-                '`/sentinel poll` — Buat poll rasmi Discord (soalan, pilihan, duration)\n`@Sentinel buat poll ...` — Buat poll secara natural dengan mention bot',
+                '`/sentinel poll` — Buat poll rasmi Discord (soalan, pilihan, duration)\n`/sentinel welcome [user]` — Kad alu-aluan automatik / manual untuk ahli baru\n`@Baby Hirara buat poll ...` — Buat poll secara natural dengan mention bot',
               inline: false,
             },
             {
-              name: '🤖 AI Assistant & Coach',
+              name: '🤖 AI Assistant & Coach (Server & DM)',
               value:
-                '`/sentinel ask <question>` — Tanya apa-apa soalan, boleh borak serba aktif\n`/sentinel askmlbb <question>` — Nasihat taktikal MLBB daripada AI Coach\n`/sentinel model` — Tukar model AI (DeepSeek, Qwen, Gemma)\n`@Sentinel MLBB <mesej>` — Borak semulajadi, set pemasa/reminder, tanya apa-apa',
+                '`/sentinel ask <question>` — Tanya apa-apa soalan, boleh borak serba aktif\n`/sentinel askmlbb <question>` — Nasihat taktikal MLBB daripada AI Coach\n`/sentinel model` — Tukar model AI (DeepSeek, Qwen, Gemma)\n`@Baby Hirara <mesej>` — Borak semulajadi, set pemasa/reminder, tanya apa-apa\n`💬 DM Personal` — Terus chat peribadi dengan Baby Hirara berdua!',
               inline: false,
             }
           )
@@ -1134,6 +1271,14 @@ async function startHiraraBot() {
       const customId = btn.customId;
 
       try {
+        if (customId === 'welcome_help') {
+          await btn.reply({
+            content: `🌸 **Panduan Ringkas Sentinel MLBB & Baby Hirara:**\n\n• \`/sentinel hero <name>\` — Info hero & counter pick\n• \`/sentinel poll\` — Buat undian rasmi di mana-mana channel\n• \`/sentinel meta\` — Senarai tier hero meta musim ini\n• \`/sentinel stats\` — Rekod & winrate squad anda\n• \`/sentinel welcome\` — Kad alu-aluan ahli baru\n• **Direct Message (DM):** Chat personal dengan Baby Hirara bila-bila masa! ✨`,
+            ephemeral: true,
+          });
+          return;
+        }
+
         if (customId.startsWith('hero_counters_')) {
           const heroName = customId.replace('hero_counters_', '');
           const heroCounterData = HEROES.find(

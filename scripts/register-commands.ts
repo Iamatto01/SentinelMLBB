@@ -173,6 +173,26 @@ const commands = [
         type: 1, // SUB_COMMAND
       },
       {
+        name: 'welcome',
+        description: '🌸 Hantar atau uji kad alu-aluan (welcome) untuk ahli server',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'user',
+            description: 'Ahli yang ingin disambut (lalai: diri sendiri)',
+            type: 6, // USER
+            required: false,
+          },
+          {
+            name: 'channel',
+            description: 'Channel untuk hantar ucapan alu-aluan (lalai: channel semasa)',
+            type: 7, // CHANNEL
+            required: false,
+            channel_types: [0], // 0 = GUILD_TEXT
+          },
+        ],
+      },
+      {
         name: 'help',
         description: '📖 Paparkan panduan lengkap semua arahan Sentinel',
         type: 1, // SUB_COMMAND

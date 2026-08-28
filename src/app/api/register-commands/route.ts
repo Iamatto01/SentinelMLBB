@@ -136,6 +136,26 @@ const commands = [
         ],
       },
       {
+        name: 'welcome',
+        description: 'Send or test a welcome card for a server member',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'user',
+            description: 'Member to welcome (default: yourself)',
+            type: 6, // USER
+            required: false,
+          },
+          {
+            name: 'channel',
+            description: 'Channel to send welcome message (default: current channel)',
+            type: 7, // CHANNEL
+            required: false,
+            channel_types: [0], // 0 = GUILD_TEXT
+          },
+        ],
+      },
+      {
         name: 'help',
         description: 'Show all available Sentinel commands',
         type: 1, // SUB_COMMAND
