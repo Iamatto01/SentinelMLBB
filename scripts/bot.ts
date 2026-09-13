@@ -864,9 +864,11 @@ async function startHiraraBot() {
     const { commandName } = interaction;
     if (commandName !== 'sentinel' && commandName !== 'kick') return;
 
-    const subCommand = commandName === 'kick' ? 'kick' : interaction.options.getSubcommand();
+    const subCommand = commandName === 'kick' ? 'kick' : interaction.options.getSubcommand(false) || '';
     const userId = interaction.user.id;
     const rawUsername = interaction.user.username || 'member';
+
+    console.log(`[Interaction] Received /${commandName} ${subCommand} from ${rawUsername} (${userId})`);
 
     try {
       // ── Subcommand: /sentinel hero <name> ───────────────────
@@ -1229,10 +1231,10 @@ async function startHiraraBot() {
         // Defer immediately so Discord knows the bot is processing (prevents 3s timeout)
         await interaction.deferReply({ ephemeral: true });
 
-        const callerMember = interaction.member as GuildMember;
         const canKick =
-          callerMember.permissions?.has(PermissionsBitField.Flags.KickMembers) ||
-          callerMember.permissions?.has(PermissionsBitField.Flags.Administrator);
+          interaction.memberPermissions?.has(PermissionsBitField.Flags.KickMembers) ||
+          interaction.memberPermissions?.has(PermissionsBitField.Flags.Administrator) ||
+          interaction.guild.ownerId === interaction.user.id;
 
         if (!canKick) {
           await interaction.editReply({
@@ -1241,13 +1243,21 @@ async function startHiraraBot() {
           return;
         }
 
-        const botMember = interaction.guild.members.me;
+        let botMember = interaction.guild.members.me;
+        if (!botMember) {
+          botMember = await interaction.guild.members.fetchMe().catch(() => null);
+        }
+
         if (!botMember || !botMember.permissions.has(PermissionsBitField.Flags.KickMembers)) {
           await interaction.editReply({
             content: '❌ Bot ini belum mempunyai kebenaran (*Kick Members*) dalam tetapan Role server!',
           });
           return;
         }
+
+        const callerMember = (interaction.member instanceof GuildMember
+          ? interaction.member
+          : await interaction.guild.members.fetch(interaction.user.id).catch(() => null)) as GuildMember;
 
         const targets = [
           interaction.options.getUser('user', true),
