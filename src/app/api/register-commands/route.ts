@@ -156,9 +156,59 @@ const commands = [
         ],
       },
       {
+        name: 'kick',
+        description: '👢 Keluarkan ahli server secara senyap (tanpa notifikasi/DM)',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'user',
+            description: 'Ahli yang ingin dikeluarkan (kick)',
+            type: 6, // USER
+            required: true,
+          },
+          {
+            name: 'reason',
+            description: 'Sebab pengeluaran (pilihan)',
+            type: 3, // STRING
+            required: false,
+          },
+        ],
+      },
+      {
+        name: 'scan',
+        description: '📸 Imbas screenshot scoreboard MLBB menggunakan AI Vision',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'image',
+            description: 'Muat naik gambar screenshot post-game MLBB',
+            type: 11, // ATTACHMENT
+            required: true,
+          },
+        ],
+      },
+      {
         name: 'help',
         description: 'Show all available Sentinel commands',
         type: 1, // SUB_COMMAND
+      },
+    ],
+  },
+  {
+    name: 'kick',
+    description: '👢 Keluarkan ahli server secara senyap (tanpa notifikasi/DM)',
+    options: [
+      {
+        name: 'user',
+        description: 'Ahli yang ingin dikeluarkan (kick)',
+        type: 6, // USER
+        required: true,
+      },
+      {
+        name: 'reason',
+        description: 'Sebab pengeluaran (pilihan)',
+        type: 3, // STRING
+        required: false,
       },
     ],
   },

@@ -193,9 +193,107 @@ const commands = [
         ],
       },
       {
+        name: 'kick',
+        description: '👢 Keluarkan 1-5 ahli server serentak secara senyap (tanpa notifikasi/DM & ephemeral)',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'user',
+            description: 'Ahli pertama yang ingin dikeluarkan (kick)',
+            type: 6, // USER
+            required: true,
+          },
+          {
+            name: 'user2',
+            description: 'Ahli ke-2 (pilihan)',
+            type: 6, // USER
+            required: false,
+          },
+          {
+            name: 'user3',
+            description: 'Ahli ke-3 (pilihan)',
+            type: 6, // USER
+            required: false,
+          },
+          {
+            name: 'user4',
+            description: 'Ahli ke-4 (pilihan)',
+            type: 6, // USER
+            required: false,
+          },
+          {
+            name: 'user5',
+            description: 'Ahli ke-5 (pilihan)',
+            type: 6, // USER
+            required: false,
+          },
+          {
+            name: 'reason',
+            description: 'Sebab pengeluaran (pilihan)',
+            type: 3, // STRING
+            required: false,
+          },
+        ],
+      },
+      {
+        name: 'scan',
+        description: '📸 Imbas screenshot scoreboard MLBB menggunakan AI Vision',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'image',
+            description: 'Muat naik gambar screenshot post-game MLBB',
+            type: 11, // ATTACHMENT
+            required: true,
+          },
+        ],
+      },
+      {
         name: 'help',
         description: '📖 Paparkan panduan lengkap semua arahan Sentinel',
         type: 1, // SUB_COMMAND
+      },
+    ],
+  },
+  {
+    name: 'kick',
+    description: '👢 Keluarkan 1-5 ahli server serentak secara senyap (tanpa notifikasi/DM)',
+    options: [
+      {
+        name: 'user',
+        description: 'Ahli pertama yang ingin dikeluarkan (kick)',
+        type: 6, // USER
+        required: true,
+      },
+      {
+        name: 'user2',
+        description: 'Ahli ke-2 (pilihan)',
+        type: 6, // USER
+        required: false,
+      },
+      {
+        name: 'user3',
+        description: 'Ahli ke-3 (pilihan)',
+        type: 6, // USER
+        required: false,
+      },
+      {
+        name: 'user4',
+        description: 'Ahli ke-4 (pilihan)',
+        type: 6, // USER
+        required: false,
+      },
+      {
+        name: 'user5',
+        description: 'Ahli ke-5 (pilihan)',
+        type: 6, // USER
+        required: false,
+      },
+      {
+        name: 'reason',
+        description: 'Sebab pengeluaran (pilihan)',
+        type: 3, // STRING
+        required: false,
       },
     ],
   },

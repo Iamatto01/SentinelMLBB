@@ -14,13 +14,22 @@ import { ALL_HEROES, getHeroByName } from "@/data/heroes-data";
 export interface DetectedHero {
   slotIndex: number;
   heroName: string;
+  playerName?: string;
   confidence: number;
   team: "ally" | "enemy";
   alternatives: MatchResult[];
+  kda?: string;
+  isMvp?: boolean;
+}
+
+export interface MatchMeta {
+  result?: string;
+  duration?: number;
+  mode?: string;
 }
 
 interface Props {
-  onDetectionComplete: (heroes: DetectedHero[]) => void;
+  onDetectionComplete: (heroes: DetectedHero[], meta?: MatchMeta) => void;
   onCancel: () => void;
 }
 
@@ -60,6 +69,8 @@ export default function ScreenshotHeroDetector({ onDetectionComplete, onCancel }
   const [detected, setDetected] = useState<DetectedHero[]>([]);
   const [manualMode, setManualMode] = useState(false);
   const [dragPoints, setDragPoints] = useState<{ x: number; y: number }[]>([]);
+  const [visionError, setVisionError] = useState<string | null>(null);
+  const [matchMeta, setMatchMeta] = useState<MatchMeta | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,6 +79,75 @@ export default function ScreenshotHeroDetector({ onDetectionComplete, onCancel }
   useEffect(() => {
     buildFingerprintDB().then(() => setDbReady(true));
   }, []);
+
+  // ── AI Vision Scanner ───────────────────────────────────────────────────
+  const runVisionScan = useCallback(async () => {
+    if (!imageEl) return;
+    setDetecting(true);
+    setVisionError(null);
+
+    try {
+      const c = document.createElement("canvas");
+      c.width = imageEl.naturalWidth;
+      c.height = imageEl.naturalHeight;
+      const ctx = c.getContext("2d");
+      if (!ctx) throw new Error("Could not initialize canvas context");
+      ctx.drawImage(imageEl, 0, 0);
+      const dataUrl = c.toDataURL("image/jpeg", 0.85);
+
+      const res = await fetch("/api/vision-parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: dataUrl }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Gagal memproses imej dengan AI Vision");
+      }
+
+      const results: DetectedHero[] = [];
+      (data.allies || []).slice(0, 5).forEach((p: any, i: number) => {
+        results.push({
+          slotIndex: i,
+          heroName: p.hero_name || "Unknown",
+          playerName: p.player_name || "",
+          confidence: 0.98,
+          team: "ally",
+          kda: p.kda,
+          isMvp: p.isMvp,
+          alternatives: [],
+        });
+      });
+
+      (data.enemies || []).slice(0, 5).forEach((p: any, i: number) => {
+        results.push({
+          slotIndex: i + 5,
+          heroName: p.hero_name || "Unknown",
+          playerName: p.player_name || "",
+          confidence: 0.98,
+          team: "enemy",
+          kda: p.kda,
+          isMvp: p.isMvp,
+          alternatives: [],
+        });
+      });
+
+      setMatchMeta({
+        result: data.result,
+        duration: data.duration,
+        mode: data.mode,
+      });
+
+      setDetected(results);
+      setStep("confirm");
+    } catch (err: any) {
+      console.error("AI Vision scan error:", err);
+      setVisionError(err.message || "Ralat memproses imej AI Vision.");
+    } finally {
+      setDetecting(false);
+    }
+  }, [imageEl]);
 
   // ── File handling ───────────────────────────────────────────────────────
   const handleFile = useCallback((file: File) => {
@@ -348,21 +428,36 @@ export default function ScreenshotHeroDetector({ onDetectionComplete, onCancel }
           )}
         </div>
 
+        {visionError && (
+          <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-xs">
+            ⚠️ {visionError}
+          </div>
+        )}
+
+        {/* AI Vision Auto-Scan (Primary recommended option) */}
+        <button
+          onClick={runVisionScan}
+          disabled={detecting}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white text-sm font-bold transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer"
+        >
+          <Sparkles className="w-4 h-4" />
+          ✨ AI Vision Auto-Scan (Disyorkan — Keputusan, KDA & 10 Hero)
+        </button>
+
         <div className="flex gap-2">
           <button
             onClick={runAutoDetect}
             disabled={detecting || !dbReady}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white text-sm font-semibold transition-all shadow-md disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs font-semibold transition-all border border-neutral-200 dark:border-neutral-700 disabled:opacity-50"
           >
-            <Sparkles className="w-4 h-4" />
-            Auto Detect
+            Histogram Fingerprint
           </button>
           <button
             onClick={() => {
               setManualMode(!manualMode);
               setDragPoints([]);
             }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold transition-all border ${
               manualMode
                 ? "bg-amber-500 border-amber-500 text-white"
                 : "border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800"
@@ -403,12 +498,26 @@ export default function ScreenshotHeroDetector({ onDetectionComplete, onCancel }
     <div className="space-y-4">
       <div className="text-center mb-2">
         <h3 className="text-base font-bold text-neutral-800 dark:text-white">
-          Confirm Detected Heroes
+          Confirm Detected Match Data
         </h3>
         <p className="text-xs text-neutral-500 mt-1">
-          Review and correct any misidentified heroes before proceeding
+          Review and correct any details before saving
         </p>
       </div>
+
+      {matchMeta && (
+        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs">
+          <span className="font-semibold">
+            Keputusan: <strong className={matchMeta.result === "Win" ? "text-emerald-500" : "text-red-500"}>{matchMeta.result === "Win" ? "🏆 Win (Menang)" : "💀 Loss (Kalah)"}</strong>
+          </span>
+          <span className="text-neutral-500">
+            Mod: <strong className="text-neutral-700 dark:text-neutral-300">{matchMeta.mode || "Ranked"}</strong>
+          </span>
+          <span className="text-neutral-500">
+            Tempoh: <strong className="text-neutral-700 dark:text-neutral-300">{matchMeta.duration ? `${matchMeta.duration}m` : "-"}</strong>
+          </span>
+        </div>
+      )}
 
       {/* Allied Team */}
       <div>
@@ -458,11 +567,11 @@ export default function ScreenshotHeroDetector({ onDetectionComplete, onCancel }
           Re-detect
         </button>
         <button
-          onClick={() => onDetectionComplete(detected)}
+          onClick={() => onDetectionComplete(detected, matchMeta || undefined)}
           className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-sm font-semibold transition-all shadow-md shadow-emerald-500/25"
         >
           <Check className="w-4 h-4" />
-          Use These Heroes
+          Apply Match Data
         </button>
       </div>
     </div>

@@ -3,6 +3,106 @@ import { verifyKey } from 'discord-interactions';
 import { ALL_HEROES } from '@/data/heroes-data';
 import llm from '@/lib/groq';
 
+async function handleKickCommand(data: any, optionsList: any[]) {
+  const guildId = data.guild_id;
+  const botToken = process.env.DISCORD_BOT_TOKEN;
+
+  if (!guildId || !botToken) {
+    return NextResponse.json({
+      type: 4,
+      data: {
+        content: '❌ Ralat: Bot token atau Server ID tidak dijumpai.',
+        flags: 64,
+      },
+    });
+  }
+
+  // Check caller permissions (KICK_MEMBERS is 0x2, ADMINISTRATOR is 0x8)
+  const callerPerms = BigInt(data.member?.permissions || '0');
+  const hasKickPerm =
+    (callerPerms & BigInt(0x2)) !== BigInt(0) ||
+    (callerPerms & BigInt(0x8)) !== BigInt(0);
+
+  if (!hasKickPerm) {
+    return NextResponse.json({
+      type: 4,
+      data: {
+        content: '⛔ Anda tiada kebenaran (*Kick Members*) untuk menggunakan arahan ini!',
+        flags: 64,
+      },
+    });
+  }
+
+  const callerId = data.member?.user?.id;
+  const targetIds: string[] = [];
+  let reason = 'Silent kick by moderator';
+
+  for (const opt of optionsList || []) {
+    if (['user', 'user2', 'user3', 'user4', 'user5'].includes(opt.name) && opt.value) {
+      targetIds.push(String(opt.value));
+    }
+    if (opt.name === 'reason' && opt.value) {
+      reason = String(opt.value);
+    }
+  }
+
+  if (targetIds.length === 0) {
+    return NextResponse.json({
+      type: 4,
+      data: {
+        content: '❌ Sila pilih sekurang-kurangnya seorang ahli untuk di-kick.',
+        flags: 64,
+      },
+    });
+  }
+
+  const successList: string[] = [];
+  const failedList: string[] = [];
+
+  for (const targetId of targetIds) {
+    if (targetId === callerId) {
+      failedList.push(`• <@${targetId}>: *Tidak boleh kick diri sendiri*`);
+      continue;
+    }
+
+    try {
+      const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${targetId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bot ${botToken}`,
+          'X-Audit-Log-Reason': encodeURIComponent(reason),
+        },
+      });
+
+      if (res.ok || res.status === 204) {
+        successList.push(`• ✅ <@${targetId}>`);
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        failedList.push(`• <@${targetId}>: *${errJson.message || `HTTP ${res.status}`}*`);
+      }
+    } catch (e: any) {
+      failedList.push(`• <@${targetId}>: *${e.message || 'Ralat kick'}*`);
+    }
+  }
+
+  let replyContent = '';
+  if (successList.length > 0) {
+    replyContent += `👢 **Silent Kick Berjaya! (${successList.length}/${targetIds.length} ahli)**\n${successList.join('\n')}\n📌 *Sebab:* \`${reason}\`\n*(Dikeluarkan secara senyap tanpa notifikasi atau DM)*`;
+  }
+  if (failedList.length > 0) {
+    if (replyContent) replyContent += '\n\n';
+    replyContent += `⚠️ **Gagal (${failedList.length} ahli):**\n${failedList.join('\n')}`;
+  }
+
+  return NextResponse.json({
+    type: 4,
+    data: {
+      content: replyContent || '❌ Tiada ahli yang dapat dikeluarkan.',
+      flags: 64,
+    },
+  });
+}
+
 export async function POST(req: Request) {
   try {
     // Verify Discord signature
@@ -36,6 +136,10 @@ export async function POST(req: Request) {
     if (data.type === 2) {
       const { name, options } = data.data;
 
+      if (name === 'kick') {
+        return await handleKickCommand(data, options);
+      }
+
       if (name === 'sentinel') {
         const subCommand = options?.[0];
 
@@ -44,6 +148,10 @@ export async function POST(req: Request) {
             type: 4,
             data: { content: 'Please provide a sub-command (e.g. `/sentinel launch`)' },
           });
+        }
+
+        if (subCommand.name === 'kick') {
+          return await handleKickCommand(data, subCommand.options);
         }
 
         switch (subCommand.name) {

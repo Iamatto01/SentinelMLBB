@@ -12,6 +12,8 @@ import {
   ButtonInteraction,
   StringSelectMenuInteraction,
   PollLayoutType,
+  PermissionsBitField,
+  GuildMember,
 } from 'discord.js';
 import type { PollData } from 'discord.js';
 import dotenv from 'dotenv';
@@ -860,9 +862,9 @@ async function startHiraraBot() {
     if (!interaction.isChatInputCommand()) return;
 
     const { commandName } = interaction;
-    if (commandName !== 'sentinel') return;
+    if (commandName !== 'sentinel' && commandName !== 'kick') return;
 
-    const subCommand = interaction.options.getSubcommand();
+    const subCommand = commandName === 'kick' ? 'kick' : interaction.options.getSubcommand();
     const userId = interaction.user.id;
     const rawUsername = interaction.user.username || 'member';
 
@@ -1214,6 +1216,211 @@ async function startHiraraBot() {
         return;
       }
 
+      // ── Subcommand: /sentinel kick (or /kick) ───────────────
+      if (subCommand === 'kick') {
+        if (!interaction.guild) {
+          await interaction.reply({
+            content: '❌ Arahan ini hanya boleh dijalankan di dalam server Discord.',
+            ephemeral: true,
+          });
+          return;
+        }
+
+        // Defer immediately so Discord knows the bot is processing (prevents 3s timeout)
+        await interaction.deferReply({ ephemeral: true });
+
+        const callerMember = interaction.member as GuildMember;
+        const canKick =
+          callerMember.permissions?.has(PermissionsBitField.Flags.KickMembers) ||
+          callerMember.permissions?.has(PermissionsBitField.Flags.Administrator);
+
+        if (!canKick) {
+          await interaction.editReply({
+            content: '⛔ Anda tiada kebenaran (*Kick Members*) untuk menggunakan arahan ini!',
+          });
+          return;
+        }
+
+        const botMember = interaction.guild.members.me;
+        if (!botMember || !botMember.permissions.has(PermissionsBitField.Flags.KickMembers)) {
+          await interaction.editReply({
+            content: '❌ Bot ini belum mempunyai kebenaran (*Kick Members*) dalam tetapan Role server!',
+          });
+          return;
+        }
+
+        const targets = [
+          interaction.options.getUser('user', true),
+          interaction.options.getUser('user2'),
+          interaction.options.getUser('user3'),
+          interaction.options.getUser('user4'),
+          interaction.options.getUser('user5'),
+        ].filter(Boolean) as any[];
+
+        const reason = interaction.options.getString('reason') || 'Silent kick by moderator';
+
+        const successList: string[] = [];
+        const failedList: string[] = [];
+
+        for (const targetUser of targets) {
+          if (targetUser.id === interaction.user.id) {
+            failedList.push(`• <@${targetUser.id}>: *Tidak boleh kick diri sendiri*`);
+            continue;
+          }
+
+          if (targetUser.id === interaction.client.user.id) {
+            failedList.push(`• <@${targetUser.id}>: *Bot tidak boleh kick dirinya sendiri*`);
+            continue;
+          }
+
+          let targetMember: GuildMember;
+          try {
+            targetMember = await interaction.guild.members.fetch(targetUser.id);
+          } catch {
+            failedList.push(`• <@${targetUser.id}>: *Ahli tidak dijumpai dalam server ini*`);
+            continue;
+          }
+
+          if (targetMember.roles.highest.position >= botMember.roles.highest.position) {
+            failedList.push(`• <@${targetUser.id}>: *Role sama tinggi atau lebih tinggi daripada Bot*`);
+            continue;
+          }
+
+          if (
+            targetMember.roles.highest.position >= callerMember.roles.highest.position &&
+            interaction.guild.ownerId !== interaction.user.id
+          ) {
+            failedList.push(`• <@${targetUser.id}>: *Role sama taraf atau lebih tinggi daripada anda*`);
+            continue;
+          }
+
+          try {
+            await targetMember.kick(reason);
+            successList.push(`• ✅ <@${targetUser.id}> (**${targetUser.tag || targetUser.username}**)`);
+          } catch (kickErr: any) {
+            failedList.push(`• <@${targetUser.id}>: *${kickErr.message || 'Ralat semasa kick'}*`);
+          }
+        }
+
+        let replyContent = '';
+        if (successList.length > 0) {
+          replyContent += `👢 **Silent Kick Berjaya! (${successList.length}/${targets.length} ahli)**\n${successList.join('\n')}\n📌 *Sebab:* \`${reason}\`\n*(Dikeluarkan secara senyap tanpa sebarang notifikasi atau DM)*`;
+        }
+        if (failedList.length > 0) {
+          if (replyContent) replyContent += '\n\n';
+          replyContent += `⚠️ **Gagal (${failedList.length} ahli):**\n${failedList.join('\n')}`;
+        }
+
+        await interaction.editReply({
+          content: replyContent || '❌ Tiada ahli yang dapat dikeluarkan.',
+        });
+        return;
+      }
+
+      // ── Subcommand: /sentinel scan ──────────────────────────
+      if (subCommand === 'scan') {
+        const attachment = interaction.options.getAttachment('image', true);
+        if (!attachment || !attachment.contentType?.startsWith('image/')) {
+          await interaction.reply({
+            content: '❌ Sila muat naik fail imej yang sah (format PNG atau JPG).',
+            ephemeral: true,
+          });
+          return;
+        }
+
+        await interaction.deferReply();
+
+        try {
+          const { parseScoreboardWithVision } = await import('../src/lib/vision');
+          const scan = await parseScoreboardWithVision(attachment.url);
+
+          let recorded = false;
+          try {
+            const dateStr = new Date().toISOString().split('T')[0];
+            const insertGame = await db.execute({
+              sql: `INSERT INTO games (date, mode, duration, result, notes)
+                    VALUES (?, ?, ?, ?, ?) RETURNING id`,
+              args: [dateStr, scan.mode, scan.duration, scan.result, 'Imbasan AI Vision (Discord)'],
+            });
+
+            const gameId = insertGame.rows?.[0]?.id;
+            if (gameId) {
+              for (const p of scan.allies) {
+                await db.execute({
+                  sql: `INSERT INTO game_players (game_id, player_name, hero_name, team) VALUES (?, ?, ?, ?)`,
+                  args: [gameId, p.player_name, p.hero_name, 'ally'],
+                });
+              }
+              for (const p of scan.enemies) {
+                await db.execute({
+                  sql: `INSERT INTO game_players (game_id, player_name, hero_name, team) VALUES (?, ?, ?, ?)`,
+                  args: [gameId, p.player_name, p.hero_name, 'enemy'],
+                });
+              }
+              recorded = true;
+            }
+          } catch (dbErr) {
+            console.warn('[Vision Scan DB Save Notice]:', dbErr);
+          }
+
+          const isWin = scan.result === 'Win';
+          const embedColor = isWin ? 0x2ecc71 : 0xe74c3c;
+          const resultTitle = isWin ? '🏆 VICTORY (Kemenangan)' : '💀 DEFEAT (Kekalahan)';
+
+          const allyList =
+            scan.allies
+              .map(
+                (a) =>
+                  `• **${a.hero_name}** — ${a.player_name} ${a.kda ? `\`${a.kda}\`` : ''} ${
+                    a.isMvp ? '⭐ *MVP*' : ''
+                  }`
+              )
+              .join('\n') || 'Tiada info pemain';
+
+          const enemyList =
+            scan.enemies
+              .map(
+                (e) =>
+                  `• **${e.hero_name}** — ${e.player_name} ${e.kda ? `\`${e.kda}\`` : ''} ${
+                    e.isMvp ? '⭐ *MVP*' : ''
+                  }`
+              )
+              .join('\n') || 'Tiada info pemain';
+
+          const embed = new EmbedBuilder()
+            .setTitle(`📸 Imbasan Skor Postgame MLBB — ${resultTitle}`)
+            .setColor(embedColor)
+            .setThumbnail(attachment.url)
+            .addFields(
+              {
+                name: '🎮 Mod & Tempoh',
+                value: `**Mod:** ${scan.mode}\n**Tempoh:** ${scan.duration} minit`,
+                inline: true,
+              },
+              {
+                name: '💾 Status Rekod',
+                value: recorded
+                  ? '✅ **Telah direkodkan ke DB!**'
+                  : '⚠️ *Paparan sahaja (Belum disimpan)*',
+                inline: true,
+              },
+              { name: '🛡️ Pasukan Kawan (Allies)', value: allyList, inline: false },
+              { name: '⚔️ Pasukan Lawan (Enemies)', value: enemyList, inline: false }
+            )
+            .setFooter({ text: 'Sentinel MLBB AI Vision Scoreboard Scanner' });
+
+          await interaction.editReply({ embeds: [embed] });
+        } catch (scanErr: any) {
+          console.error('[Vision Scan Error]:', scanErr);
+          await interaction.editReply({
+            content: `❌ Gagal mengimbas gambar scoreboard: ${
+              scanErr.message || 'Sila pastikan gambar jelas dan cuba lagi.'
+            }`,
+          });
+        }
+        return;
+      }
+
       // ── Subcommand: /sentinel help ──────────────────────────
       if (subCommand === 'help') {
         const embed = new EmbedBuilder()
@@ -1228,9 +1435,15 @@ async function startHiraraBot() {
               inline: false,
             },
             {
-              name: '📊 Rekod & Statistik Perlawanan',
+              name: '📊 Rekod & Statistik Perlawanan (AI Vision)',
               value:
-                '`/sentinel addgame` — Rekod perlawanan baru (Win/Loss, hero, duration)\n`/sentinel stats [user]` — Lihat winrate, top heroes & rekod perlawanan',
+                '`/sentinel scan [image]` — 📸 Imbas screenshot postgame auto-isi rekod\n`/sentinel addgame` — Rekod perlawanan manual (Win/Loss, hero, duration)\n`/sentinel stats [user]` — Lihat winrate, top heroes & rekod perlawanan',
+              inline: false,
+            },
+            {
+              name: '🛡️ Moderasi & Kawalan Server',
+              value:
+                '`/sentinel kick <user> [reason]` (atau `/kick`) — 👢 Keluarkan ahli secara senyap (*silent*, tiada notifikasi/DM & ephemeral)',
               inline: false,
             },
             {
@@ -1397,6 +1610,236 @@ async function startHiraraBot() {
         userId,
         rawUsername
       );
+
+      // ── Explicit Command: Kick via Mention (@Baby Hirara kick / @Baby Hirara /kick) ──
+      const isKickCommand =
+        /^\/?kick\b/i.test(prompt.trim()) ||
+        /^tolong\s+kick\b/i.test(prompt.trim()) ||
+        /^sila\s+kick\b/i.test(prompt.trim());
+
+      if (isKickCommand) {
+        if (!message.guild) {
+          await message.reply({
+            content: '❌ Arahan kick hanya boleh digunakan di dalam server Discord.',
+            allowedMentions: { repliedUser: true, parse: [] },
+          });
+          return;
+        }
+
+        const callerMember = message.member;
+        const canKick =
+          callerMember?.permissions.has(PermissionsBitField.Flags.KickMembers) ||
+          callerMember?.permissions.has(PermissionsBitField.Flags.Administrator);
+
+        if (!canKick) {
+          await message.reply({
+            content: '⛔ Anda tidak mempunyai kebenaran (*Kick Members*) untuk mengeluarkan ahli!',
+            allowedMentions: { repliedUser: true, parse: [] },
+          });
+          return;
+        }
+
+        const botMember = message.guild.members.me;
+        if (!botMember || !botMember.permissions.has(PermissionsBitField.Flags.KickMembers)) {
+          await message.reply({
+            content: '❌ Bot ini belum diberikan kebenaran (*Kick Members*) dalam Role server!',
+            allowedMentions: { repliedUser: true, parse: [] },
+          });
+          return;
+        }
+
+        // Find all mentioned target users (excluding the bot itself)
+        const targetUsers = Array.from(message.mentions.users.values()).filter(
+          (u) => u.id !== client.user?.id
+        );
+
+        if (targetUsers.length === 0) {
+          await message.reply({
+            content: '👢 **Cara Guna:** Sila tag ahli yang ingin dikeluarkan.\nContoh: `@Baby Hirara kick @user1 @user2 [sebab]` atau gunakan slash command `/kick`.',
+            allowedMentions: { repliedUser: true, parse: [] },
+          });
+          return;
+        }
+
+        // Clean prompt of all mentions to extract the reason
+        let cleanPrompt = prompt.replace(/^\/?(?:tolong\s+|sila\s+)?kick\s*/i, '');
+        for (const u of targetUsers) {
+          cleanPrompt = cleanPrompt.replace(new RegExp(`@${u.username}|<@!?${u.id}>`, 'gi'), '');
+        }
+        const reason = cleanPrompt.trim() || 'Silent kick by moderator';
+
+        const successList: string[] = [];
+        const failedList: string[] = [];
+
+        for (const targetUser of targetUsers) {
+          if (targetUser.id === userId) {
+            failedList.push(`• <@${targetUser.id}>: *Tidak boleh kick diri sendiri*`);
+            continue;
+          }
+
+          let targetMember: GuildMember;
+          try {
+            targetMember = await message.guild.members.fetch(targetUser.id);
+          } catch {
+            failedList.push(`• <@${targetUser.id}>: *Ahli tidak dijumpai dalam server*`);
+            continue;
+          }
+
+          if (targetMember.roles.highest.position >= botMember.roles.highest.position) {
+            failedList.push(`• <@${targetUser.id}>: *Role sama tinggi atau lebih tinggi daripada Role Bot*`);
+            continue;
+          }
+
+          if (
+            callerMember &&
+            targetMember.roles.highest.position >= callerMember.roles.highest.position &&
+            message.guild.ownerId !== userId
+          ) {
+            failedList.push(`• <@${targetUser.id}>: *Role sama taraf atau lebih tinggi daripada anda*`);
+            continue;
+          }
+
+          try {
+            // Silent kick - no notification/DM to target!
+            await targetMember.kick(reason);
+            successList.push(`• ✅ <@${targetUser.id}> (**${targetUser.tag || targetUser.username}**)`);
+          } catch (kickErr: any) {
+            failedList.push(`• <@${targetUser.id}>: *${kickErr.message || 'Ralat kick'}*`);
+          }
+        }
+
+        let replyContent = '';
+        if (successList.length > 0) {
+          replyContent += `👢 **Silent Kick Berjaya! (${successList.length}/${targetUsers.length} ahli)**\n${successList.join('\n')}\n📌 *Sebab:* \`${reason}\`\n*(Dikeluarkan secara senyap tanpa sebarang notifikasi atau DM)*`;
+        }
+        if (failedList.length > 0) {
+          if (replyContent) replyContent += '\n\n';
+          replyContent += `⚠️ **Gagal (${failedList.length} ahli):**\n${failedList.join('\n')}`;
+        }
+
+        // Confirmation reply
+        const replyMsg = await message.reply({
+          content: replyContent || '❌ Tiada ahli yang dapat dikeluarkan.',
+          allowedMentions: { repliedUser: true, parse: [] },
+        });
+
+        // Auto clean up after 15 seconds to keep channel clean
+        setTimeout(async () => {
+          try {
+            await replyMsg.delete().catch(() => {});
+            await message.delete().catch(() => {});
+          } catch (delErr) {
+            // ignore
+          }
+        }, 15000);
+
+        return;
+      }
+
+      // ── Explicit Command: Scan Scoreboard via Mention ────────
+      const isScanCommand =
+        /^\/?(?:scan|imbas|scoreboard)\b/i.test(prompt.trim()) ||
+        message.attachments.size > 0;
+      if (isScanCommand && message.attachments.size > 0) {
+        const attachment = message.attachments.first();
+        if (attachment && attachment.contentType?.startsWith('image/')) {
+          const loadingMsg = await message.reply({
+            content: '📸 **Sedang mengimbas screenshot scoreboard MLBB menggunakan AI Vision...** Tunggu sebentar ya! ✨',
+            allowedMentions: { repliedUser: true, parse: [] },
+          });
+
+          try {
+            const { parseScoreboardWithVision } = await import('../src/lib/vision');
+            const scan = await parseScoreboardWithVision(attachment.url);
+
+            let recorded = false;
+            try {
+              const dateStr = new Date().toISOString().split('T')[0];
+              const insertGame = await db.execute({
+                sql: `INSERT INTO games (date, mode, duration, result, notes)
+                      VALUES (?, ?, ?, ?, ?) RETURNING id`,
+                args: [dateStr, scan.mode, scan.duration, scan.result, 'Imbasan AI Vision (Mention)'],
+              });
+
+              const gameId = insertGame.rows?.[0]?.id;
+              if (gameId) {
+                for (const p of scan.allies) {
+                  await db.execute({
+                    sql: `INSERT INTO game_players (game_id, player_name, hero_name, team) VALUES (?, ?, ?, ?)`,
+                    args: [gameId, p.player_name, p.hero_name, 'ally'],
+                  });
+                }
+                for (const p of scan.enemies) {
+                  await db.execute({
+                    sql: `INSERT INTO game_players (game_id, player_name, hero_name, team) VALUES (?, ?, ?, ?)`,
+                    args: [gameId, p.player_name, p.hero_name, 'enemy'],
+                  });
+                }
+                recorded = true;
+              }
+            } catch (dbErr) {
+              console.warn('[Vision Scan DB Save Notice]:', dbErr);
+            }
+
+            const isWin = scan.result === 'Win';
+            const embedColor = isWin ? 0x2ecc71 : 0xe74c3c;
+            const resultTitle = isWin ? '🏆 VICTORY (Kemenangan)' : '💀 DEFEAT (Kekalahan)';
+
+            const allyList =
+              scan.allies
+                .map(
+                  (a) =>
+                    `• **${a.hero_name}** — ${a.player_name} ${a.kda ? `\`${a.kda}\`` : ''} ${
+                      a.isMvp ? '⭐ *MVP*' : ''
+                    }`
+                )
+                .join('\n') || 'Tiada info pemain';
+
+            const enemyList =
+              scan.enemies
+                .map(
+                  (e) =>
+                    `• **${e.hero_name}** — ${e.player_name} ${e.kda ? `\`${e.kda}\`` : ''} ${
+                      e.isMvp ? '⭐ *MVP*' : ''
+                    }`
+                )
+                .join('\n') || 'Tiada info pemain';
+
+            const embed = new EmbedBuilder()
+              .setTitle(`📸 Imbasan Skor Postgame MLBB — ${resultTitle}`)
+              .setColor(embedColor)
+              .setThumbnail(attachment.url)
+              .addFields(
+                {
+                  name: '🎮 Mod & Tempoh',
+                  value: `**Mod:** ${scan.mode}\n**Tempoh:** ${scan.duration} minit`,
+                  inline: true,
+                },
+                {
+                  name: '💾 Status Rekod',
+                  value: recorded
+                    ? '✅ **Telah direkodkan ke DB!**'
+                    : '⚠️ *Paparan sahaja (Belum disimpan)*',
+                  inline: true,
+                },
+                { name: '🛡️ Pasukan Kawan (Allies)', value: allyList, inline: false },
+                { name: '⚔️ Pasukan Lawan (Enemies)', value: enemyList, inline: false }
+              )
+              .setFooter({ text: 'Sentinel MLBB AI Vision Scoreboard Scanner' });
+
+            await loadingMsg.edit({ content: '', embeds: [embed] });
+            return;
+          } catch (scanErr: any) {
+            console.error('[Vision Mention Scan Error]:', scanErr);
+            await loadingMsg.edit({
+              content: `❌ Gagal mengimbas gambar scoreboard: ${
+                scanErr.message || 'Sila pastikan gambar jelas dan cuba lagi.'
+              }`,
+            });
+            return;
+          }
+        }
+      }
 
       // Access Management Commands (Owner Only)
       if (

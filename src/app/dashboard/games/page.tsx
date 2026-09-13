@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
@@ -119,13 +119,22 @@ function ManualGameModal({
     setPlayers((prev) => prev.map((p, i) => (i === idx ? { ...p, [key]: value } : p)));
   };
 
-  const handleScreenshotComplete = (heroes: DetectedHero[]) => {
+  const handleScreenshotComplete = (
+    heroes: DetectedHero[],
+    meta?: { result?: string; duration?: number; mode?: string }
+  ) => {
+    if (meta) {
+      if (meta.result) setResult(meta.result);
+      if (meta.duration) setDuration(meta.duration.toString());
+      if (meta.mode) setMode(meta.mode);
+    }
     setPlayers((prev) => {
       const next = [...prev];
       heroes.forEach((h) => {
         if (h.slotIndex < next.length) {
           next[h.slotIndex] = {
             ...next[h.slotIndex],
+            player_name: h.playerName || next[h.slotIndex].player_name,
             hero_name: h.heroName,
             team: h.team,
           };
