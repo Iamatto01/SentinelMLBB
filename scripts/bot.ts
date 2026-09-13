@@ -14,6 +14,7 @@ import {
   PollLayoutType,
   PermissionsBitField,
   GuildMember,
+  MessageFlags,
 } from 'discord.js';
 import type { PollData } from 'discord.js';
 import dotenv from 'dotenv';
@@ -545,7 +546,7 @@ function buildHeroEmbed(heroName: string): { embed: EmbedBuilder; row: ActionRow
     )
     .setFooter({
       text: 'Sentinel MLBB Pro Bot • Gunakan butang di bawah untuk aksi pantas',
-      iconURL: 'https://sentinel-mlbb.vercel.app/favicon.ico',
+      iconURL: 'https://mlbb.sentinelai.studio/favicon.ico',
     });
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -560,7 +561,7 @@ function buildHeroEmbed(heroName: string): { embed: EmbedBuilder; row: ActionRow
     new ButtonBuilder()
       .setLabel('🌐 Web Simulator')
       .setStyle(ButtonStyle.Link)
-      .setURL('https://sentinel-mlbb.vercel.app/dashboard/draft')
+      .setURL('https://mlbb.sentinelai.studio/dashboard/draft')
   );
 
   return { embed, row };
@@ -612,7 +613,7 @@ function buildWelcomeMessage(member: any, guild: any): { embed: EmbedBuilder; ro
     new ButtonBuilder()
       .setLabel('🌐 Buka Dashboard')
       .setStyle(ButtonStyle.Link)
-      .setURL('https://sentinel-mlbb.vercel.app/dashboard')
+      .setURL('https://mlbb.sentinelai.studio/dashboard')
   );
 
   return { embed, row };
@@ -926,7 +927,7 @@ async function startHiraraBot() {
           new ButtonBuilder()
             .setLabel('🚀 Buka Web Draft Simulator')
             .setStyle(ButtonStyle.Link)
-            .setURL('https://sentinel-mlbb.vercel.app/dashboard/draft')
+            .setURL('https://mlbb.sentinelai.studio/dashboard/draft')
         );
 
         await interaction.reply({ embeds: [embed], components: [row] });
@@ -1204,11 +1205,11 @@ async function startHiraraBot() {
           new ButtonBuilder()
             .setLabel('🚀 Buka Web Dashboard')
             .setStyle(ButtonStyle.Link)
-            .setURL('https://sentinel-mlbb.vercel.app/dashboard'),
+            .setURL('https://mlbb.sentinelai.studio/dashboard'),
           new ButtonBuilder()
             .setLabel('🎯 Draft Simulator')
             .setStyle(ButtonStyle.Link)
-            .setURL('https://sentinel-mlbb.vercel.app/dashboard/draft')
+            .setURL('https://mlbb.sentinelai.studio/dashboard/draft')
         );
 
         await interaction.reply({
@@ -1229,7 +1230,7 @@ async function startHiraraBot() {
         }
 
         // Defer immediately so Discord knows the bot is processing (prevents 3s timeout)
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const canKick =
           interaction.memberPermissions?.has(PermissionsBitField.Flags.KickMembers) ||
@@ -1320,6 +1321,8 @@ async function startHiraraBot() {
           if (replyContent) replyContent += '\n\n';
           replyContent += `⚠️ **Gagal (${failedList.length} ahli):**\n${failedList.join('\n')}`;
         }
+
+        console.log(`[Silent Kick] Done: ${successList.length} success, ${failedList.length} failed. Reason: ${reason}`);
 
         await interaction.editReply({
           content: replyContent || '❌ Tiada ahli yang dapat dikeluarkan.',
