@@ -15,9 +15,17 @@ import {
   PermissionsBitField,
   GuildMember,
   MessageFlags,
+  ChannelType,
 } from 'discord.js';
 import type { PollData } from 'discord.js';
 import dotenv from 'dotenv';
+import {
+  executeDynamicDiscordAction,
+  extractDiscordActionCode,
+  initCustomFunctionsTable,
+  saveCustomFunction,
+  listCustomFunctions,
+} from '../src/lib/dynamic-actions';
 import {
   getUserHiraraContext,
   recordChatMessage,
@@ -786,6 +794,7 @@ async function buildModelSelectorEmbed(): Promise<{ embed: EmbedBuilder; row: Ac
 // ── Main Bot Initialization ───────────────────────────────────
 async function startHiraraBot() {
   await ensureBotTables();
+  await initCustomFunctionsTable();
 
   const client = new Client({
     intents: [
@@ -2034,11 +2043,70 @@ async function startHiraraBot() {
         ? `GitHub: ${displayName} ada akses ke repo ${defaultUser}. Kalau dia tanya pasal coding/project, boleh bantu.`
         : `GitHub: ${displayName} tak ada akses ke repo private ${defaultUser}. Kalau dia tanya pasal repo private, cakap tak boleh dengan sopan.`;
 
+      // Dynamic Server & Role context when inside a Guild
+      let serverActionContext = '';
+      const isGuildOwner = message.guild
+        ? message.guild.ownerId === userId || userId === '1103825075809030186'
+        : false;
+      const isAdmin =
+        isGuildOwner ||
+        Boolean(message.member?.permissions.has(PermissionsBitField.Flags.Administrator)) ||
+        Boolean(message.member?.permissions.has(PermissionsBitField.Flags.ManageGuild));
+
+      if (message.guild) {
+        const guildRoles = message.guild.roles.cache
+          .filter((r) => r.name !== '@everyone')
+          .sort((a, b) => b.position - a.position)
+          .map((r) => `• "${r.name}" (ID: ${r.id}, Pos: ${r.position})`)
+          .slice(0, 30);
+
+        const guildChannels = message.guild.channels.cache
+          .filter((c) => c.isTextBased() || c.isVoiceBased())
+          .map((c) => `• #${c.name} (${c.type === ChannelType.GuildVoice ? 'Voice' : 'Text'}, ID: ${c.id})`)
+          .slice(0, 25);
+
+        serverActionContext = `
+DISCORD SERVER DATA ("${message.guild.name}", Server ID: ${message.guild.id}):
+- Status Pengguna (${displayName}): ${isGuildOwner ? '👑 PEMILIK SERVER (Owner)' : isAdmin ? '🛡️ PENTADBIR (Administrator)' : 'Ahli Biasa'}.
+- Kebenaran Bot: Bot mempunyai hak penuh (Administrator, ManageRoles, ManageChannels, Kick, Ban, ManageMessages).
+- Senarai Role Semasa:
+${guildRoles.join('\n') || 'Tiada role kustom'}
+- Senarai Saluran Semasa:
+${guildChannels.join('\n') || 'Tiada saluran'}
+
+⚡ DYNAMIC AI SERVER ACTION ENGINE (KAU MAMPU LAKUKAN APA SAHAJA DI SERVER INI):
+- KAU BUKAN SEKADAR BOT CHAT BIASA! Kau adalah automated system administrator server ini yang berkuasa tinggi.
+- JANGAN SEKALI-KALI cakap "aku tak boleh buat", "aku tak ada akses ke server awak", atau cadangkan bot lain (MEE6, Carlbot, dsb.)! KAU ADA AKSES PENUH SECARA LANGSUNG MELALUI DISCORD.JS!
+- Sekiranya pengguna meminta sebarang tindakan pelayan seperti:
+  * Urus/padam/tambah/kemaskini Role (cth: "make all tag again with no rank", "buang rank", "beri tag role", "buat role baru")
+  * Padam mesej pukal (purge messages)
+  * Cipta/ubah saluran teks atau suara
+  * Tukar nickname ahli
+  * Kunci (lock) atau buka (unlock) channel
+  * Laporan ahli atau status server
+  * Sebarang fungsi dinamik yang bot belum ada sebelum ini
+  MAKA KAU MESTI laksanakan tindakan itu dengan menulis blok kod \`\`\`discord-action\`\`\` di dalam jawapan kau!
+
+FORMAT KOD \`\`\`discord-action\`\`\`:
+\`\`\`discord-action
+// Kod async Discord.js yang berjalan dengan parameter:
+// { guild, channel, author, member, botMember, client, discord, db, log }
+// CONTOH:
+// const members = await guild.members.fetch();
+// const tagRole = guild.roles.cache.find(r => r.name.toLowerCase().includes('tag'));
+// for (const [id, m] of members) { ... }
+// return "Ringkasan kejayaan apa yang telah dilakukan";
+\`\`\`
+- Pastikan kod sintaks sah, gunakan \`await\`, dan kembalikan (\`return\`) mesej ringkasan kejayaan.
+- Di luar blok kod, berikan ucapan mesra dan jelaskan tindakan yang telah diambil.
+`;
+      }
+
       const chatModeContext = isDM
         ? `SITUASI: Sembang 1-on-1 secara peribadi (Direct Message/DM personal). Berbual mesra, akrab dan santai berdua.`
         : `SITUASI: Sembang dalam server/group Discord bersama ${displayName}.`;
 
-      const systemPrompt = `Kau ni Baby Hirara (Sentinel AI), kawan AI yang serba boleh dan pintar kat Discord.
+      const systemPrompt = `Kau ni Baby Hirara (Sentinel AI), kawan AI yang serba boleh, pintar dan pentadbir sistem kat Discord.
 ${chatModeContext}
 
 MACAM NAK CAKAP:
@@ -2051,10 +2119,12 @@ ${realGitHubContext}
 ${memoriesContext}
 Jumlah sembang dengan ${displayName}: ${chatCount} kali.
 
+${serverActionContext}
+
 PENTING — OUTPUT RULES:
 - Balas TERUS dengan jawapan final. Jangan tulis "Response:", "Here's my thinking", atau apa-apa monolog/draf.
 - Jangan buat analisis dalam English. Jangan ulang peraturan.
-- Jawalan je apa yang user tanya, pendek padat macam sembang kawan.
+- Jawapan je apa yang user tanya, padat dan mesra.
 - Kalau user mesej dalam English, balas dalam English. Kalau Melayu, balas Melayu.`;
 
       const messages = [
@@ -2067,8 +2137,8 @@ PENTING — OUTPUT RULES:
       const chatCompletion = await llm.chat.completions.create({
         messages,
         model: activeModel,
-        temperature: 0.7,
-        max_tokens: 1500,
+        temperature: 0.5,
+        max_tokens: 1800,
       });
 
       const rawResponse =
@@ -2076,6 +2146,83 @@ PENTING — OUTPUT RULES:
         chatCompletion.choices[0]?.message?.reasoning_content ||
         chatCompletion.choices[0]?.message?.reasoning ||
         'Alamak, sekejap ya talian saya macam ada sedikit lag tadi.';
+
+      const { code: actionCode, explanationText } = extractDiscordActionCode(rawResponse);
+
+      if (actionCode && message.guild) {
+        if (!isAdmin) {
+          await message.reply({
+            content: `⛔ Maaf **${displayName}**, tindakan pengurusan pelayan hanya dibenarkan untuk **Pemilik Server** atau **Pentadbir (Admin)** sahaja demi keselamatan.`,
+            allowedMentions: { repliedUser: true, parse: [] },
+          });
+          return;
+        }
+
+        const progressMsg = await message.reply({
+          content: `⚙️ **Baby Hirara sedang menjalankan tindakan ke atas pelayan...**\n> ⏳ *Menjalankan operasi autonomi Discord.js...*`,
+          allowedMentions: { repliedUser: true, parse: [] },
+        });
+
+        const executionContext = {
+          guild: message.guild,
+          channel: message.channel,
+          author: message.author,
+          member: message.member,
+          botMember: message.guild.members.me,
+          client,
+          message,
+        };
+
+        let result = await executeDynamicDiscordAction(actionCode, executionContext);
+
+        // Self-Healing Retry: If code failed, ask LLM once to fix the code with the error!
+        if (!result.success && result.error) {
+          console.warn('[DynamicAction Retry] Code failed:', result.error, 'Attempting AI self-healing fix...');
+          try {
+            const fixCompletion = await llm.chat.completions.create({
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: prompt },
+                { role: 'assistant', content: rawResponse },
+                {
+                  role: 'user',
+                  content: `Kod discord-action sebelum ini mengalami ralat:\n"${result.error}"\nSila perbaiki kod tersebut supaya berjalan dengan lancar tanpa ralat. Berikan kod pembetulan dalam blok \`\`\`discord-action ... \`\`\`.`,
+                },
+              ],
+              model: activeModel,
+              temperature: 0.2,
+              max_tokens: 1500,
+            });
+
+            const fixedRaw = fixCompletion.choices[0]?.message?.content || '';
+            const fixedExtract = extractDiscordActionCode(fixedRaw);
+            if (fixedExtract.code) {
+              result = await executeDynamicDiscordAction(fixedExtract.code, executionContext);
+            }
+          } catch (retryErr) {
+            console.error('[DynamicAction Retry Error]:', retryErr);
+          }
+        }
+
+        if (result.success) {
+          let replyContent = cleanModelOutput(explanationText) || '✅ Tindakan telah berjaya dilaksanakan!';
+          if (result.result && typeof result.result === 'string') {
+            replyContent += `\n\n📌 **Hasil Operasi:**\n${result.result}`;
+          } else if (result.output) {
+            replyContent += `\n\n📋 **Log:**\n\`\`\`\n${result.output.slice(0, 1000)}\n\`\`\``;
+          }
+          replyContent += `\n\n⚡ *(Dijalankan secara autonomi dalam ${(result.durationMs / 1000).toFixed(1)} saat)*`;
+          await progressMsg.edit({ content: replyContent });
+        } else {
+          await progressMsg.edit({
+            content: `⚠️ **Gagal Melaksanakan Tindakan:**\n> ❌ *${result.error || 'Ralat tidak diketahui'}*\n\nSila pastikan bot mempunyai kedudukan Role yang mencukupi atau perincikan arahan semula.`,
+          });
+        }
+
+        await recordChatMessage(userId, 'user', prompt, message.guild?.id, channelId);
+        await recordChatMessage(userId, 'assistant', explanationText || 'Executed dynamic action', message.guild?.id, channelId);
+        return;
+      }
 
       const cleanedResponse = cleanModelOutput(rawResponse) || 'Hai! Ada apa yang boleh saya bantu?';
 
