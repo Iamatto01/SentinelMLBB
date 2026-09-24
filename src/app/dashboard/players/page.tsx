@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
@@ -11,6 +11,51 @@ export default function PlayersPage() {
   const [games, setGames] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [players, setPlayers] = useState<any[]>([]);
+
+  useEffect(() => {
+    setMounted(true);
+    (async () => {
+      try {
+        const token = localStorage.getItem("token") || "sentinel-local-token";
+        const res = await fetch(`${API_URL}/api/games`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const gameList = data.games || [];
+          setGames(gameList);
+
+          const map: Record<string, { wins: number; games: number }> = {};
+          gameList.forEach((g: any) => {
+            const isWin = g.result?.toLowerCase() === "win";
+            (g.players || []).forEach((p: any, idx: number) => {
+              const isAlly = p.team === "ally" || (p.slot != null ? p.slot <= 5 : idx < 5);
+              if (!isAlly) return;
+              const name = p.player_name?.trim();
+              if (!name) return;
+              if (!map[name]) map[name] = { wins: 0, games: 0 };
+              map[name].games++;
+              if (isWin) map[name].wins++;
+            });
+          });
+
+          const pList = Object.entries(map)
+            .map(([name, s]) => ({
+              name,
+              games: s.games,
+              wins: s.wins,
+              winRate: s.games > 0 ? Math.round((s.wins / s.games) * 100) : 0,
+            }))
+            .sort((a, b) => b.games - a.games);
+          setPlayers(pList);
+        }
+      } catch (err) {
+        console.error("Failed to load players data:", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
   
   const COLORS = ["#6366f1", "#14b8a6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
   const pieData = players.slice(0, 6).map((p) => ({ name: p.name, value: p.games }));
@@ -18,9 +63,17 @@ export default function PlayersPage() {
 
   return (
     <div className="w-full h-full flex flex-col gap-6 max-w-7xl mx-auto animate-in fade-in duration-500 pb-12">
-      <div>
-        <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500">Player Stats</h1>
-        <p className="text-neutral-500 dark:text-neutral-400 mt-1">{loading ? "Loading..." : `${players.length} players tracked`}</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500">Player Stats</h1>
+          <p className="text-neutral-500 dark:text-neutral-400 mt-1">{loading ? "Loading..." : `${players.length} players tracked`}</p>
+        </div>
+        <a
+          href="/dashboard/comfort-heroes"
+          className="flex items-center gap-2 px-4 py-2.5 bg-neutral-900 dark:bg-white text-white dark:text-black rounded-xl text-xs font-bold shadow-md hover:scale-105 transition-all"
+        >
+          <span className="text-amber-500">⭐</span> Manage Comfort Heroes
+        </a>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

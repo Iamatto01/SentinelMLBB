@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -20,7 +20,7 @@ import { getHeroByName } from "@/data/heroes-data";
 
 const API_URL = "/api/worker";
 
-// â”€â”€â”€ Leaderboard Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Leaderboard Types ─────────────────────────────────────────────
 interface PlayerRankData {
   name: string;
   games: number;
@@ -68,11 +68,7 @@ export default function RankingsPage() {
     setMounted(true);
     (async () => {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          setLoading(false);
-          return;
-        }
+        const token = localStorage.getItem("token") || "sentinel-local-token";
         const res = await fetch(`${API_URL}/api/games`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -88,7 +84,7 @@ export default function RankingsPage() {
     })();
   }, []);
 
-  // â”€â”€â”€ Process Player Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Process Player Stats ──────────────────────────────────────────
   const playersData = useMemo(() => {
     const map: Record<
       string,
@@ -104,7 +100,9 @@ export default function RankingsPage() {
 
     games.forEach((g) => {
       const isWin = g.result?.toLowerCase() === "win";
-      (g.players || []).forEach((p: any) => {
+      (g.players || []).forEach((p: any, idx: number) => {
+        const isAlly = p.team === "ally" || (p.slot != null ? p.slot <= 5 : idx < 5);
+        if (!isAlly) return;
         const name = p.player_name?.trim();
         const hero = p.hero_name?.trim();
         if (!name) return;
@@ -141,7 +139,7 @@ export default function RankingsPage() {
     });
   }, [games]);
 
-  // â”€â”€â”€ Process Hero Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Process Hero Stats ────────────────────────────────────────────
   const heroesData = useMemo(() => {
     const map: Record<
       string,
@@ -155,9 +153,11 @@ export default function RankingsPage() {
       }
     > = {};
 
-    games.forEach((g) => {
-      const isWin = g.result?.toLowerCase() === "win";
-      (g.players || []).forEach((p: any) => {
+    games.forEach((game) => {
+      const isWin = game.result?.toLowerCase() === "win";
+      (game.players || []).forEach((p: any, idx: number) => {
+        const isAlly = p.team === "ally" || (p.slot != null ? p.slot <= 5 : idx < 5);
+        if (!isAlly) return;
         const hero = p.hero_name?.trim();
         const player = p.player_name?.trim();
         if (!hero) return;
@@ -165,26 +165,27 @@ export default function RankingsPage() {
         if (!map[hero]) {
           map[hero] = { wins: 0, games: 0, kills: 0, deaths: 0, assists: 0, players: new Set() };
         }
-
-        map[hero].games++;
-        if (isWin) map[hero].wins++;
-        if (p.kills) map[hero].kills += p.kills;
-        if (p.deaths) map[hero].deaths += p.deaths;
-        if (p.assists) map[hero].assists += p.assists;
+        map[hero].games += 1;
+        if (isWin) map[hero].wins += 1;
+        map[hero].kills += p.kills || 0;
+        map[hero].deaths += p.deaths || 0;
+        map[hero].assists += p.assists || 0;
         if (player) map[hero].players.add(player);
       });
     });
 
-    return Object.entries(map).map(([name, s]) => {
+    return Object.entries(map).map(([hero, s]) => {
       const losses = s.games - s.wins;
-      const winRate = s.games > 0 ? Math.round((s.wins / s.games) * 100) : 0;
+      const winRate = s.games > 0 ? Number(((s.wins / s.games) * 100).toFixed(1)) : 0;
+      const kda = s.deaths === 0 ? (s.kills + s.assists).toFixed(1) : ((s.kills + s.assists) / s.deaths).toFixed(1);
 
       return {
-        name,
+        name: hero,
         games: s.games,
         wins: s.wins,
         losses,
         winRate,
+        kda: Number(kda),
         uniquePlayersCount: s.players.size,
         uniquePlayers: Array.from(s.players),
         totalKills: s.kills,
@@ -194,7 +195,7 @@ export default function RankingsPage() {
     });
   }, [games]);
 
-  // â”€â”€â”€ Find Hall of Fame / Accolades ðŸ‘‘ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Find Hall of Fame / Accolades 👑 ──────────────────────────────
   const awards = useMemo(() => {
     if (playersData.length === 0) return null;
 
@@ -208,11 +209,11 @@ export default function RankingsPage() {
     const topGrinderPlayer = [...playersData].sort((a, b) => b.games - a.games)[0];
     const topVersatilePlayer = [...playersData].sort((a, b) => b.uniqueHeroesCount - a.uniqueHeroesCount)[0];
 
-    // Top Heroes
+    // Filter heroes with min 3 games
     const qualifiedHeroesForWR = heroesData.filter((h) => h.games >= 3);
     const topWRHero =
       qualifiedHeroesForWR.length > 0
-        ? [...qualifiedHeroesForWR].sort((a, b) => b.winRate - a.winRate)[0]
+        ? [...qualifiedHeroesForWR].sort((a, b) => b.winRate - a.winRate || b.games - a.games)[0]
         : [...heroesData].sort((a, b) => b.winRate - a.winRate)[0];
 
     const topPickedHero = [...heroesData].sort((a, b) => b.games - a.games)[0];
@@ -226,7 +227,7 @@ export default function RankingsPage() {
     };
   }, [playersData, heroesData]);
 
-  // â”€â”€â”€ Filtered Lists â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Filtered Lists ────────────────────────────────────────────────
   const filteredPlayers = useMemo(() => {
     let result = playersData.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
     
@@ -359,7 +360,7 @@ export default function RankingsPage() {
             <div>
               <div className="flex justify-between items-start">
                 <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-                  ðŸ‘‘ Apex Carry
+                  👑 Apex Carry
                 </span>
                 <span className="text-[10px] text-neutral-400 dark:text-neutral-500 italic">min 3 games</span>
               </div>
@@ -389,7 +390,7 @@ export default function RankingsPage() {
             </div>
             <div>
               <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                {activeTab === "players" ? "ðŸ”¥ Ultimate Grinder" : "ðŸ”¥ Most Contested"}
+                {activeTab === "players" ? "🔥 Ultimate Grinder" : "🔥 Most Contested"}
               </span>
               <h3 className="text-2xl font-black text-neutral-800 dark:text-white mt-3 truncate">
                 {activeTab === "players" ? awards.topGrinderPlayer?.name : awards.topPickedHero?.name}
@@ -414,7 +415,7 @@ export default function RankingsPage() {
               </div>
               <div>
                 <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  ðŸ”® Master of All
+                  🔮 Master of All
                 </span>
                 <h3 className="text-2xl font-black text-neutral-800 dark:text-white mt-3 truncate">
                   {awards.topVersatilePlayer?.name}
@@ -536,7 +537,7 @@ export default function RankingsPage() {
                               <span>{player.name}</span>
                                 <div className="flex gap-0.5">
                                  {isWRChampion && (
-                                   <span title="Win Rate Champion ðŸ‘‘">
+                                   <span title="Win Rate Champion 👑">
                                      <Crown className="w-4 h-4 text-amber-500 fill-amber-500" />
                                    </span>
                                  )}
@@ -698,7 +699,7 @@ export default function RankingsPage() {
                               <span>{hero.name}</span>
                                 <div className="flex gap-0.5">
                                  {isWRHeroChampion && (
-                                   <span title="Win Rate Champion Hero ðŸ‘‘">
+                                   <span title="Win Rate Champion Hero 👑">
                                      <Crown className="w-4 h-4 text-amber-500 fill-amber-500" />
                                    </span>
                                  )}

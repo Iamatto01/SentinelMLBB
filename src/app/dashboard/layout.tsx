@@ -19,7 +19,8 @@ import {
   X,
   TrendingUp,
   Bot,
-  Shield
+  Shield,
+  Star
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +69,7 @@ export default function DashboardLayout({
     { label: "Dashboard", href: "/dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
     { label: "Game Log", href: "/dashboard/games", icon: <Gamepad2 className="h-4 w-4" /> },
     { label: "Team Management", href: "/dashboard/team", icon: <Shield className="h-4 w-4" /> },
+    { label: "Comfort Heroes", href: "/dashboard/comfort-heroes", icon: <Star className="text-amber-500 h-4 w-4 fill-amber-500/20" /> },
     { label: "Player Stats", href: "/dashboard/players", icon: <Users className="h-4 w-4" /> },
     { label: "Rankings", href: "/dashboard/ranking", icon: <Crown className="text-amber-500 h-4 w-4" /> },
     { label: "Team Comps", href: "/dashboard/comps", icon: <Swords className="h-4 w-4" /> },
@@ -88,9 +90,9 @@ export default function DashboardLayout({
     <div className="flex flex-col h-screen bg-neutral-50 dark:bg-neutral-950 w-full mx-auto overflow-hidden">
       {/* Top Navbar */}
       <header className="flex-none bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-800 z-40 relative">
-        <div className="flex items-center justify-between px-4 lg:px-8 h-16 w-full max-w-[1600px] mx-auto">
+        <div className="flex items-center justify-between px-3 lg:px-6 h-16 w-full max-w-[1680px] mx-auto">
           {/* Logo & Mobile Menu Toggle */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="lg:hidden p-2 -ml-2 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg"
@@ -100,14 +102,14 @@ export default function DashboardLayout({
             <Link href="/dashboard" className="flex items-center gap-2">
               <span className="text-2xl">⚔️</span>
               {/* User requested black color (or dark mode compatible solid color) */}
-              <span className="font-black text-xl text-neutral-900 dark:text-white hidden sm:block tracking-tight">
+              <span className="font-black text-lg xl:text-xl text-neutral-900 dark:text-white hidden sm:block tracking-tight">
                 SentinelMLBB
               </span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-1 mx-4">
+          <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 mx-2 overflow-x-auto scrollbar-none">
             {links.map((link) => {
               const isActive = pathname === link.href;
               return (
@@ -115,7 +117,7 @@ export default function DashboardLayout({
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all",
+                    "flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-xl text-xs xl:text-sm font-semibold transition-all shrink-0 whitespace-nowrap",
                     isActive
                       ? "bg-neutral-900 text-white dark:bg-white dark:text-black shadow-sm"
                       : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800"
@@ -193,8 +195,8 @@ export default function DashboardLayout({
       </AnimatePresence>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-black w-full h-full relative">
-        <div className="max-w-[1600px] mx-auto p-4 md:p-8">
+      <main className="flex-1 overflow-y-auto bg-neutral-100/60 dark:bg-neutral-950 w-full h-full relative">
+        <div className="max-w-[1680px] mx-auto p-4 md:p-6 lg:p-8">
           {children}
         </div>
       </main>

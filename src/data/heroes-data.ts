@@ -1753,10 +1753,15 @@ export const ALL_HEROES: HeroData[] = [
   },
 ];
 
+// Precomputed indexes built once per process — getHeroById/getHeroByName are called on
+// every chat request and interaction, so linear scans over ~125 heroes add up.
+const HERO_BY_ID = new Map(ALL_HEROES.map(h => [h.id, h]));
+const HERO_BY_LOWERCASE_NAME = new Map(ALL_HEROES.map(h => [h.name.toLowerCase(), h]));
+
 export function getHeroById(id: string): HeroData | undefined {
-  return ALL_HEROES.find(h => h.id === id);
+  return HERO_BY_ID.get(id);
 }
 
 export function getHeroByName(name: string): HeroData | undefined {
-  return ALL_HEROES.find(h => h.name.toLowerCase() === name.toLowerCase());
+  return HERO_BY_LOWERCASE_NAME.get(name.toLowerCase());
 }

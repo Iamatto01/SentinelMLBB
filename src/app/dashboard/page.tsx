@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
@@ -18,8 +18,7 @@ export default function DashboardPage() {
 
   const fetchGames = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) { setLoading(false); return; }
+      const token = localStorage.getItem("token") || "sentinel-local-token";
       const res = await fetch(`${API_URL}/api/games`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -40,11 +39,13 @@ export default function DashboardPage() {
   const winRate = totalGames > 0 ? ((wins / totalGames) * 100).toFixed(1) : "0.0";
 
 
-  // Role/hero distribution from players
+  // Role/hero distribution from players (Allies only)
   const heroCount: Record<string, number> = {};
   const heroWins: Record<string, number> = {};
   games.forEach((g) => {
-    (g.players || []).forEach((p: any) => {
+    (g.players || []).forEach((p: any, idx: number) => {
+      const isAlly = p.team === "ally" || (p.slot != null ? p.slot <= 5 : idx < 5);
+      if (!isAlly) return;
       const hero = p.hero_name || "Unknown";
       heroCount[hero] = (heroCount[hero] || 0) + 1;
       if (g.result?.toLowerCase() === "win") heroWins[hero] = (heroWins[hero] || 0) + 1;

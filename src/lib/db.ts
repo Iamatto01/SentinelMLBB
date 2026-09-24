@@ -11,9 +11,26 @@ function getDbPath(): string {
 
 interface DbAdapter {
   execute(sql: string, args?: any[] | Record<string, any>): Promise<{ rows: any[] }>;
+  /** Persist any pending buffered writes. No-op for adapters that write through. */
+  flush?(): void;
 }
 
 let _adapterPromise: Promise<DbAdapter> | null = null;
+
+// Buffered adapters register a flush hook here so pending writes are never lost on shutdown.
+const _flushHooks: Array<() => void> = [];
+let _flushHooksRegistered = false;
+
+function registerFlushHook(fn: () => void): void {
+  _flushHooks.push(fn);
+  if (_flushHooksRegistered || typeof process.on !== 'function') return;
+  _flushHooksRegistered = true;
+  const runAll = () => {
+    for (const hook of _flushHooks) hook();
+  };
+  process.on('exit', runAll);
+  process.on('beforeExit', runAll);
+}
 
 async function initAdapter(): Promise<DbAdapter> {
   const dbPath = getDbPath();
@@ -61,18 +78,33 @@ async function initAdapter(): Promise<DbAdapter> {
     console.warn('[DB] Reading dbPath failed:', e);
   }
   const d = new SQL.Database(fileBuffer);
-  
-  function saveToDisk() {
+
+  // sql.js keeps the entire database in memory and has no incremental write path: export()
+  // serializes the whole DB and writeFileSync rewrites the whole file. Doing that per statement
+  // makes any bulk insert loop O(rows x DB size) of disk work. Instead we mark the DB dirty and
+  // flush once, either after a short debounce or before the process exits.
+  const FLUSH_DEBOUNCE_MS = 250;
+  let dirty = false;
+  let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function flush(): void {
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    if (!dirty) return;
+    dirty = false;
     try {
-      const data = d.export();
-      const buffer = Buffer.from(data);
-      fs.writeFileSync(dbPath, buffer);
+      fs.writeFileSync(dbPath, Buffer.from(d.export()));
     } catch (err) {
       console.warn('[DB] Could not save sql.js DB to disk (read-only environment):', err);
     }
   }
 
+  registerFlushHook(flush);
+
   return {
+    flush,
     async execute(sql: string, args?: any[] | Record<string, any>) {
       const isRead = /^\s*(SELECT|WITH|PRAGMA)\b/i.test(sql) || /\bRETURNING\b/i.test(sql);
       
@@ -100,7 +132,12 @@ async function initAdapter(): Promise<DbAdapter> {
         return { rows };
       } else {
         d.run(sql, bindParams);
-        saveToDisk();
+        dirty = true;
+        if (!flushTimer) {
+          flushTimer = setTimeout(flush, FLUSH_DEBOUNCE_MS);
+          // Don't let a pending flush keep the process alive.
+          flushTimer.unref?.();
+        }
         return { rows: [] };
       }
     }
@@ -129,5 +166,11 @@ export const db = {
 
     const adapter = await getAdapter();
     return adapter.execute(sql, args);
+  },
+
+  /** Force any buffered writes to disk immediately. */
+  async flush(): Promise<void> {
+    const adapter = await getAdapter();
+    adapter.flush?.();
   }
 };

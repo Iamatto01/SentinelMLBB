@@ -5,14 +5,18 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
-import { Swords, Trophy, Target, Search, Loader2, Check, X, ChevronUp, ChevronDown, Pencil, Camera, Image as ImageIcon } from "lucide-react";
+import {
+  Swords, Trophy, Target, Search, Loader2, Check, X,
+  ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
+  Pencil, Trash2, Camera, Image as ImageIcon
+} from "lucide-react";
 import { getHeroByName, ALL_HEROES } from "@/data/heroes-data";
 import ScreenshotHeroDetector, { type DetectedHero } from "./ScreenshotHeroDetector";
 
 const API_URL = "/api/worker";
 
 type GameSaveCallback = () => Promise<void> | void;
-type GamePlayer = { player_name?: string; hero_name?: string; team?: "ally" | "enemy" };
+type GamePlayer = { id?: number; slot?: number; player_name?: string; hero_name?: string; team?: "ally" | "enemy" };
 type GameEntry = {
   id?: number;
   game_num?: number | null;
@@ -24,7 +28,7 @@ type GameEntry = {
   players?: GamePlayer[];
 };
 
-// â”€â”€â”€ Manual Create/Update Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Manual Create/Update Modal ──────────────────────────────────────
 function ManualGameModal({
   isOpen,
   onClose,
@@ -60,8 +64,17 @@ function ManualGameModal({
     if (gameToEdit) {
       // Build 10-slot player array from existing data
       const existingPlayers = gameToEdit.players || [];
-      const allies = existingPlayers.filter((p) => p.team === "ally" || !p.team).slice(0, 5);
-      const enemies = existingPlayers.filter((p) => p.team === "enemy").slice(0, 5);
+      const allies: GamePlayer[] = [];
+      const enemies: GamePlayer[] = [];
+
+      existingPlayers.forEach((p, idx) => {
+        const isEnemy = p.team === "enemy" || (p.slot != null ? p.slot > 5 : idx >= 5);
+        if (isEnemy) {
+          enemies.push(p);
+        } else {
+          allies.push(p);
+        }
+      });
 
       const nextPlayers = [
         ...Array.from({ length: 5 }, (_, i) => ({
@@ -149,7 +162,7 @@ function ManualGameModal({
     setSaving(true);
     setError(null);
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token") || "sentinel-local-token";
       const payload = {
         game_num: gameNum.trim() ? Number(gameNum) : null,
         date: date || null,
@@ -157,13 +170,12 @@ function ManualGameModal({
         duration: duration.trim() ? Number(duration) : null,
         result: result || "Win",
         notes: notes || "",
-        players: players
-          .filter((p) => p.player_name.trim() || p.hero_name.trim())
-          .map((p) => ({
-            player_name: p.player_name.trim(),
-            hero_name: p.hero_name.trim(),
-            team: p.team,
-          })),
+        players: players.map((p, idx) => ({
+          slot: idx + 1,
+          player_name: p.player_name.trim(),
+          hero_name: p.hero_name.trim(),
+          team: p.team,
+        })),
       };
 
       const endpoint = isEdit ? `${API_URL}/api/games/${gameToEdit!.id}` : `${API_URL}/api/games`;
@@ -290,7 +302,7 @@ function ManualGameModal({
                 />
               </div>
 
-              {/* Players â€” 10 slots, split into Ally and Enemy */}
+              {/* Players — 10 slots, split into Ally and Enemy */}
               <datalist id="heroes-list">
                 {ALL_HEROES.map((h) => (
                   <option key={h.id} value={h.name} />
@@ -389,10 +401,16 @@ function ManualGameModal({
   );
 }
 
-function HeroWithPlayer({ heroName, playerName }: { heroName: string; playerName?: string }) {
+const HeroWithPlayer = React.memo(function HeroWithPlayer({
+  heroName,
+  playerName,
+}: {
+  heroName: string;
+  playerName?: string;
+}) {
   const hero = getHeroByName(heroName);
   const [imgErr, setImgErr] = useState(false);
-  const heroImageSrc = hero?.image;
+  const heroImageSrc = hero ? `/images/heroes/${hero.id}.png` : "";
 
   return (
     <div className="flex items-center gap-2 p-1.5 rounded-lg bg-neutral-100/50 dark:bg-neutral-800/50 border border-neutral-200/50 dark:border-neutral-700/50 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
@@ -403,8 +421,13 @@ function HeroWithPlayer({ heroName, playerName }: { heroName: string; playerName
             src={heroImageSrc}
             alt={heroName}
             className="w-full h-full object-cover object-top"
-            referrerPolicy="no-referrer"
-            onError={() => setImgErr(true)}
+            onError={(e) => {
+              if (hero?.image && (e.currentTarget as HTMLImageElement).src !== hero.image) {
+                (e.currentTarget as HTMLImageElement).src = hero.image;
+              } else {
+                setImgErr(true);
+              }
+            }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-[10px] font-black text-neutral-500">
@@ -425,7 +448,7 @@ function HeroWithPlayer({ heroName, playerName }: { heroName: string; playerName
       </div>
     </div>
   );
-}
+});
 
 export default function GamesPage() {
   const [mounted, setMounted] = useState(false);
@@ -441,10 +464,18 @@ export default function GamesPage() {
   }, [games]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>({
+    key: "date",
+    direction: "desc",
+  });
   const [showManual, setShowManual] = useState(false);
   const [editingGame, setEditingGame] = useState<GameEntry | null>(null);
   const [squadPlayers, setSquadPlayers] = useState<string[]>([]);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  // Pagination state
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "desc";
@@ -457,7 +488,7 @@ export default function GamesPage() {
   useEffect(() => {
     setMounted(true);
     fetchGames();
-    
+
     // Load squad players for autocomplete
     try {
       const savedSquadStr = localStorage.getItem("squadLineup");
@@ -465,16 +496,15 @@ export default function GamesPage() {
         const squad = JSON.parse(savedSquadStr);
         const allSquadNames = [
           squad.gold, squad.hyper, squad.exp, squad.roamer, squad.mid, ...(squad.subs || [])
-        ].filter(n => n && n.trim().length > 0);
+        ].filter((n) => n && n.trim().length > 0);
         setSquadPlayers(allSquadNames);
       }
-    } catch(e) {}
+    } catch (e) {}
   }, []);
 
   const fetchGames = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) { setLoading(false); return; }
+      const token = localStorage.getItem("token") || "sentinel-local-token";
       const res = await fetch(`${API_URL}/api/games`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -489,55 +519,122 @@ export default function GamesPage() {
     }
   };
 
-  const filteredGames = games.filter(
-    (g) =>
-      (g.result || "").toLowerCase().includes(search.toLowerCase()) ||
-      (g.mode || "").toLowerCase().includes(search.toLowerCase()) ||
-      (g.players || []).some(
-        (p: any) =>
-          (p.hero_name || "").toLowerCase().includes(search.toLowerCase()) ||
-          (p.player_name || "").toLowerCase().includes(search.toLowerCase())
-      )
-  );
-
-  const sortedGames = [...filteredGames].sort((a, b) => {
-    if (!sortConfig) return 0;
-    if (sortConfig.key === "date") {
-      const dateA = new Date(a.date || 0).getTime();
-      const dateB = new Date(b.date || 0).getTime();
-      return sortConfig.direction === "asc" ? dateA - dateB : dateB - dateA;
+  const handleDeleteGame = async (gameId: number) => {
+    if (!window.confirm("Are you sure you want to delete this game? This action cannot be undone.")) {
+      return;
     }
-    if (sortConfig.key === "result") {
-      const resA = (a.result || "").toLowerCase();
-      const resB = (b.result || "").toLowerCase();
-      return sortConfig.direction === "asc" ? resA.localeCompare(resB) : resB.localeCompare(resA);
+    setDeletingId(gameId);
+    try {
+      const token = localStorage.getItem("token") || "sentinel-local-token";
+      const res = await fetch(`${API_URL}/api/games/${gameId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setGames((prev) => prev.filter((g) => g.id !== gameId));
+      } else {
+        alert("Failed to delete game.");
+      }
+    } catch (err) {
+      console.error("Error deleting game:", err);
+      alert("Network error while deleting game.");
+    } finally {
+      setDeletingId(null);
     }
-    return 0;
-  });
+  };
 
-  const totalGames = games.length;
-  const wins = games.filter((g) => g.result?.toLowerCase() === "win").length;
-  const winRate = totalGames > 0 ? ((wins / totalGames) * 100).toFixed(1) : "0";
+  const filteredGames = useMemo(() => {
+    if (!search.trim()) return games;
+    const q = search.toLowerCase();
+    return games.filter(
+      (g) =>
+        (g.result || "").toLowerCase().includes(q) ||
+        (g.mode || "").toLowerCase().includes(q) ||
+        (g.notes || "").toLowerCase().includes(q) ||
+        (g.game_num != null && String(g.game_num).includes(q)) ||
+        (g.players || []).some(
+          (p: any) =>
+            (p.hero_name || "").toLowerCase().includes(q) ||
+            (p.player_name || "").toLowerCase().includes(q)
+        )
+    );
+  }, [games, search]);
 
-  const heroStats: Record<string, { wins: number; total: number }> = {};
-  games.forEach((g) => {
-    (g.players || []).forEach((p: any) => {
-      const hero = p.hero_name || "Unknown";
-      if (!heroStats[hero]) heroStats[hero] = { wins: 0, total: 0 };
-      heroStats[hero].total++;
-      if (g.result?.toLowerCase() === "win") heroStats[hero].wins++;
+  const sortedGames = useMemo(() => {
+    if (!sortConfig) return filteredGames;
+    return [...filteredGames].sort((a, b) => {
+      if (sortConfig.key === "game_num") {
+        const numA = a.game_num ?? 0;
+        const numB = b.game_num ?? 0;
+        return sortConfig.direction === "asc" ? numA - numB : numB - numA;
+      }
+      if (sortConfig.key === "date") {
+        const dateA = new Date(a.date || 0).getTime();
+        const dateB = new Date(b.date || 0).getTime();
+        return sortConfig.direction === "asc" ? dateA - dateB : dateB - dateA;
+      }
+      if (sortConfig.key === "result") {
+        const resA = (a.result || "").toLowerCase();
+        const resB = (b.result || "").toLowerCase();
+        return sortConfig.direction === "asc" ? resA.localeCompare(resB) : resB.localeCompare(resA);
+      }
+      if (sortConfig.key === "mode") {
+        const mA = (a.mode || "").toLowerCase();
+        const mB = (b.mode || "").toLowerCase();
+        return sortConfig.direction === "asc" ? mA.localeCompare(mB) : mB.localeCompare(mA);
+      }
+      if (sortConfig.key === "duration") {
+        const dA = a.duration ?? 0;
+        const dB = b.duration ?? 0;
+        return sortConfig.direction === "asc" ? dA - dB : dB - dA;
+      }
+      return 0;
     });
-  });
+  }, [filteredGames, sortConfig]);
 
-  const roleData = Object.entries(heroStats)
-    .map(([name, s]) => ({ name, value: s.total }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 8);
+  // Reset page to 1 when search or sort changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, sortConfig, pageSize]);
 
-  const heroWinData = Object.entries(heroStats)
-    .map(([name, s]) => ({ name, winRate: Math.round((s.wins / s.total) * 100) }))
-    .sort((a, b) => b.winRate - a.winRate)
-    .slice(0, 8);
+  const totalPages = Math.max(1, Math.ceil(sortedGames.length / pageSize));
+  const paginatedGames = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sortedGames.slice(start, start + pageSize);
+  }, [sortedGames, currentPage, pageSize]);
+
+  // Compute stats counting only ALLY heroes
+  const { totalGames, wins, winRate, roleData, heroWinData } = useMemo(() => {
+    const total = games.length;
+    const totalWins = games.filter((g) => g.result?.toLowerCase() === "win").length;
+    const wr = total > 0 ? ((totalWins / total) * 100).toFixed(1) : "0";
+
+    const stats: Record<string, { wins: number; total: number }> = {};
+    games.forEach((g) => {
+      const isWin = g.result?.toLowerCase() === "win";
+      (g.players || []).forEach((p: any, idx: number) => {
+        const isAlly = p.team === "ally" || (p.slot != null ? p.slot <= 5 : idx < 5);
+        if (!isAlly) return; // Only count squad allies in hero performance stats
+        const hero = p.hero_name?.trim();
+        if (!hero) return;
+        if (!stats[hero]) stats[hero] = { wins: 0, total: 0 };
+        stats[hero].total++;
+        if (isWin) stats[hero].wins++;
+      });
+    });
+
+    const rData = Object.entries(stats)
+      .map(([name, s]) => ({ name, value: s.total }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
+
+    const hwData = Object.entries(stats)
+      .map(([name, s]) => ({ name, winRate: Math.round((s.wins / s.total) * 100) }))
+      .sort((a, b) => b.winRate - a.winRate)
+      .slice(0, 8);
+
+    return { totalGames: total, wins: totalWins, winRate: wr, roleData: rData, heroWinData: hwData };
+  }, [games]);
 
   const COLORS = ["#6366f1", "#14b8a6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"];
 
@@ -628,7 +725,18 @@ export default function GamesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
-                <th className="text-left px-4 py-3 font-medium text-neutral-500">#</th>
+                <th
+                  className="text-left px-4 py-3 font-medium text-neutral-500 cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors select-none"
+                  onClick={() => handleSort("game_num")}
+                >
+                  <div className="flex items-center gap-1">
+                    #
+                    <span className="flex flex-col -space-y-[0.35rem]">
+                      <ChevronUp className={`w-3 h-3 ${sortConfig?.key === "game_num" && sortConfig.direction === "asc" ? "text-indigo-500" : "text-neutral-300 dark:text-neutral-600"}`} />
+                      <ChevronDown className={`w-3 h-3 ${sortConfig?.key === "game_num" && sortConfig.direction === "desc" ? "text-indigo-500" : "text-neutral-300 dark:text-neutral-600"}`} />
+                    </span>
+                  </div>
+                </th>
                 <th
                   className="text-left px-4 py-3 font-medium text-neutral-500 cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors select-none"
                   onClick={() => handleSort("date")}
@@ -654,8 +762,30 @@ export default function GamesPage() {
                     </span>
                   </div>
                 </th>
-                <th className="text-left px-4 py-3 font-medium text-neutral-500">Mode</th>
-                <th className="text-left px-4 py-3 font-medium text-neutral-500">Duration</th>
+                <th
+                  className="text-left px-4 py-3 font-medium text-neutral-500 cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors select-none"
+                  onClick={() => handleSort("mode")}
+                >
+                  <div className="flex items-center gap-1">
+                    Mode
+                    <span className="flex flex-col -space-y-[0.35rem]">
+                      <ChevronUp className={`w-3 h-3 ${sortConfig?.key === "mode" && sortConfig.direction === "asc" ? "text-indigo-500" : "text-neutral-300 dark:text-neutral-600"}`} />
+                      <ChevronDown className={`w-3 h-3 ${sortConfig?.key === "mode" && sortConfig.direction === "desc" ? "text-indigo-500" : "text-neutral-300 dark:text-neutral-600"}`} />
+                    </span>
+                  </div>
+                </th>
+                <th
+                  className="text-left px-4 py-3 font-medium text-neutral-500 cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors select-none"
+                  onClick={() => handleSort("duration")}
+                >
+                  <div className="flex items-center gap-1">
+                    Duration
+                    <span className="flex flex-col -space-y-[0.35rem]">
+                      <ChevronUp className={`w-3 h-3 ${sortConfig?.key === "duration" && sortConfig.direction === "asc" ? "text-indigo-500" : "text-neutral-300 dark:text-neutral-600"}`} />
+                      <ChevronDown className={`w-3 h-3 ${sortConfig?.key === "duration" && sortConfig.direction === "desc" ? "text-indigo-500" : "text-neutral-300 dark:text-neutral-600"}`} />
+                    </span>
+                  </div>
+                </th>
                 <th className="text-left px-4 py-3 font-medium text-neutral-500">Actions</th>
               </tr>
             </thead>
@@ -665,10 +795,18 @@ export default function GamesPage() {
               ) : sortedGames.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-12 text-center text-neutral-400">No games found</td></tr>
               ) : (
-                sortedGames.map((game, i) => {
+                paginatedGames.map((game, i) => {
                   const allPlayers = game.players || [];
-                  const allies = allPlayers.filter((p: any) => p.team === "ally" || !p.team).filter((p: any) => p.hero_name);
-                  const enemies = allPlayers.filter((p: any) => p.team === "enemy").filter((p: any) => p.hero_name);
+                  const allies: GamePlayer[] = [];
+                  const enemies: GamePlayer[] = [];
+                  allPlayers.forEach((p: any, idx: number) => {
+                    const isEnemy = p.team === "enemy" || (p.slot != null ? p.slot > 5 : idx >= 5);
+                    if (isEnemy) {
+                      if (p.hero_name?.trim()) enemies.push(p);
+                    } else {
+                      if (p.hero_name?.trim()) allies.push(p);
+                    }
+                  });
                   const hasEnemies = enemies.length > 0;
 
                   return (
@@ -676,10 +814,10 @@ export default function GamesPage() {
                       key={game.id || i}
                       className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors"
                     >
-                      <td className="px-4 py-3 text-neutral-400">{game.game_num || i + 1}</td>
+                      <td className="px-4 py-3 text-neutral-400 font-mono text-xs">{game.game_num || (currentPage - 1) * pageSize + i + 1}</td>
                       <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400 text-xs">{game.date || "-"}</td>
 
-                      {/* Heroes & Players column â€” now with ally vs enemy layout */}
+                      {/* Heroes & Players column — cleanly separated into ally and enemy */}
                       <td className="px-4 py-2">
                         {allies.length === 0 && enemies.length === 0 ? (
                           <span className="text-neutral-400">-</span>
@@ -739,13 +877,30 @@ export default function GamesPage() {
                       <td className="px-4 py-3 text-neutral-500 text-xs">{game.mode || "-"}</td>
                       <td className="px-4 py-3 text-neutral-500 text-xs">{game.duration ? `${game.duration}m` : "-"}</td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => { setEditingGame(game); setShowManual(true); }}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 transition-colors"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                          Edit
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => { setEditingGame(game); setShowManual(true); }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 transition-colors cursor-pointer"
+                            title="Edit game"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            Edit
+                          </button>
+                          {game.id && (
+                            <button
+                              onClick={() => handleDeleteGame(game.id!)}
+                              disabled={deletingId === game.id}
+                              className="inline-flex items-center justify-center p-1.5 rounded-lg text-xs font-semibold bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 transition-colors disabled:opacity-50 cursor-pointer"
+                              title="Delete game"
+                            >
+                              {deletingId === game.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -754,6 +909,85 @@ export default function GamesPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination controls */}
+        {sortedGames.length > 0 && (
+          <div className="px-4 py-3 border-t border-neutral-100 dark:border-neutral-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-neutral-500 dark:text-neutral-400">
+            <div className="flex items-center gap-2">
+              <span>
+                Showing{" "}
+                <strong className="text-neutral-800 dark:text-neutral-200">
+                  {Math.min((currentPage - 1) * pageSize + 1, sortedGames.length)}
+                </strong>{" "}
+                to{" "}
+                <strong className="text-neutral-800 dark:text-neutral-200">
+                  {Math.min(currentPage * pageSize, sortedGames.length)}
+                </strong>{" "}
+                of{" "}
+                <strong className="text-neutral-800 dark:text-neutral-200">{sortedGames.length}</strong> games
+              </span>
+              <span className="text-neutral-300 dark:text-neutral-700">|</span>
+              <div className="flex items-center gap-1">
+                <span>Per page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40 disabled:hover:bg-transparent transition-colors cursor-pointer disabled:cursor-default"
+                  title="Previous page"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+
+                <div className="flex items-center gap-1 px-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                    .map((page, idx, arr) => {
+                      const prev = arr[idx - 1];
+                      const showEllipsis = prev && page - prev > 1;
+                      return (
+                        <React.Fragment key={page}>
+                          {showEllipsis && <span className="px-1 text-neutral-400">...</span>}
+                          <button
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-7 h-7 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                              currentPage === page
+                                ? "bg-indigo-600 text-white"
+                                : "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        </React.Fragment>
+                      );
+                    })}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40 disabled:hover:bg-transparent transition-colors cursor-pointer disabled:cursor-default"
+                  title="Next page"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <ManualGameModal

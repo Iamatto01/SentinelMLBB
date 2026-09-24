@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Save, Check, Users, Shield, Crosshair, Zap, Sword, Eye, Flame } from "lucide-react";
+import Link from "next/link";
+import { Save, Check, Users, Shield, Crosshair, Zap, Sword, Eye, Flame, Star } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function TeamManagementPage() {
@@ -54,17 +55,26 @@ export default function TeamManagementPage() {
           </p>
         </div>
         
-        <button
-          onClick={handleSaveSquad}
-          className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all min-w-[160px] ${
-            savedSquad 
-              ? "bg-emerald-500 text-white shadow-emerald-500/20 shadow-lg scale-105" 
-              : "bg-neutral-900 dark:bg-white text-white dark:text-black hover:scale-105 active:scale-95 shadow-lg"
-          }`}
-        >
-          {savedSquad ? <Check className="w-5 h-5" /> : <Save className="w-5 h-5" />}
-          {savedSquad ? "Roster Saved!" : "Save Roster"}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/dashboard/comfort-heroes"
+            className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 transition-all border border-neutral-200 dark:border-neutral-700 shadow-sm"
+          >
+            <Star className="w-4 h-4 text-amber-500 fill-amber-500" /> Comfort Pools
+          </Link>
+
+          <button
+            onClick={handleSaveSquad}
+            className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all min-w-[160px] ${
+              savedSquad 
+                ? "bg-emerald-500 text-white shadow-emerald-500/20 shadow-lg scale-105" 
+                : "bg-neutral-900 dark:bg-white text-white dark:text-black hover:scale-105 active:scale-95 shadow-lg"
+            }`}
+          >
+            {savedSquad ? <Check className="w-5 h-5" /> : <Save className="w-5 h-5" />}
+            {savedSquad ? "Roster Saved!" : "Save Roster"}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-4">

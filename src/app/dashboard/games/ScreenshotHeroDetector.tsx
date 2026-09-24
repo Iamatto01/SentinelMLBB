@@ -75,11 +75,6 @@ export default function ScreenshotHeroDetector({ onDetectionComplete, onCancel }
   const imgRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Preload the fingerprint DB on mount
-  useEffect(() => {
-    buildFingerprintDB().then(() => setDbReady(true));
-  }, []);
-
   // ── AI Vision Scanner ───────────────────────────────────────────────────
   const runVisionScan = useCallback(async () => {
     if (!imageEl) return;
@@ -87,13 +82,29 @@ export default function ScreenshotHeroDetector({ onDetectionComplete, onCancel }
     setVisionError(null);
 
     try {
+      // Scale down image to max dimension 1280px to keep payload ~150KB and speed up AI Vision
+      const MAX_DIM = 1280;
+      let targetW = imageEl.naturalWidth;
+      let targetH = imageEl.naturalHeight;
+      if (targetW > MAX_DIM || targetH > MAX_DIM) {
+        if (targetW > targetH) {
+          targetH = Math.round((targetH * MAX_DIM) / targetW);
+          targetW = MAX_DIM;
+        } else {
+          targetW = Math.round((targetW * MAX_DIM) / targetH);
+          targetH = MAX_DIM;
+        }
+      }
+
       const c = document.createElement("canvas");
-      c.width = imageEl.naturalWidth;
-      c.height = imageEl.naturalHeight;
+      c.width = targetW;
+      c.height = targetH;
       const ctx = c.getContext("2d");
       if (!ctx) throw new Error("Could not initialize canvas context");
-      ctx.drawImage(imageEl, 0, 0);
-      const dataUrl = c.toDataURL("image/jpeg", 0.85);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(imageEl, 0, 0, targetW, targetH);
+      const dataUrl = c.toDataURL("image/jpeg", 0.8);
 
       const res = await fetch("/api/vision-parse", {
         method: "POST",
@@ -174,10 +185,14 @@ export default function ScreenshotHeroDetector({ onDetectionComplete, onCancel }
 
   // ── Auto-detect from preset regions ─────────────────────────────────────
   const runAutoDetect = useCallback(async () => {
-    if (!imageEl || !dbReady) return;
+    if (!imageEl) return;
     setDetecting(true);
 
     try {
+      if (!dbReady) {
+        await buildFingerprintDB();
+        setDbReady(true);
+      }
       const layout = LAYOUT_PRESETS.standard;
       const results: DetectedHero[] = [];
       const imgW = imageEl.naturalWidth;
@@ -255,35 +270,44 @@ export default function ScreenshotHeroDetector({ onDetectionComplete, onCancel }
       if (!imageEl) return;
       setDetecting(true);
 
-      const iconSize = Math.min(imageEl.naturalWidth, imageEl.naturalHeight) * 0.06;
-      const results: DetectedHero[] = [];
+      try {
+        if (!dbReady) {
+          await buildFingerprintDB();
+          setDbReady(true);
+        }
+        const iconSize = Math.min(imageEl.naturalWidth, imageEl.naturalHeight) * 0.06;
+        const results: DetectedHero[] = [];
 
-      for (let i = 0; i < Math.min(points.length, 10); i++) {
-        const p = points[i];
-        const crop = cropImageRegion(
-          imageEl,
-          p.x - iconSize / 2,
-          p.y - iconSize / 2,
-          iconSize,
-          iconSize,
-          64
-        );
-        const matches = await matchHeroIcon(crop, 5);
-        results.push({
-          slotIndex: i,
-          heroName: matches[0]?.heroName || "Unknown",
-          confidence: matches[0]?.confidence || 0,
-          team: i < 5 ? "ally" : "enemy",
-          alternatives: matches,
-        });
+        for (let i = 0; i < Math.min(points.length, 10); i++) {
+          const p = points[i];
+          const crop = cropImageRegion(
+            imageEl,
+            p.x - iconSize / 2,
+            p.y - iconSize / 2,
+            iconSize,
+            iconSize,
+            64
+          );
+          const matches = await matchHeroIcon(crop, 5);
+          results.push({
+            slotIndex: i,
+            heroName: matches[0]?.heroName || "Unknown",
+            confidence: matches[0]?.confidence || 0,
+            team: i < 5 ? "ally" : "enemy",
+            alternatives: matches,
+          });
+        }
+
+        setDetected(results);
+        setStep("confirm");
+      } catch (err) {
+        console.error("Manual detection failed:", err);
+      } finally {
+        setDetecting(false);
+        setManualMode(false);
       }
-
-      setDetected(results);
-      setStep("confirm");
-      setDetecting(false);
-      setManualMode(false);
     },
-    [imageEl]
+    [imageEl, dbReady]
   );
 
   // Draw screenshot on canvas
@@ -447,7 +471,7 @@ export default function ScreenshotHeroDetector({ onDetectionComplete, onCancel }
         <div className="flex gap-2">
           <button
             onClick={runAutoDetect}
-            disabled={detecting || !dbReady}
+            disabled={detecting}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs font-semibold transition-all border border-neutral-200 dark:border-neutral-700 disabled:opacity-50"
           >
             Histogram Fingerprint

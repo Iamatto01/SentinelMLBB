@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useMemo } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
@@ -40,8 +40,7 @@ export default function CompsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) { setLoading(false); return; }
+        const token = localStorage.getItem("token") || "sentinel-local-token";
         const res = await fetch(`${API_URL}/api/games`, { headers: { Authorization: `Bearer ${token}` } });
         if (res.ok) { const d = await res.json(); setGames(d.games || []); }
       } catch {} finally { setLoading(false); }
@@ -54,11 +53,14 @@ export default function CompsPage() {
     const compMap: Record<string, { heroes: string[]; wins: number; total: number }> = {};
 
     games.forEach((g) => {
-      const allPlayers = (g.players || []).filter((p) => p.hero_name && p.hero_name.trim());
+      const allyPlayers = (g.players || []).filter((p: any, idx: number) => {
+        const isAlly = p.team === "ally" || (p.slot != null ? p.slot <= 5 : idx < 5);
+        return isAlly && p.hero_name && p.hero_name.trim();
+      });
       // Need at least teamSize players in the game
-      if (allPlayers.length < teamSize) return;
+      if (allyPlayers.length < teamSize) return;
 
-      const heroNames = allPlayers.map((p) => p.hero_name.trim());
+      const heroNames = allyPlayers.map((p: any) => p.hero_name.trim());
 
       // Generate all C(n, teamSize) hero subsets from this game
       const heroCombos = combinations(heroNames, teamSize);
@@ -170,7 +172,7 @@ export default function CompsPage() {
                 <tr>
                   <td colSpan={teamSize + 4} className="px-4 py-16 text-center text-neutral-400">
                     <div className="flex flex-col items-center gap-2">
-                      <span className="text-4xl">ðŸŽ®</span>
+                      <span className="text-4xl">🎮</span>
                       <span>No {teamSize}-man compositions found.</span>
                       <span className="text-xs">Need at least 2 games with the same {teamSize}-hero combo.</span>
                     </div>

@@ -139,6 +139,31 @@ export function extractDiscordActionCode(rawText: string): {
 }
 
 /**
+ * Security Guardrails: Scan dynamic code for dangerous operations before execution
+ */
+export function validateActionCodeSafety(code: string): { safe: boolean; reason?: string } {
+  const forbiddenPatterns: { pattern: RegExp; reason: string }[] = [
+    { pattern: /\bprocess\b/i, reason: 'Akses kepada `process` atau `process.env` dilarang demi keselamatan.' },
+    { pattern: /\b(?:token|client\.token|botMember\.client\.token)\b/i, reason: 'Akses kepada token rahsia bot dilarang.' },
+    { pattern: /\b(?:eval|Function)\s*\(/i, reason: 'Penggunaan `eval()` atau constructor dinamik dilarang.' },
+    { pattern: /\b(?:require|import)\s*[\(\{]/i, reason: 'Panggilan modul luaran (`require`/`import`) dilarang.' },
+    { pattern: /\b(?:child_process|fs|net|http|https|os|path)\b/i, reason: 'Akses modul sistem fail/rangkaian Node.js dilarang.' },
+    { pattern: /\b(?:client\.destroy|destroy\s*\()\b/i, reason: 'Pemberhentian klien bot (`client.destroy`) dilarang.' },
+    { pattern: /\bguild\.delete\s*\(/i, reason: 'Operasi pemadaman pelayan (`guild.delete`) dilarang.' },
+    { pattern: /\bdrop\s+table\b/i, reason: 'Operasi SQLite `DROP TABLE` dilarang.' },
+    { pattern: /\bdelete\s+from\s+(?:users|custom_ai_functions)\b/i, reason: 'Pemadaman pangkalan data sistem dilarang.' },
+  ];
+
+  for (const { pattern, reason } of forbiddenPatterns) {
+    if (pattern.test(code)) {
+      return { safe: false, reason };
+    }
+  }
+
+  return { safe: true };
+}
+
+/**
  * Safe Execution Sandbox for Dynamic Discord.js Code
  */
 export async function executeDynamicDiscordAction(
@@ -169,7 +194,7 @@ export async function executeDynamicDiscordAction(
     }
   }
 
-  // 2. Prepare Sandbox Scope
+  // 2. Prepare Sandbox Scope & Security Validation
   const discordScope = {
     ...discord,
   };
@@ -180,6 +205,16 @@ export async function executeDynamicDiscordAction(
     cleanCode = cleanCode.replace(/^```[a-zA-Z0-9-]*\n/, '').replace(/\n```$/, '').trim();
   }
 
+  // Pre-execution Security Check
+  const securityCheck = validateActionCodeSafety(cleanCode);
+  if (!securityCheck.safe) {
+    return {
+      success: false,
+      error: `🛡️ Sekatan Keselamatan: ${securityCheck.reason}`,
+      durationMs: Date.now() - startTime,
+    };
+  }
+
   // If code is an arrow function or function declaration, adapt it
   const isFunctionFormat = /^\s*(?:async\s*)?(?:\([^)]*\)|[a-zA-Z0-9_]+)\s*=>/i.test(cleanCode);
 
@@ -187,6 +222,9 @@ export async function executeDynamicDiscordAction(
     ? `return await (${cleanCode})(params);`
     : `
       return await (async (params) => {
+        const process = undefined;
+        const global = undefined;
+        const globalThis = undefined;
         const { guild, channel, author, member, botMember, client, message, discord, db, log } = params;
         ${cleanCode}
       })(params);

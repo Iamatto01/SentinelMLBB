@@ -114,6 +114,95 @@ async function safeDiscordReply(message: any, rawText: string): Promise<void> {
   }
 }
 
+// ============================================================
+// SECURITY & ANTI-ABUSE RATE LIMITING ENGINE
+// ============================================================
+interface RateLimitRecord {
+  lastTimestamp: number;
+  timestamps: number[];
+}
+const userRateLimits = new Map<string, RateLimitRecord>();
+
+/**
+ * Check if a user is currently rate limited
+ * Rules:
+ * - Admins / Owners: BYPASS (allowed)
+ * - Burst limit: minimum 4 seconds between requests
+ * - Volume limit: maximum 5 requests in 60 seconds
+ */
+function checkUserRateLimit(
+  userId: string,
+  isPrivileged: boolean
+): { allowed: boolean; waitSeconds?: number; reason?: string } {
+  if (isPrivileged) return { allowed: true };
+
+  const now = Date.now();
+  const userRec = userRateLimits.get(userId) || { lastTimestamp: 0, timestamps: [] };
+
+  // 1. Burst check: must wait at least 4s between AI queries
+  const elapsedSinceLast = now - userRec.lastTimestamp;
+  if (elapsedSinceLast < 4000) {
+    const waitSec = Math.ceil((4000 - elapsedSinceLast) / 1000);
+    return {
+      allowed: false,
+      waitSeconds: waitSec,
+      reason: `Sila tunggu ${waitSec} saat sebelum menghantar pertanyaan seterusnya.`,
+    };
+  }
+
+  // 2. Window check: prune timestamps older than 60s
+  const windowStart = now - 60000;
+  const recentTimestamps = userRec.timestamps.filter((ts) => ts > windowStart);
+
+  if (recentTimestamps.length >= 5) {
+    const oldestInWindow = recentTimestamps[0];
+    const resetInSec = Math.max(1, Math.ceil((oldestInWindow + 60000 - now) / 1000));
+    return {
+      allowed: false,
+      waitSeconds: resetInSec,
+      reason: `Had pertanyaan dicapai (maksimum 5 kali seminit). Sila tunggu ${resetInSec} saat lagi.`,
+    };
+  }
+
+  // Update record
+  recentTimestamps.push(now);
+  userRateLimits.set(userId, {
+    lastTimestamp: now,
+    timestamps: recentTimestamps,
+  });
+
+  return { allowed: true };
+}
+
+/**
+ * Channel containment check for public servers:
+ * In DMs or for Server Admins: always allowed.
+ * In public guilds for normal members: bot only chats in channels dedicated to AI / bots.
+ */
+function isAllowedBotChannel(channel: any, isPrivileged: boolean, isDM: boolean): boolean {
+  if (isDM || isPrivileged) return true;
+  if (!channel) return true;
+
+  const name = (channel.name || '').toLowerCase();
+  const allowedKeywords = [
+    'bot',
+    'ai',
+    'chat',
+    'sentinel',
+    'hirara',
+    'spam',
+    'command',
+    'perintah',
+    'lepak',
+    'testing',
+    'dev',
+    'borak',
+    'umum',
+  ];
+
+  return allowedKeywords.some((kw) => name.includes(kw));
+}
+
 // ── Smart Natural Timer / Reminder Parser ─────────────────────
 function parseSmartReminder(rawPrompt: string): {
   remindAtMs: number;
@@ -1039,6 +1128,20 @@ async function startHiraraBot() {
 
       // ── Subcommand: /sentinel model ─────────────────────────
       if (subCommand === 'model') {
+        const canManageModel =
+          interaction.memberPermissions?.has(PermissionsBitField.Flags.Administrator) ||
+          interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild) ||
+          interaction.guild?.ownerId === interaction.user.id ||
+          interaction.user.id === '1103825075809030186';
+
+        if (!canManageModel) {
+          await interaction.reply({
+            content: '⛔ **Akses Ditolak:** Hanya Pentadbir (Admin) atau Pemilik Server dibenarkan menukar model AI bot!',
+            ephemeral: true,
+          });
+          return;
+        }
+
         const selectModel = interaction.options.getString('select');
 
         if (selectModel) {
@@ -1061,6 +1164,20 @@ async function startHiraraBot() {
 
       // ── Subcommand: /sentinel ask & /sentinel askmlbb ───────
       if (subCommand === 'ask' || subCommand === 'askmlbb') {
+        const isPrivileged =
+          interaction.memberPermissions?.has(PermissionsBitField.Flags.Administrator) ||
+          interaction.guild?.ownerId === interaction.user.id ||
+          interaction.user.id === '1103825075809030186';
+
+        const rateCheck = checkUserRateLimit(userId, Boolean(isPrivileged));
+        if (!rateCheck.allowed) {
+          await interaction.reply({
+            content: `⏳ **Sabar ya, ${rawUsername}!** ${rateCheck.reason}`,
+            ephemeral: true,
+          });
+          return;
+        }
+
         const query = interaction.options.getString('question', true);
         await interaction.deferReply();
 
@@ -1562,6 +1679,20 @@ async function startHiraraBot() {
     if (interaction.isStringSelectMenu()) {
       const menu = interaction as StringSelectMenuInteraction;
       if (menu.customId === 'select_model') {
+        const canManageModel =
+          menu.memberPermissions?.has(PermissionsBitField.Flags.Administrator) ||
+          menu.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild) ||
+          menu.guild?.ownerId === menu.user.id ||
+          menu.user.id === '1103825075809030186';
+
+        if (!canManageModel) {
+          await menu.reply({
+            content: '⛔ **Akses Ditolak:** Hanya Pentadbir (Admin) atau Pemilik Server dibenarkan menukar model AI!',
+            ephemeral: true,
+          });
+          return;
+        }
+
         const selectedModel = menu.values[0];
         await llm.setActiveModel(selectedModel);
         await menu.reply({
@@ -1601,6 +1732,38 @@ async function startHiraraBot() {
     const userId = message.author.id;
     const channelId = message.channel.id;
     const rawUsername = message.author.username || 'kawan';
+
+    const isGuildOwner = message.guild
+      ? message.guild.ownerId === userId || userId === '1103825075809030186'
+      : false;
+    const isAdmin =
+      isGuildOwner ||
+      Boolean(message.member?.permissions.has(PermissionsBitField.Flags.Administrator)) ||
+      Boolean(message.member?.permissions.has(PermissionsBitField.Flags.ManageGuild));
+
+    // Channel Containment for public servers
+    if (!isAllowedBotChannel(message.channel, isAdmin, isDM)) {
+      const replyMsg = await message.reply({
+        content: `👋 Hai **${rawUsername}**! Untuk memastikan perbualan di saluran ini kekal kemas, sila bersembang dengan saya di saluran bot (seperti saluran yang ada perkataan \`bot\`, \`ai\`, atau \`chat\`) atau DM saya secara peribadi ya! ✨`,
+        allowedMentions: { repliedUser: true, parse: [] },
+      });
+      setTimeout(async () => {
+        try {
+          await replyMsg.delete().catch(() => {});
+        } catch {}
+      }, 10000);
+      return;
+    }
+
+    // Rate Limiting per user
+    const rateCheck = checkUserRateLimit(userId, isAdmin);
+    if (!rateCheck.allowed) {
+      await message.reply({
+        content: `⏳ **Sabar ya, ${rawUsername}!** ${rateCheck.reason}`,
+        allowedMentions: { repliedUser: true, parse: [] },
+      });
+      return;
+    }
 
     // Fast empty greeting
     if (!prompt) {
@@ -2043,17 +2206,10 @@ async function startHiraraBot() {
         ? `GitHub: ${displayName} ada akses ke repo ${defaultUser}. Kalau dia tanya pasal coding/project, boleh bantu.`
         : `GitHub: ${displayName} tak ada akses ke repo private ${defaultUser}. Kalau dia tanya pasal repo private, cakap tak boleh dengan sopan.`;
 
-      // Dynamic Server & Role context when inside a Guild
+      // Dynamic Server & Role context when inside a Guild (Only injected for Server Admins & Owner)
       let serverActionContext = '';
-      const isGuildOwner = message.guild
-        ? message.guild.ownerId === userId || userId === '1103825075809030186'
-        : false;
-      const isAdmin =
-        isGuildOwner ||
-        Boolean(message.member?.permissions.has(PermissionsBitField.Flags.Administrator)) ||
-        Boolean(message.member?.permissions.has(PermissionsBitField.Flags.ManageGuild));
 
-      if (message.guild) {
+      if (message.guild && isAdmin) {
         const guildRoles = message.guild.roles.cache
           .filter((r) => r.name !== '@everyone')
           .sort((a, b) => b.position - a.position)
